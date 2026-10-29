@@ -26,6 +26,12 @@ function number(part: string, scale: number): number {
   return part.endsWith('%') ? (Number(part.slice(0, -1)) / 100) * scale : Number(part);
 }
 
+/** A hue is a bare number or degrees; `27%` is invalid CSS, and the server refuses it. */
+function hueInDegrees(part: string): number {
+  const bare = part.replace(/deg$/i, '');
+  return bare.includes('%') ? Number.NaN : number(bare, 1);
+}
+
 function fromHex(text: string): Rgb | null {
   const short = /^#([\da-f])([\da-f])([\da-f])([\da-f])?$/i.exec(text);
   if (short) {
@@ -78,7 +84,7 @@ function fromOklch(text: string): Rgb | null {
   if (parts.length !== 3) return null;
   const lightness = number(parts[0]!, 1);
   const chroma = number(parts[1]!, 0.4);
-  const hue = number(parts[2]!.replace(/deg$/i, ''), 1);
+  const hue = hueInDegrees(parts[2]!);
   const alpha = oklch[2] === undefined ? 1 : number(oklch[2], 1);
   if (![lightness, chroma, hue, alpha].every(Number.isFinite)) return null;
 

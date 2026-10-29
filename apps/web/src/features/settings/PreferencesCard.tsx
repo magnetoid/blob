@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.ts';
 import { deviceZone, knownZones, timeIn } from './timezones.ts';
 import { useStore } from '../../lib/store.ts';
+import { B0_HEX } from '../../lib/theme.ts';
 import type { Theme } from '@blob/shared';
 import { Card } from '../console/Card.tsx';
 
@@ -224,8 +225,9 @@ function PaletteGallery({
   return (
     <div className="palette-gallery">
       {themes.map((theme) => {
-        const token = (name: string, fallback: string) => theme.tokens[name] ?? fallback;
-        const base = theme.mode === 'dark';
+        // What the theme sets, else shadcn b0's — the palette it is drawn over.
+        const fallback = B0_HEX[theme.mode];
+        const token = (name: keyof typeof fallback) => theme.tokens[name] ?? fallback[name];
         return (
           <button
             key={theme.id}
@@ -236,25 +238,25 @@ function PaletteGallery({
           >
             <span
               className="palette-preview"
-              style={{ background: token('--bg', base ? '#141614' : '#fcfcfa') }}
+              style={{ background: token('--background') }}
               aria-hidden="true"
             >
               <span
                 className="palette-preview-rail"
-                style={{ background: token('--bg-sidebar', base ? '#101210' : '#f3f1ea') }}
+                style={{ background: token('--sidebar') }}
               />
               <span className="palette-preview-body">
                 <span
                   className="palette-preview-line"
-                  style={{ background: token('--surface-muted', base ? '#1f221f' : '#f7f6f1') }}
+                  style={{ background: token('--muted') }}
                 />
                 <span
                   className="palette-preview-line short"
-                  style={{ background: token('--surface-muted', base ? '#1f221f' : '#f7f6f1') }}
+                  style={{ background: token('--muted') }}
                 />
                 <span
                   className="palette-preview-accent"
-                  style={{ background: token('--accent', base ? '#5fb287' : '#1f5c3d') }}
+                  style={{ background: token('--primary') }}
                 />
               </span>
             </span>

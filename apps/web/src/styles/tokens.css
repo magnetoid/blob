@@ -84,7 +84,7 @@
   --presence-away: #d6a32e;
   --presence-offline: #c6c4bc;
   --unread-line: #dcc7b4;
-  --unread-text: #a66a3c;
+  --unread-text: #a0663a; /* 4.5:1 on the page and on the sidebar; #a66a3c was 4.4 and 4.2 */
   --danger: var(--destructive); /* destructive, and negative deltas */
   --disabled-bg: var(--muted);
   --disabled-fg: var(--muted-foreground);

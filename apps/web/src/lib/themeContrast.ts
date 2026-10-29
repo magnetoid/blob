@@ -7,52 +7,45 @@ interface ContrastPair {
   label: string;
 }
 
+/**
+ * The pairs a theme must keep readable, in shadcn's names — the ones themes are written
+ * in. Message text, headings and labels all read `--foreground` now, and everything
+ * quieter reads `--muted-foreground`, so two pairs on the page cover what four did.
+ */
 const PAIRS: ContrastPair[] = [
   {
-    foreground: '--text',
-    background: '--bg',
+    foreground: '--foreground',
+    background: '--background',
     minimum: 4.5,
     label: 'primary text on page',
   },
   {
-    foreground: '--text-body',
-    background: '--bg',
-    minimum: 4.5,
-    label: 'message text on page',
-  },
-  {
-    foreground: '--text-2',
-    background: '--bg',
+    foreground: '--muted-foreground',
+    background: '--background',
     minimum: 4.5,
     label: 'secondary text on page',
   },
   {
-    foreground: '--text-faint',
-    background: '--bg',
-    minimum: 4.5,
-    label: 'faint text on page',
-  },
-  {
-    foreground: '--text',
-    background: '--surface',
+    foreground: '--card-foreground',
+    background: '--card',
     minimum: 4.5,
     label: 'primary text on surfaces',
   },
   {
-    foreground: '--text',
-    background: '--bg-sidebar',
+    foreground: '--sidebar-foreground',
+    background: '--sidebar',
     minimum: 4.5,
     label: 'primary text in the sidebar',
   },
   {
-    foreground: '--accent-contrast',
-    background: '--accent',
+    foreground: '--primary-foreground',
+    background: '--primary',
     minimum: 4.5,
     label: 'text on primary actions',
   },
   {
-    foreground: '--danger',
-    background: '--bg',
+    foreground: '--destructive',
+    background: '--background',
     minimum: 4.5,
     label: 'danger text on page',
   },

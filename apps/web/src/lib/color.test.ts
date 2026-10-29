@@ -64,6 +64,12 @@ describe('parseColor', () => {
     expect(parseColor('oklch(var(--x))')).toBeNull();
     expect(parseColor('oklch(0.5 0.1)')).toBeNull();
     expect(parseColor('oklch(0.5 0.1 nonsense)')).toBeNull();
+    // A hue is a bare number or degrees; a percentage is invalid CSS, and the server's
+    // grammar refuses it too, so the editor must not preview what cannot be saved.
+    expect(parseColor('oklch(0.5 0.1 27%)')).toBeNull();
+    expect(toHex('oklch(0.5 0.1 27%)')).toBeNull();
+    expect(parseColor('oklch(0.5 0.1 27%deg)')).toBeNull();
+    expect(parseColor('oklch(0.5 0.1 27deg)')).not.toBeNull();
     expect(parseColor('var(--background)')).toBeNull();
     expect(parseColor('#12')).toBeNull();
   });

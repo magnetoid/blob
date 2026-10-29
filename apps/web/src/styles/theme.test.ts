@@ -11,7 +11,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { compile } from 'tailwindcss';
 import { describe, expect, it } from 'vitest';
-import { contrastRatio, parseColor, type Rgb } from '../lib/color.ts';
+import { contrastRatio, parseColor, toHex, type Rgb } from '../lib/color.ts';
+import { B0_HEX } from '../lib/theme.ts';
 
 const STYLES = new URL('.', import.meta.url).pathname;
 
@@ -198,6 +199,51 @@ describe('styles/theme.css — preset b0', () => {
     expect(theme.declarations.get('--font-sans')).toBe("'Inter Variable', system-ui, sans-serif");
     for (const step of ['sm', 'md', 'lg', 'xl']) {
       expect(theme.declarations.get(`--radius-${step}`), step).toMatch(/var\(--radius\)/);
+    }
+  });
+});
+
+describe('lib/theme.ts — b0 as hex', () => {
+  it("is what theme.css says, for the colours a theme is drawn with when it sets none", () => {
+    // The theme editor's swatches, the palette previews and the browser chrome cannot
+    // wear a stylesheet, so they carry b0's values as hex. They must not drift from it.
+    const { light, darkByOs } = palettes('theme.css');
+    for (const [mode, palette] of [
+      ['light', light],
+      ['dark', darkByOs],
+    ] as const) {
+      for (const [name, hex] of Object.entries(B0_HEX[mode])) {
+        expect(toHex(palette.declarations.get(name) ?? ''), `${mode} ${name}`).toBe(hex);
+      }
+    }
+  });
+});
+
+describe('styles/tokens.css — Blob state colours that shadcn has no word for', () => {
+  it('keeps unread text at 4.5:1 on the page, the sidebar and a card, light and dark', () => {
+    const theme = palettes('theme.css');
+    const tokens = palettes('tokens.css');
+    for (const [mode, palette, text] of [
+      ['light', theme.light, tokens.light.declarations.get('--unread-text')],
+      ['dark', theme.darkByOs, tokens.light.declarations.get('--dark-unread-text')],
+    ] as const) {
+      const ink = parseColor(text ?? '');
+      expect(ink, `${mode} unread text parses`).not.toBeNull();
+      for (const ground of ['--background', '--sidebar', '--card']) {
+        const colour = parseColor(palette.declarations.get(ground) ?? '');
+        expect(colour, `${mode} ${ground} parses`).not.toBeNull();
+        expect(
+          contrastRatio(ink!, colour!),
+          `${mode} --unread-text on ${ground}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('selects the dark unread text in both dark blocks', () => {
+    const { darkByOs, darkByChoice } = palettes('tokens.css');
+    for (const dark of [darkByOs, darkByChoice]) {
+      expect(dark.declarations.get('--unread-text')).toBe('var(--dark-unread-text)');
     }
   });
 });
