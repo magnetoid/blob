@@ -93,4 +93,42 @@ describe("editing", () => {
     expect(alert.textContent).toContain("primary text on page is 1.16:1");
     expect(save.disabled).toBe(true);
   });
+
+  it("saves a theme opened and left untouched exactly as it was stored", async () => {
+    // Opening an editor must not round-trip a value through the colour input: that only
+    // takes #rrggbb, so a pass through it would drop a translucent colour's alpha and
+    // rewrite oklch() as hex. The tokens posted are the stored ones, byte for byte.
+    const stored = {
+      "--primary": "oklch(0.205 0 0)",
+      "--border": "oklch(1 0 0 / 10%)",
+      "--input": "oklch(1 0 0 / 15%)",
+      "--ring": "rgba(23, 23, 23, 0.5)",
+      "--sidebar": "#FAFAFA",
+    };
+    const translucent = theme("translucent", "light", stored);
+    vi.spyOn(api.themes, "list").mockResolvedValue({
+      themes: [...THEMES, translucent],
+      groups: { ...GROUPS, Lines: ["--border", "--input", "--ring", "--sidebar"] },
+    });
+    useStore.setState({ themes: [...THEMES, translucent] } as never);
+    const saved = vi.spyOn(api.themes, "save").mockResolvedValue({ theme: translucent });
+    // happy-dom loads no stylesheet, so stand in for the built-in palette.
+    const root = document.documentElement;
+    root.style.setProperty("--background", "oklch(1 0 0)");
+    root.style.setProperty("--foreground", "oklch(0.145 0 0)");
+    root.style.setProperty("--primary-foreground", "oklch(0.985 0 0)");
+
+    render(<ThemesSection onError={vi.fn()} />);
+    fireEvent.click(await screen.findByLabelText("Edit translucent"));
+    const save = (await screen.findByRole("button", { name: "Save" })) as HTMLButtonElement;
+    await waitFor(() => expect(save.disabled).toBe(false));
+    fireEvent.click(save);
+
+    await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+    const posted = saved.mock.calls[0]![0];
+    expect(posted.id).toBe("translucent");
+    expect(posted.mode).toBe("light");
+    expect(posted.tokens).toEqual(stored);
+    expect(JSON.stringify(posted.tokens)).toBe(JSON.stringify(stored));
+  });
 });
