@@ -29,13 +29,13 @@ dialog.dialog-host::backdrop {
   gap: 18px;
   padding: 26px;
   background: var(--surface-3);
-  border-radius: var(--radius-lg);
+  border-radius: var(--blob-radius-lg);
   box-shadow: var(--elev-3);
 }
 
 .dialog-title {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: var(--blob-text-lg);
   font-weight: 600;
   letter-spacing: -0.015em;
 }
@@ -69,7 +69,7 @@ dialog.dialog-host::backdrop {
 }
 
 .pref-label {
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   font-weight: 500;
 }
 
@@ -91,7 +91,7 @@ dialog.dialog-host::backdrop {
   background: var(--track-off);
   transition:
     background var(--dur-fast) var(--ease-color),
-    scale var(--dur-fast) var(--ease-out);
+    scale var(--dur-fast) var(--blob-ease-out);
 }
 
 .toggle:disabled {
@@ -100,7 +100,7 @@ dialog.dialog-host::backdrop {
 }
 
 .toggle[aria-pressed='true'] {
-  background: var(--accent);
+  background: var(--blob-accent);
 }
 
 .toggle span {
@@ -113,9 +113,9 @@ dialog.dialog-host::backdrop {
   /* The knob used to be positioned by flipping justify-content from start to end,
      which is a discrete property: it teleported while the track colour faded under
      it. 40px wide, less 2px padding either side and a 19px knob, is 17px of travel —
-     thrown on `--ease-out`, so it leaves at once and settles, the way everything else
+     thrown on `--blob-ease-out`, so it leaves at once and settles, the way everything else
      here that answers a click does. */
-  transition: transform var(--dur-fast) var(--ease-out);
+  transition: transform var(--dur-fast) var(--blob-ease-out);
 }
 
 .toggle[aria-pressed='true'] span {
@@ -153,9 +153,9 @@ dialog.dialog-host::backdrop {
 
 .chip[aria-pressed='true'],
 .chip[data-active='true'] {
-  background: var(--accent-wash);
-  border-color: var(--accent-border);
-  color: var(--accent);
+  background: var(--blob-accent-wash);
+  border-color: var(--blob-accent-border);
+  color: var(--blob-accent);
   font-weight: 600;
 }
 
@@ -253,6 +253,6 @@ button.member-row,
     border-color var(--dur-fast) var(--ease-color),
     color var(--dur-fast) var(--ease-color),
     opacity var(--dur-fast) var(--ease-color),
-    transform var(--dur-fast) var(--ease-out),
-    scale var(--dur-fast) var(--ease-out);
+    transform var(--dur-fast) var(--blob-ease-out),
+    scale var(--dur-fast) var(--blob-ease-out);
 }

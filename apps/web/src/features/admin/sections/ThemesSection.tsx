@@ -280,7 +280,7 @@ export function ThemesSection({
               {/* The one inline style left: the colour is the theme's own data. */}
               <span
                 className="theme-swatch"
-                style={{ background: theme.tokens["--accent"] ?? "var(--accent)" }}
+                style={{ background: theme.tokens["--accent"] ?? "var(--blob-accent)" }}
               />
               <div className="grow min-0">
                 <div className="admin-row-title">

@@ -16,10 +16,10 @@
   gap: 6px;
   padding: 6px;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: transparent;
   color: var(--text-2);
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   text-align: left;
   cursor: pointer;
 }
@@ -29,7 +29,7 @@
 }
 
 .palette-tile[aria-pressed='true'] {
-  background: var(--accent-wash);
+  background: var(--blob-accent-wash);
   color: var(--text);
 }
 
@@ -37,14 +37,14 @@
   display: flex;
   height: 62px;
   overflow: hidden;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   /* A ring rather than a border: a preview of a pale theme on a pale page needs an edge,
      and the ring does not eat a pixel of the palette it is showing. */
   box-shadow: 0 0 0 1px var(--hairline);
 }
 
 .palette-tile[aria-pressed='true'] .palette-preview {
-  box-shadow: 0 0 0 2px var(--accent);
+  box-shadow: 0 0 0 2px var(--blob-accent);
 }
 
 .palette-preview-rail {
@@ -86,7 +86,7 @@
   max-width: 680px;
   margin: 0 0 18px;
   padding: 12px 14px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: color-mix(in srgb, var(--danger) 9%, var(--surface));
   color: var(--text);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent);

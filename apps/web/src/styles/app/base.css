@@ -18,17 +18,17 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   -webkit-font-smoothing: antialiased;
 }
 
 a {
-  color: var(--accent);
+  color: var(--blob-accent);
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--accent-hover);
+  color: var(--blob-accent-hover);
   text-decoration: underline;
 }
 
@@ -54,7 +54,7 @@ button {
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   border: 3px solid transparent;
   background-clip: content-box;
 }
@@ -75,7 +75,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--blob-accent);
   /* Where the ring rests. A control whose ring sits elsewhere — inside its own edge, like
      an emoji cell — sets `--focus-ring-offset` rather than `outline-offset`, so the
      entrance below starts from *its* resting place and not from this one. It is a knob
@@ -90,7 +90,7 @@ button {
      `transition` list is left alone while it is focused; and declared this early so
      that any element with an entrance of its own (a dialog's panel, an arriving
      message) outranks it and keeps that. */
-  animation: focus-ring-in var(--dur-fast) var(--ease-out);
+  animation: focus-ring-in var(--dur-fast) var(--blob-ease-out);
 }
 
 /* From a little further out, and from nothing. `outline-offset` is the one property here

@@ -59,14 +59,14 @@
   --text-rail: #6a6f6b;
 
   /* ─── accent ───────────────────────────────────────────────────────────── */
-  --accent: #1f5c3d;
-  --accent-hover: #14402a;
-  --accent-contrast: #fcfcfa;
-  --accent-wash: #eff3ef; /* active sidebar row */
-  --accent-wash-rail: #e4ebe5; /* active rail button */
-  --accent-wash-soft: #eaf1ec; /* empty-state badge */
-  --accent-border: #c9dace;
-  --accent-border-soft: #dde6df;
+  --blob-accent: #1f5c3d;
+  --blob-accent-hover: #14402a;
+  --blob-accent-contrast: #fcfcfa;
+  --blob-accent-wash: #eff3ef; /* active sidebar row */
+  --blob-accent-wash-rail: #e4ebe5; /* active rail button */
+  --blob-accent-wash-soft: #eaf1ec; /* empty-state badge */
+  --blob-accent-border: #c9dace;
+  --blob-accent-border-soft: #dde6df;
   --avatar-bg: #dce6de;
 
   /* ─── state ────────────────────────────────────────────────────────────── */
@@ -126,23 +126,23 @@
   /* ─── type ─────────────────────────────────────────────────────────────── */
   --font-ui:
     'Instrument Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono:
+  --blob-font-mono:
     ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
   --text-2xs: 10.5px;
-  --text-xs: 11px;
-  --text-sm: 11.5px;
+  --blob-text-xs: 11px;
+  --blob-text-sm: 11.5px;
   --text-label-size: 12px;
   --text-meta: 12.5px;
   --text-ui: 13px;
   --text-row: 13.5px;
-  --text-base: 14px;
+  --blob-text-base: 14px;
   --text-title: 15.5px; /* section and channel names */
-  --text-lg: 19px;
-  --text-xl: 22px;
+  --blob-text-lg: 19px;
+  --blob-text-xl: 22px;
 
   /* ─── layout ───────────────────────────────────────────────────────────── */
-  --sidebar-width: 240px;
+  --blob-sidebar-width: 240px;
   --panel-width: 380px;
   /* A file in the panel: a page or a PDF needs more than a thread's 380px to be read,
      and never so much that the conversation it came from stops being usable. */
@@ -191,7 +191,7 @@
      --elev-1 because it is the page itself rather than something floating over it.
      Phones go full bleed (app.css), where an inset would only cost width. */
   --frame-gap: 8px;
-  --frame-radius: var(--radius-lg);
+  --frame-radius: var(--blob-radius-lg);
   /* What a row on the ground does under the pointer, when it is where you are, and when
      it is pressed. Mixed against whatever the ground is rather than fixed steps: the
      palette's hover and selection washes were tuned on near-white, and on the tint they
@@ -199,7 +199,7 @@
      lifts a dark one, so one rule serves both themes and every custom palette. */
   --ground-hover: color-mix(in oklab, var(--text) 6%, transparent);
   --ground-press: color-mix(in oklab, var(--text) 10%, transparent);
-  --ground-selected: color-mix(in oklab, var(--accent) 13%, transparent);
+  --ground-selected: color-mix(in oklab, var(--blob-accent) 13%, transparent);
   --elev-frame:
     0 0 0 1px var(--hairline), 0 1px 2px rgb(var(--shadow-ink) / 4%),
     0 8px 24px -14px rgb(var(--shadow-ink) / 14%);
@@ -207,11 +207,11 @@
   /* ─── radius ───────────────────────────────────────────────────────────── */
   /* Five steps for what were thirteen ad-hoc values. Nested corners follow
      inner = outer - padding, clamped at 2px. */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
+  --blob-radius-xs: 4px;
+  --blob-radius-sm: 6px;
+  --blob-radius-md: 8px;
   --radius-input: 10px; /* inputs sit between a row and a card */
-  --radius-lg: 12px;
+  --blob-radius-lg: 12px;
   --radius-full: 9999px;
 
   /* ─── space ────────────────────────────────────────────────────────────── */
@@ -245,8 +245,8 @@
   --dur-exit: 150ms;
   --dur-modal: 160ms;
   --dur-panel: 160ms;
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --blob-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --blob-ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-color: ease;
   --motion-scale-in: 0.96;
@@ -262,7 +262,7 @@
   /* Dashboard aliases are structural, not new palette inputs. They deliberately
      derive from themeable tokens so every custom palette inherits them for free. */
   --surface-raised: var(--surface-2);
-  --accent-soft: var(--accent-border);
+  --blob-accent-soft: var(--blob-accent-border);
 
   /* ─── stacking ─────────────────────────────────────────────────────────── */
   /* One ladder, ordered by what has to survive what. The emoji picker used to sit
@@ -387,14 +387,14 @@
     --text-label: var(--dark-text-label);
     --text-faint: var(--dark-text-faint);
     --text-rail: var(--dark-text-rail);
-    --accent: var(--dark-accent);
-    --accent-hover: var(--dark-accent-hover);
-    --accent-contrast: var(--dark-accent-contrast);
-    --accent-wash: var(--dark-accent-wash);
-    --accent-wash-rail: var(--dark-accent-wash-rail);
-    --accent-wash-soft: var(--dark-accent-wash-soft);
-    --accent-border: var(--dark-accent-border);
-    --accent-border-soft: var(--dark-accent-border-soft);
+    --blob-accent: var(--dark-accent);
+    --blob-accent-hover: var(--dark-accent-hover);
+    --blob-accent-contrast: var(--dark-accent-contrast);
+    --blob-accent-wash: var(--dark-accent-wash);
+    --blob-accent-wash-rail: var(--dark-accent-wash-rail);
+    --blob-accent-wash-soft: var(--dark-accent-wash-soft);
+    --blob-accent-border: var(--dark-accent-border);
+    --blob-accent-border-soft: var(--dark-accent-border-soft);
     --avatar-bg: var(--dark-avatar-bg);
     --presence-online: var(--dark-presence-online);
     --presence-away: var(--dark-presence-away);
@@ -465,14 +465,14 @@
   --text-label: var(--dark-text-label);
   --text-faint: var(--dark-text-faint);
   --text-rail: var(--dark-text-rail);
-  --accent: var(--dark-accent);
-  --accent-hover: var(--dark-accent-hover);
-  --accent-contrast: var(--dark-accent-contrast);
-  --accent-wash: var(--dark-accent-wash);
-  --accent-wash-rail: var(--dark-accent-wash-rail);
-  --accent-wash-soft: var(--dark-accent-wash-soft);
-  --accent-border: var(--dark-accent-border);
-  --accent-border-soft: var(--dark-accent-border-soft);
+  --blob-accent: var(--dark-accent);
+  --blob-accent-hover: var(--dark-accent-hover);
+  --blob-accent-contrast: var(--dark-accent-contrast);
+  --blob-accent-wash: var(--dark-accent-wash);
+  --blob-accent-wash-rail: var(--dark-accent-wash-rail);
+  --blob-accent-wash-soft: var(--dark-accent-wash-soft);
+  --blob-accent-border: var(--dark-accent-border);
+  --blob-accent-border-soft: var(--dark-accent-border-soft);
   --avatar-bg: var(--dark-avatar-bg);
   --presence-online: var(--dark-presence-online);
   --presence-away: var(--dark-presence-away);

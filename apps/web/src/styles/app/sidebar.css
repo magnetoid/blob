@@ -35,10 +35,10 @@
   place-items: center;
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-md);
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-size: var(--text-base);
+  border-radius: var(--blob-radius-md);
+  background: var(--blob-accent);
+  color: var(--blob-accent-contrast);
+  font-size: var(--blob-text-base);
   font-weight: 700;
   line-height: 1;
   user-select: none;
@@ -88,7 +88,7 @@
   width: 100%;
   min-height: 34px;
   padding: 5px 9px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   color: var(--text-2);
   font-size: var(--text-row);
   text-align: left;
@@ -109,7 +109,7 @@
    sidebar decides which rows these are (`useArrivals`), so the list at start-up and
    after the console stays still. */
 .channel-row-wrap[data-arriving='true'] {
-  animation: row-arrive var(--dur-open) var(--ease-out);
+  animation: row-arrive var(--dur-open) var(--blob-ease-out);
 }
 
 .channel-row-wrap .channel-row {
@@ -130,7 +130,7 @@
   flex: none;
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   color: var(--text-faint);
   font-size: 14px;
   letter-spacing: 1px;
@@ -158,7 +158,7 @@
 
 .channel-row[aria-current='true'] {
   background: var(--ground-selected);
-  color: var(--accent);
+  color: var(--blob-accent);
   font-weight: 600;
 }
 
@@ -183,7 +183,7 @@
 }
 
 .channel-row[aria-current='true'] .channel-hash {
-  color: var(--accent);
+  color: var(--blob-accent);
 }
 
 /* "Browse channels" is a quiet row, and when it is the page you are on it reads as the
@@ -215,8 +215,8 @@
 .channel-call-mark {
   display: inline-grid;
   flex: none;
-  color: var(--accent);
-  animation: chip-in var(--dur-fast) var(--ease-out) both;
+  color: var(--blob-accent);
+  animation: chip-in var(--dur-fast) var(--blob-ease-out) both;
 }
 
 .badge {
@@ -224,8 +224,8 @@
   height: 18px;
   padding: 0 5px;
   border-radius: var(--radius-full);
-  background: var(--accent);
-  color: var(--accent-contrast);
+  background: var(--blob-accent);
+  color: var(--blob-accent-contrast);
   font-size: var(--text-2xs);
   font-weight: 700;
   line-height: 18px;
@@ -234,7 +234,7 @@
   /* Keyed by its count in the sidebar, so React re-mounts it when the number moves and
      this plays once. A digit swapping in place is the one change in the left column
      nobody notices. */
-  animation: badge-pop var(--dur-fast) var(--ease-out);
+  animation: badge-pop var(--dur-fast) var(--blob-ease-out);
 }
 
 .sidebar-add {
@@ -246,7 +246,7 @@
   margin-top: 14px;
   min-height: 40px;
   padding: 8px 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   color: var(--text-4);
   font-size: var(--text-ui);
   text-align: left;

@@ -32,8 +32,8 @@
 }
 
 .message[data-mentions-me='true'] {
-  background: var(--accent-wash);
-  box-shadow: inset 3px 0 0 var(--accent);
+  background: var(--blob-accent-wash);
+  box-shadow: inset 3px 0 0 var(--blob-accent);
 }
 
 .message[data-pending='true'] {
@@ -46,7 +46,7 @@
    entrance keyed to that would play on all of them. The row settles the mark when this
    ends. No `to`, so a pending row rises to its own dimmed opacity rather than to 1. */
 .message[data-fresh='true'] {
-  animation: arrive var(--dur-open) var(--ease-out);
+  animation: arrive var(--dur-open) var(--blob-ease-out);
 }
 
 .message-gutter {
@@ -86,25 +86,25 @@
 /* Meadow's author line: the name at 14/700 and the time at meta size beside it, so a
    conversation scans by who as much as by what. */
 .message-author {
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   font-weight: 700;
   letter-spacing: -0.005em;
 }
 
 .message-status {
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-label);
   font-weight: 400;
 }
 
 .message-time {
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-label);
   font-variant-numeric: tabular-nums;
 }
 
 .message-body {
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   line-height: 1.62;
   color: var(--text-body);
   text-wrap: pretty;
@@ -134,9 +134,9 @@
 
 .message-body code {
   padding: 1px 5px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--blob-radius-xs);
   background: var(--surface-icon);
-  font-family: var(--font-mono);
+  font-family: var(--blob-font-mono);
   font-size: 0.9em;
 }
 

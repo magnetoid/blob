@@ -3,7 +3,7 @@
 .admin-plugin-card,
 .admin-plugin-deliveries {
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
+  border-radius: var(--blob-radius-lg);
   background: var(--surface);
 }
 
@@ -18,7 +18,7 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-5) var(--space-6);
-  border-radius: var(--radius-lg);
+  border-radius: var(--blob-radius-lg);
   background: var(--surface);
   box-shadow: var(--elev-1);
 }

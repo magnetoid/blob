@@ -2,9 +2,9 @@
 .agent-preview {
   margin-top: 16px;
   padding: 14px 16px;
-  border: 1px solid var(--accent-border-soft);
-  border-radius: var(--radius-md);
-  background: var(--accent-wash-soft);
+  border: 1px solid var(--blob-accent-border-soft);
+  border-radius: var(--blob-radius-md);
+  background: var(--blob-accent-wash-soft);
 }
 
 .agent-scopes {
@@ -20,13 +20,13 @@
   display: flex;
   align-items: baseline;
   gap: 10px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
 }
 
 .agent-scopes code {
   flex: none;
   min-width: 150px;
-  font-family: var(--font-mono);
+  font-family: var(--blob-font-mono);
   font-size: var(--text-2xs);
   color: var(--text-2);
 }

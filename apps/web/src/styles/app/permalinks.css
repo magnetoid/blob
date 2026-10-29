@@ -2,7 +2,7 @@
 .copied-note {
   align-self: center;
   padding: 2px 7px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: var(--surface-hover);
   color: var(--text-4);
   font-size: var(--text-label-size);
@@ -16,6 +16,6 @@
   margin-top: 8px;
   padding: 10px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--surface);
 }

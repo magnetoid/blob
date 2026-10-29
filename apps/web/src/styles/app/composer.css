@@ -14,8 +14,8 @@
 }
 
 .composer-box:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--blob-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blob-accent) 18%, transparent);
 }
 
 .composer-toolbar {
@@ -33,8 +33,8 @@
 }
 
 .composer-format-toggle[aria-pressed='true'] {
-  background: var(--accent-wash);
-  color: var(--accent);
+  background: var(--blob-accent-wash);
+  color: var(--blob-accent);
 }
 
 @media (max-width: 600px) {
@@ -61,7 +61,7 @@
   outline: none;
   resize: none;
   background: transparent;
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   line-height: 1.6;
   color: var(--text);
   /* The field grows with what is typed during layout rather than a frame later, so a
@@ -80,7 +80,7 @@
 
 .composer-hint {
   margin-right: 8px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-faint);
 }
 
@@ -90,7 +90,7 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--disabled-bg);
   color: var(--disabled-fg);
   /* Arming — the first character typed — already fades it to the accent; this adds the
@@ -99,12 +99,12 @@
   transition:
     background var(--dur-fast) var(--ease-color),
     color var(--dur-fast) var(--ease-color),
-    scale var(--dur-fast) var(--ease-out);
+    scale var(--dur-fast) var(--blob-ease-out);
 }
 
 .send-btn[data-ready='true'] {
-  background: var(--accent);
-  color: var(--accent-contrast);
+  background: var(--blob-accent);
+  color: var(--blob-accent-contrast);
 }
 
 .draft-chip {
@@ -116,7 +116,7 @@
   padding: 8px 10px;
   background: var(--surface-muted);
   border: 1px solid var(--hairline-soft);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   font-size: var(--text-meta);
   font-weight: 500;
 }

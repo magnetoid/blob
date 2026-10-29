@@ -131,14 +131,14 @@
 .emoji-picker,
 .pinned-panel {
   transform-origin: top center;
-  animation: overlay-in var(--dur-open) var(--ease-out);
+  animation: overlay-in var(--dur-open) var(--blob-ease-out);
 }
 
 /* Held mounted by usePresence for exactly this. `forwards` so the last frame stays
    put until React takes the node away, rather than snapping back to opaque for the
    frame in between. */
 [data-state='closed'] {
-  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+  animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
   pointer-events: none;
 }
 
@@ -152,11 +152,11 @@
 }
 
 dialog.dialog-host::backdrop {
-  animation: fade-in var(--dur-open) var(--ease-out);
+  animation: fade-in var(--dur-open) var(--blob-ease-out);
 }
 
 .dialog {
-  animation: overlay-in var(--dur-modal) var(--ease-out);
+  animation: overlay-in var(--dur-modal) var(--blob-ease-out);
 }
 
 /* A dialog on its way out. The element itself takes the shared closed rule above — it is
@@ -165,7 +165,7 @@ dialog.dialog-host::backdrop {
    it straight back in the top layer as a popover, so the page behind is live again while
    this plays, and there is still a backdrop to fade. */
 dialog.dialog-host[data-state='closed']::backdrop {
-  animation: fade-out var(--dur-exit) var(--ease-in) forwards;
+  animation: fade-out var(--dur-exit) var(--blob-ease-in) forwards;
 }
 
 /* For the instant between closing it and showing it again, a dialog is `display: none`,
@@ -185,11 +185,11 @@ dialog.dialog-host[data-state='closed'][popover] {
    than on two that are identical today. Enter only: it is mounted the plain way, with
    no `DialogPresence` to hold it, so its close stays a cut. */
 dialog.lightbox-host::backdrop {
-  animation: fade-in var(--dur-modal) var(--ease-out);
+  animation: fade-in var(--dur-modal) var(--blob-ease-out);
 }
 
 .lightbox {
-  animation: overlay-in var(--dur-modal) var(--ease-out);
+  animation: overlay-in var(--dur-modal) var(--blob-ease-out);
 }
 
 /* Rises in, and leaves by the same exit the menus take — Toasts.tsx holds it mounted
@@ -198,11 +198,11 @@ dialog.lightbox-host::backdrop {
    above: `.toast`'s own `pointer-events: auto` further down would otherwise outrank it
    and leave a leaving toast catching clicks. */
 .toast {
-  animation: toast-in var(--dur-open) var(--ease-out);
+  animation: toast-in var(--dur-open) var(--blob-ease-out);
 }
 
 .toast[data-state='closed'] {
-  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+  animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
   pointer-events: none;
 }
 
@@ -216,11 +216,11 @@ dialog.lightbox-host::backdrop {
    left to the shared `[data-state="closed"]` above, which `.panel` here would otherwise
    outrank by coming later in the file. */
 .panel {
-  animation: panel-slide-in var(--dur-open) var(--ease-out);
+  animation: panel-slide-in var(--dur-open) var(--blob-ease-out);
 }
 
 .panel[data-state='closed'] {
-  animation: panel-slide-out var(--dur-exit) var(--ease-in) forwards;
+  animation: panel-slide-out var(--dur-exit) var(--blob-ease-in) forwards;
 }
 
 /* The two notices inside a conversation, which both used to appear and vanish with a
@@ -228,22 +228,22 @@ dialog.lightbox-host::backdrop {
    is what small overlays here do. Same specificity trap as the panel above. */
 .unread-jump-bar,
 .catchup-strip {
-  animation: overlay-in var(--dur-open) var(--ease-out);
+  animation: overlay-in var(--dur-open) var(--blob-ease-out);
 }
 
 .unread-jump-bar[data-state='closed'],
 .catchup-strip[data-state='closed'] {
-  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+  animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
 }
 
 /* "Link copied": a word of confirmation (`components/Confirmation.tsx`), in the way an
    attachment chip arrives and out the way a menu leaves. Same trap again. */
 .confirmation {
-  animation: chip-in var(--dur-fast) var(--ease-out);
+  animation: chip-in var(--dur-fast) var(--blob-ease-out);
 }
 
 .confirmation[data-state='closed'] {
-  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+  animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
 }
 
 /* A picture that had to be fetched fades in when it has loaded; one already in the
@@ -256,7 +256,7 @@ dialog.lightbox-host::backdrop {
 .files-tile img,
 .block-image {
   opacity: 0;
-  transition: opacity var(--dur-open) var(--ease-out);
+  transition: opacity var(--dur-open) var(--blob-ease-out);
 }
 
 .attachment-image[data-loaded],
@@ -275,7 +275,7 @@ dialog.lightbox-host::backdrop {
 
 @keyframes message-flash {
   from {
-    background: var(--accent-wash);
+    background: var(--blob-accent-wash);
   }
   to {
     background: transparent;

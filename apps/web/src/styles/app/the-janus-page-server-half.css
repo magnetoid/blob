@@ -30,8 +30,8 @@
    the app's own top-of-window strip and carries its bottom hairline. */
 .janus-banner {
   padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: var(--accent-wash);
+  border-radius: var(--blob-radius-md);
+  background: var(--blob-accent-wash);
   color: var(--text-2);
   font-size: var(--text-meta);
   line-height: 1.5;
@@ -74,7 +74,7 @@
 .janus-raw {
   min-height: 260px;
   resize: vertical;
-  font-family: var(--font-mono);
+  font-family: var(--blob-font-mono);
   font-size: var(--text-meta);
   line-height: 1.55;
   tab-size: 2;
