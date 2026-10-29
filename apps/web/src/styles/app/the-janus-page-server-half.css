@@ -38,8 +38,9 @@
   box-shadow: var(--elev-1);
 }
 
-/* Mixed from `--danger` rather than given a colour name of its own: the 44 theme names
-   are a contract `services/themes.py` allowlists and slices by index. */
+/* Mixed from `--danger` rather than given a colour name of its own: the theme colour
+   names are a contract `services/themes.py` allowlists (ADR 0043), and a banner is not
+   worth a name that every stored theme would then have to know. */
 .janus-banner[data-bad='true'] {
   background: color-mix(in srgb, var(--danger) 8%, var(--surface));
   color: var(--danger);
