@@ -94,10 +94,16 @@ _NUM = r"(?:\d+(?:\.\d+)?|\.\d+)"
 #: oklch() — shadcn's own notation — with lightness and chroma as a number or a percentage,
 #: hue as a number or in degrees, and an optional alpha. Literal numbers only: no `var()`,
 #: no `calc()`, no `none`, nothing that could carry a second declaration.
+#:
+#: ASCII only (`re.ASCII`): in a `str` pattern `\d` also matches Arabic-Indic and other
+#: Unicode digits and `\s` a no-break space, which a browser does not read as a number or
+#: as a separator, so such a value would be stored, sent to every client and drawn as no
+#: colour at all.
 _COLOR_RE = re.compile(
     r"^(#[0-9a-fA-F]{3,8}"
     r"|rgba?\([0-9\s.,%/]+\)"
-    rf"|oklch\(\s*{_NUM}%?\s+{_NUM}%?\s+{_NUM}(?:deg)?\s*(?:/\s*{_NUM}%?\s*)?\))$"
+    rf"|oklch\(\s*{_NUM}%?\s+{_NUM}%?\s+{_NUM}(?:deg)?\s*(?:/\s*{_NUM}%?\s*)?\))$",
+    re.ASCII,
 )
 
 Mode = Literal["light", "dark"]
@@ -202,6 +208,7 @@ PRESETS: list[dict[str, Any]] = [
             "--sidebar-ring": "#7a4f22",
             "--border": "#e6ddcd",
             "--sidebar-border": "#e6ddcd",
+            "--destructive": "#d8000b",
         },
     },
     {
@@ -225,6 +232,7 @@ PRESETS: list[dict[str, Any]] = [
             "--sidebar-ring": "#14508c",
             "--border": "#d9e2ee",
             "--sidebar-border": "#d9e2ee",
+            "--destructive": "#d9000b",
         },
     },
     {
@@ -248,6 +256,7 @@ PRESETS: list[dict[str, Any]] = [
             "--sidebar-ring": "#2f6344",
             "--border": "#dbe4da",
             "--sidebar-border": "#dbe4da",
+            "--destructive": "#da000b",
         },
     },
     {
@@ -271,6 +280,7 @@ PRESETS: list[dict[str, Any]] = [
             "--sidebar-ring": "#7d2f56",
             "--border": "#e9d8e2",
             "--sidebar-border": "#e9d8e2",
+            "--destructive": "#d7000b",
         },
     },
     {
@@ -377,8 +387,8 @@ PRESETS: list[dict[str, Any]] = [
             "--sidebar-primary": "#6aa9f0",
             "--sidebar-primary-foreground": "#08111c",
             "--sidebar-accent": "#16243a",
-            "--ring": "#2c4a70",
-            "--sidebar-ring": "#2c4a70",
+            "--ring": "#6aa9f0",
+            "--sidebar-ring": "#6aa9f0",
             "--border": "#28303c",
             "--input": "#3a4453",
             "--sidebar-border": "#28303c",

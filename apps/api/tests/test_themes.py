@@ -87,6 +87,7 @@ READABLE_PAIRS = [
     ("--sidebar-foreground", "--sidebar"),
     ("--sidebar-accent-foreground", "--sidebar-accent"),
     ("--destructive", "--background"),
+    ("--destructive", "--sidebar"),
 ]
 
 
@@ -148,6 +149,11 @@ def test_accepts_colours(value: str) -> None:
         "oklch(1 0 0); color: red",
         "oklch(calc(1) 0 0)",
         "oklch(1 0)",
+        # Unicode digits and separators that `\d` and `\s` match unless told to be ASCII:
+        # Arabic-Indic zero and five, then a no-break space between the three numbers.
+        "oklch(\u0660.\u0665 \u0660 \u0660)",
+        "oklch(1\u00a00\u00a00)",
+        "rgb(1\u00a00\u00a00)",
         "",
     ],
 )

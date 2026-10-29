@@ -29,6 +29,10 @@ after — so `rekey` first asks whether a theme already speaks the new one. A di
 any name the old vocabulary lacked is left alone (less what is no longer a name at all),
 which makes the rewrite safe to meet twice: `downgrade` cannot undo it, and an `alembic
 downgrade` followed by an `upgrade` would otherwise turn a hover wash into a brand colour.
+The one case it cannot tell apart is a new-format theme whose keys all sit in the set both
+vocabularies share (`--accent`, `--presence-*`, `--unread-*`): on a re-run that reads as an
+old theme and its `--accent` becomes `--primary`. It is reachable only through downgrade
+followed by upgrade, and only for a theme saved after this release with no other colour.
 
 Revision ID: 0078
 Revises: 0077
@@ -172,7 +176,13 @@ _NEW_ONLY = frozenset(NEW_NAMES) - frozenset(OLD_NAMES)
 
 
 def rekey(tokens: Mapping[str, str]) -> dict[str, str]:
-    """A theme's tokens under shadcn's names; one that already uses them comes back as it is."""
+    """A theme's tokens under shadcn's names; one that already uses them comes back as it is.
+
+    "Already uses them" means holding at least one name only the new vocabulary has. A theme
+    whose keys are all in the shared set (`--accent`, `--presence-*`, `--unread-*`) cannot
+    be told from an old one and is renamed, which is only reachable by running the
+    migration again after a downgrade.
+    """
     if any(name in _NEW_ONLY for name in tokens):
         return {name: value for name, value in tokens.items() if name in NEW_NAMES}
     renamed: dict[str, str] = {}
@@ -224,6 +234,7 @@ PRESET_TOKENS: dict[str, dict[str, str]] = {
         "--sidebar-ring": "#7a4f22",
         "--border": "#e6ddcd",
         "--sidebar-border": "#e6ddcd",
+        "--destructive": "#d8000b",
     },
     "harbour": {
         "--background": "#fafbfd",
@@ -242,6 +253,7 @@ PRESET_TOKENS: dict[str, dict[str, str]] = {
         "--sidebar-ring": "#14508c",
         "--border": "#d9e2ee",
         "--sidebar-border": "#d9e2ee",
+        "--destructive": "#d9000b",
     },
     "sage": {
         "--background": "#f9fbf8",
@@ -260,6 +272,7 @@ PRESET_TOKENS: dict[str, dict[str, str]] = {
         "--sidebar-ring": "#2f6344",
         "--border": "#dbe4da",
         "--sidebar-border": "#dbe4da",
+        "--destructive": "#da000b",
     },
     "blossom": {
         "--background": "#fdfafc",
@@ -278,6 +291,7 @@ PRESET_TOKENS: dict[str, dict[str, str]] = {
         "--sidebar-ring": "#7d2f56",
         "--border": "#e9d8e2",
         "--sidebar-border": "#e9d8e2",
+        "--destructive": "#d7000b",
     },
     "plum": {
         "--background": "#17121a",
@@ -359,8 +373,8 @@ PRESET_TOKENS: dict[str, dict[str, str]] = {
         "--sidebar-primary": "#6aa9f0",
         "--sidebar-primary-foreground": "#08111c",
         "--sidebar-accent": "#16243a",
-        "--ring": "#2c4a70",
-        "--sidebar-ring": "#2c4a70",
+        "--ring": "#6aa9f0",
+        "--sidebar-ring": "#6aa9f0",
         "--border": "#28303c",
         "--input": "#3a4453",
         "--sidebar-border": "#28303c",
@@ -369,6 +383,13 @@ PRESET_TOKENS: dict[str, dict[str, str]] = {
 
 
 def rewrite_themes(connection: sa.Connection) -> None:
+    """Rewrite every stored theme onto shadcn's names, on whatever connection it is given.
+
+    A preset row takes its slug's frozen tokens from `PRESET_TOKENS`; any other row, and a
+    preset whose slug is not in it, goes through `rekey`. A row that comes out unchanged is
+    not written. This is `upgrade()`'s whole body, split out so a test can run it on its
+    own session, and it commits nothing: the caller's transaction decides.
+    """
     rows = connection.execute(sa.text("SELECT id, slug, is_preset, tokens FROM themes")).fetchall()
     for row in rows:
         stored = row.tokens
