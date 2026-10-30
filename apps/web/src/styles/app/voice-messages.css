@@ -25,8 +25,8 @@
   flex: none;
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--accent);
-  color: var(--accent-contrast);
+  background: var(--blob-accent);
+  color: var(--blob-accent-contrast);
   cursor: pointer;
 }
 
@@ -46,11 +46,11 @@
   flex: 0 0 2px;
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--text-3) 55%, transparent);
-  transition: background var(--dur-fast, 120ms) var(--ease-out, ease-out);
+  transition: background var(--dur-fast, 120ms) var(--blob-ease-out, ease-out);
 }
 
 .voice-note-bar[data-played='true'] {
-  background: var(--accent);
+  background: var(--blob-accent);
 }
 
 .voice-note-bar[data-level='0'], .voice-recording-meter > [data-level='0'] { height: 12%; }
@@ -68,14 +68,14 @@
 
 .voice-note-time {
   font-variant-numeric: tabular-nums;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-2);
   min-width: 2.8em;
 }
 
 .voice-note-status {
   grid-column: 2 / -1;
-  font-size: var(--text-xs, 12px);
+  font-size: var(--blob-text-xs, 12px);
   color: var(--text-3);
 }
 
@@ -99,7 +99,7 @@
 
 .voice-recording-time {
   font-variant-numeric: tabular-nums;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   min-width: 2.8em;
 }
 

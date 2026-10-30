@@ -1,0 +1,24 @@
+/*
+ * The one stylesheet the client loads.
+ *
+ * Blob's own CSS predates Tailwind, so it goes in a layer of its own — `legacy`, between
+ * Tailwind's `base` (preflight) and `components`/`utilities`. Layers rank by the order
+ * they are declared, whatever the specificity inside them: preflight loses to a legacy
+ * rule that sets the same property, and a utility on a converted component beats legacy
+ * rules without anybody writing `!important`. The `@layer` statement has to come first
+ * for that order to be the one declared here.
+ *
+ * `source(none)` turns off Tailwind's automatic scan of the project; each `@source`
+ * names a directory that has been converted. A path joins that list when its components
+ * are rewritten, never before — otherwise every class-like string in the legacy markup
+ * would put a utility in the sheet that nothing asked for.
+ */
+@layer theme, base, legacy, components, utilities;
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@source "../components/ui";
+@import "./theme.css";
+@import "./tokens.css" layer(legacy);
+@import "./app.css" layer(legacy);

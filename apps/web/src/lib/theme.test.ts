@@ -14,6 +14,10 @@ class MemoryStorage {
   setItem(key: string, value: string): void {
     this.values.set(key, value);
   }
+
+  removeItem(key: string): void {
+    this.values.delete(key);
+  }
 }
 
 const prefs: Pick<UserPrefs, 'theme' | 'themeLight' | 'themeDark'> = {
@@ -64,8 +68,8 @@ beforeEach(() => {
 
 describe('theme selection', () => {
   const themes = [
-    theme('paper', 'light', { '--accent': '#123456' }),
-    theme('midnight', 'dark', { '--accent': '#abcdef' }),
+    theme('paper', 'light', { '--primary': '#123456' }),
+    theme('midnight', 'dark', { '--primary': '#abcdef' }),
   ];
 
   it('resolves system mode against the current OS setting', () => {
@@ -76,14 +80,14 @@ describe('theme selection', () => {
 
   it('keeps independent light and dark palettes ready for no-flash boot', () => {
     expect(themeChoices(themes, prefs)).toEqual({
-      light: { mode: 'light', tokens: { '--accent': '#123456' } },
-      dark: { mode: 'dark', tokens: { '--accent': '#abcdef' } },
+      light: { mode: 'light', tokens: { '--primary': '#123456' } },
+      dark: { mode: 'dark', tokens: { '--primary': '#abcdef' } },
     });
   });
 
   it('falls back to an enabled palette of the requested mode', () => {
     const disabled = {
-      ...theme('disabled', 'dark', { '--accent': '#000000' }),
+      ...theme('disabled', 'dark', { '--primary': '#000000' }),
       isEnabled: false,
     };
     expect(
@@ -92,49 +96,93 @@ describe('theme selection', () => {
         theme: 'dark',
         themeDark: 'disabled',
       }),
-    ).toEqual({ mode: 'dark', tokens: { '--accent': '#abcdef' } });
+    ).toEqual({ mode: 'dark', tokens: { '--primary': '#abcdef' } });
   });
 });
 
 describe('theme application', () => {
   it('removes stale boot tokens and updates browser chrome atomically', () => {
     const root = document.documentElement;
-    root.dataset.themeTokens = '--accent --surface';
-    root.style.setProperty('--accent', '#ff0000');
-    root.style.setProperty('--surface', '#ffffff');
+    root.dataset.themeTokens = '--primary --card';
+    root.style.setProperty('--primary', '#ff0000');
+    root.style.setProperty('--card', '#ffffff');
 
-    applyTheme({ mode: 'dark', tokens: { '--accent': '#abcdef' } }, 'dark');
+    applyTheme(
+      { mode: 'dark', tokens: { '--primary': '#abcdef', '--background': '#101820' } },
+      'dark',
+    );
 
-    expect(root.style.getPropertyValue('--surface')).toBe('');
-    expect(root.style.getPropertyValue('--accent')).toBe('#abcdef');
-    expect(root.dataset.themeTokens).toBe('--accent');
+    expect(root.style.getPropertyValue('--card')).toBe('');
+    expect(root.style.getPropertyValue('--primary')).toBe('#abcdef');
+    expect(root.dataset.themeTokens).toBe('--primary --background');
     expect(root.dataset.resolvedTheme).toBe('dark');
     expect(root.dataset.theme).toBe('dark');
     expect(root.style.colorScheme).toBe('dark');
-    expect(
-      document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-        ?.content,
-    ).toBe('#abcdef');
+    expect(chrome()).toBe('#101820');
+  });
+
+  it("draws browser chrome from --background, and b0's when a theme sets none", () => {
+    applyTheme({ mode: 'light', tokens: {} }, 'light');
+    expect(chrome()).toBe('#ffffff');
+
+    applyTheme({ mode: 'dark', tokens: {} }, 'dark');
+    expect(chrome()).toBe('#0a0a0a');
+
+    applyTheme({ mode: 'light', tokens: { '--background': '#fbf8f3' } }, 'light');
+    expect(chrome()).toBe('#fbf8f3');
+  });
+
+  it('does not let the brand colour paint the browser chrome', () => {
+    // b0's --primary is near-black in light and near-white in dark: a bar in that colour
+    // is a stark band over the page. The chrome belongs to the page's own colour.
+    applyTheme({ mode: 'light', tokens: { '--primary': '#7a4f22' } }, 'light');
+    expect(chrome()).toBe('#ffffff');
+
+    applyTheme({ mode: 'dark', tokens: { '--primary': '#7a4f22' } }, 'dark');
+    expect(chrome()).toBe('#0a0a0a');
+  });
+
+  it('gives browser chrome a hex even when the theme is written in oklch', () => {
+    // Not every engine reads oklch() in a <meta>, and shadcn's own palette is oklch.
+    applyTheme({ mode: 'light', tokens: { '--background': 'oklch(0.205 0 0)' } }, 'light');
+    expect(chrome()).toBe('#171717');
+
+    // A value that is not a literal colour is as good as none.
+    applyTheme({ mode: 'light', tokens: { '--background': 'var(--ring)' } }, 'light');
+    expect(chrome()).toBe('#ffffff');
   });
 
   it('persists both mode palettes for the pre-hydration boot script', () => {
     const choices = {
-      light: { mode: 'light' as const, tokens: { '--accent': '#123456' } },
-      dark: { mode: 'dark' as const, tokens: { '--accent': '#abcdef' } },
+      light: { mode: 'light' as const, tokens: { '--primary': '#123456' } },
+      dark: { mode: 'dark' as const, tokens: { '--primary': '#abcdef' } },
     };
 
     applyTheme(choices.light, 'system', choices);
 
-    expect(JSON.parse(window.localStorage.getItem('blob.theme') ?? '')).toEqual(
-      {
-        preference: 'system',
-        mode: 'light',
-        tokens: choices.light.tokens,
-        palettes: {
-          light: choices.light.tokens,
-          dark: choices.dark.tokens,
-        },
+    expect(
+      JSON.parse(window.localStorage.getItem('blob.theme.v2') ?? ''),
+    ).toEqual({
+      preference: 'system',
+      mode: 'light',
+      tokens: choices.light.tokens,
+      palettes: {
+        light: choices.light.tokens,
+        dark: choices.dark.tokens,
       },
-    );
+    });
+  });
+
+  it('lets go of the palette kept under the old key', () => {
+    window.localStorage.setItem('blob.theme', '{"tokens":{"--accent":"#1f5c3d"}}');
+
+    applyTheme({ mode: 'light', tokens: {} }, 'light');
+
+    expect(window.localStorage.getItem('blob.theme')).toBeNull();
+    expect(window.localStorage.getItem('blob.theme.v2')).not.toBeNull();
   });
 });
+
+function chrome(): string | undefined {
+  return document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content;
+}

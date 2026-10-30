@@ -73,17 +73,26 @@
 .auth-brand-face {
   width: 26px;
   height: 26px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   display: grid;
   place-items: center;
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   font-weight: 700;
   flex: none;
 }
 
+/* Fixed like the panel it sits on. It read the theme's accent, which since the accent
+   became shadcn's --primary is near-white in dark — on this pale square, 1.02:1. */
 .auth-brand-face[data-face='one'] {
   background: #dce6de;
-  color: var(--accent);
+  color: #1f5c3d;
+}
+
+/* The mark on the panel, likewise: --primary is near-black in light, which drew a black
+   square on a black panel. Inverted from the panel's own ink instead, in both themes. */
+.auth-brand .auth-mark {
+  background: #e8e6dd;
+  color: #1a1d1b;
 }
 
 .auth-brand-face[data-face='two'] {
@@ -128,18 +137,18 @@
   padding: 34px;
   background: var(--surface);
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
+  border-radius: var(--blob-radius-lg);
   /* Once, when the screen appears. Switching between sign-in and sign-up keeps the
      same form and so keeps still. */
-  animation: arrive var(--dur-open) var(--ease-out);
+  animation: arrive var(--dur-open) var(--blob-ease-out);
 }
 
 .auth-mark {
   width: 34px;
   height: 34px;
-  border-radius: var(--radius-md);
-  background: var(--accent);
-  color: var(--accent-contrast);
+  border-radius: var(--blob-radius-md);
+  background: var(--blob-accent);
+  color: var(--blob-accent-contrast);
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -149,7 +158,7 @@
 
 .auth-title {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: var(--blob-text-lg);
   font-weight: 600;
   letter-spacing: -0.015em;
 }
@@ -169,6 +178,6 @@
 }
 
 .auth-switch button {
-  color: var(--accent);
+  color: var(--blob-accent);
   font-weight: 600;
 }

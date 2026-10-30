@@ -14,12 +14,12 @@
   gap: 12px;
   margin: 14px var(--pane-gutter) 0;
   padding: 12px 16px;
-  border: 1px solid var(--accent-border-soft);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--blob-accent-border-soft);
+  border-radius: var(--blob-radius-lg);
   background: linear-gradient(
     90deg,
-    var(--accent-wash),
-    color-mix(in srgb, var(--accent-wash) 45%, var(--surface))
+    var(--blob-accent-wash),
+    color-mix(in srgb, var(--blob-accent-wash) 45%, var(--surface))
   );
 }
 
@@ -29,9 +29,9 @@
   place-items: center;
   width: 26px;
   height: 26px;
-  border-radius: var(--radius-md);
-  background: var(--accent);
-  color: var(--accent-contrast);
+  border-radius: var(--blob-radius-md);
+  background: var(--blob-accent);
+  color: var(--blob-accent-contrast);
 }
 
 .catchup-strip-text {
@@ -47,8 +47,8 @@
 .catchup-strip-action {
   flex: none;
   padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  color: var(--accent-hover);
+  border-radius: var(--blob-radius-sm);
+  color: var(--blob-accent-hover);
   font-size: var(--text-ui);
   font-weight: 600;
   white-space: nowrap;
@@ -56,21 +56,21 @@
 }
 
 .catchup-strip-action:hover {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--blob-accent) 12%, transparent);
 }
 
 .catchup-strip-dismiss {
   flex: none;
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   color: var(--text-4);
   font-size: var(--text-meta);
   line-height: 1;
 }
 
 .catchup-strip-dismiss:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--blob-accent) 10%, transparent);
   color: var(--text-2);
 }
 
@@ -112,12 +112,12 @@
 }
 
 .catchup-head {
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
 }
 
 .catchup-text {
   margin: 6px 0 8px;
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   line-height: 1.45;
   white-space: pre-wrap;
 }

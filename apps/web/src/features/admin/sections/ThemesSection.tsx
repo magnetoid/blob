@@ -12,40 +12,16 @@ import { api, ApiError } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../../components/Dialog.tsx";
 import { useStore } from "../../../lib/store.ts";
+import { toHex } from "../../../lib/color.ts";
 import {
   applyTheme,
+  B0_HEX,
   pickTheme,
   previewTheme,
   themeChoices,
 } from "../../../lib/theme.ts";
 import { themeContrastIssues } from "../../../lib/themeContrast.ts";
 import { Card } from "../../console/Card.tsx";
-
-/** <input type="color"> only accepts #rrggbb, so rgb()/short hex is converted. */
-function normalizeColor(value: string): string {
-  const text = value.trim();
-  if (/^#[0-9a-fA-F]{6}$/.test(text)) return text.toLowerCase();
-  if (/^#[0-9a-fA-F]{3}$/.test(text)) {
-    return `#${text
-      .slice(1)
-      .split("")
-      .map((c) => c + c)
-      .join("")}`.toLowerCase();
-  }
-  const rgb = text.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/);
-  if (rgb) {
-    const hex = rgb
-      .slice(1, 4)
-      .map((n) =>
-        Math.max(0, Math.min(255, Math.round(Number(n))))
-          .toString(16)
-          .padStart(2, "0"),
-      )
-      .join("");
-    return `#${hex}`;
-  }
-  return "";
-}
 
 export function ThemesSection({
   onError,
@@ -100,7 +76,8 @@ export function ThemesSection({
             .flat()
             .map((token) => [
               token,
-              normalizeColor(computed.getPropertyValue(token)) || "#000000",
+              // `<input type="color">` only takes #rrggbb; shadcn's own values are oklch().
+              toHex(computed.getPropertyValue(token)) ?? "#000000",
             ]),
         ),
       );
@@ -165,9 +142,7 @@ export function ThemesSection({
           description={
             <>
               Changes preview on this window as you make them. Nothing is stored
-              until you save. Note that <code>--accent-hover</code> darkens in light
-              themes and lightens in dark ones, so it is set explicitly rather than
-              derived.
+              until you save. Colours you leave alone keep the built-in value.
             </>
           }
         >
@@ -231,8 +206,8 @@ export function ThemesSection({
                       id={inputId}
                       type="color"
                       value={
-                        normalizeColor(tokens[token] ?? "") ||
-                        baseTokens[token] ||
+                        toHex(tokens[token] ?? "") ??
+                        baseTokens[token] ??
                         "#000000"
                       }
                       onChange={(e) => setToken(token, e.target.value)}
@@ -280,7 +255,11 @@ export function ThemesSection({
               {/* The one inline style left: the colour is the theme's own data. */}
               <span
                 className="theme-swatch"
-                style={{ background: theme.tokens["--accent"] ?? "var(--accent)" }}
+                style={{
+                  background:
+                    theme.tokens["--primary"] ??
+                    B0_HEX[theme.mode]["--primary"],
+                }}
               />
               <div className="grow min-0">
                 <div className="admin-row-title">

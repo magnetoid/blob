@@ -38,7 +38,7 @@
 .section-toggle svg {
   position: absolute;
   left: -6px;
-  transition: rotate var(--dur-fast) var(--ease-out);
+  transition: rotate var(--dur-fast) var(--blob-ease-out);
 }
 
 .section-toggle[aria-expanded='false'] svg {
@@ -89,10 +89,10 @@
   padding: 10px 12px;
   max-height: 220px;
   overflow: auto;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: var(--surface-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-family: var(--blob-font-mono);
+  font-size: var(--blob-text-sm);
   white-space: pre;
 }
 
@@ -140,7 +140,7 @@
 .message-files-removed {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   font-style: italic;
 }
 
@@ -173,7 +173,7 @@
 .section-empty {
   margin: 0;
   padding: 2px 12px 6px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-3);
 }
 
@@ -190,7 +190,7 @@
   align-items: center;
   gap: 10px;
   padding: 6px 4px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   cursor: pointer;
 }
 
@@ -205,7 +205,7 @@
   width: 22px;
   height: 22px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: transparent;
   color: var(--text-rail);
   cursor: pointer;
@@ -230,7 +230,7 @@
 
 .new-message-label {
   padding-top: 6px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-4);
 }
 
@@ -249,9 +249,9 @@
   padding: 3px 8px;
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--accent-wash);
-  color: var(--accent);
-  font-size: var(--text-sm);
+  background: var(--blob-accent-wash);
+  color: var(--blob-accent);
+  font-size: var(--blob-text-sm);
   cursor: pointer;
 }
 
@@ -279,10 +279,10 @@
   width: 100%;
   padding: 7px 8px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: none;
   color: var(--text);
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   text-align: left;
   cursor: pointer;
 }

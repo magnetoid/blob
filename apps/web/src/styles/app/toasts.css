@@ -20,7 +20,7 @@
   gap: 10px;
   max-width: 420px;
   padding: 10px 12px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--surface-2);
   color: var(--text);
   box-shadow: var(--elev-2);
@@ -42,12 +42,12 @@
    colour did not load. */
 .toast-info {
   box-shadow:
-    0 0 0 1px var(--accent-border),
+    0 0 0 1px var(--blob-accent-border),
     var(--elev-2);
 }
 
 .toast-text {
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   line-height: 1.35;
 }
 
@@ -55,7 +55,7 @@
   border: 0;
   background: none;
   color: var(--text-4);
-  font-size: var(--text-lg);
+  font-size: var(--blob-text-lg);
   line-height: 1;
   cursor: pointer;
   padding: 2px 4px;

@@ -31,7 +31,7 @@ p.md-section:first-child {
   margin: 0 0 8px;
   overflow-x: auto;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
 }
 
 .md-table-wrap:last-child {

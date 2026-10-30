@@ -45,7 +45,7 @@
   height: 380px;
   padding: 8px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   /* Fixed rather than themed. A terminal renders its own colours and an ANSI palette
      tuned for a dark background is unreadable on a light one, so the surface stays dark
      in both themes — which is also what every other terminal on the machine does. */

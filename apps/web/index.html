@@ -4,13 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <!-- Self-hosted: a workspace must not block first paint on a font CDN, nor tell
-         one who opens it and when. See public/fonts/fonts.css. -->
-    <link rel="stylesheet" href="/fonts/fonts.css" />
+    <!-- No font link: Inter is bundled into the stylesheet from @fontsource-variable/inter
+         (src/styles/index.css) and served from this origin. A workspace must not block
+         first paint on a font CDN, nor tell one who opens it and when. -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <meta name="theme-color" content="#1f5c3d" />
+    <meta name="theme-color" content="#ffffff" />
     <title>Blob</title>
     <meta
       name="description"

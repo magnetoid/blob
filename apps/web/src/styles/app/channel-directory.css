@@ -23,7 +23,7 @@
   align-items: center;
   gap: 14px;
   padding: 10px 12px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
 }
 
 .browse-row:hover {

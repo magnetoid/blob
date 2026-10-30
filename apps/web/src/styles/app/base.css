@@ -1,5 +1,182 @@
 /* Components. Values follow the design artifact; colours come only from tokens.css. */
 
+/*
+ * The browser's own defaults, handed back to the CSS that was written against them.
+ *
+ * This file and every other under `styles/app/` sit in the `legacy` layer, above Tailwind's
+ * preflight. Preflight resets what the browser ships — margins, padding, borders, list
+ * markers, heading sizes, form-control fonts, `display: block` on images and icons, a
+ * 1.5 line height — and wherever a legacy rule sets the same property it wins, but
+ * wherever the CSS never needed to say, the reset now decides: a `<dialog>` that was
+ * centred by the browser is not, a heading that carried the browser's margin has none.
+ * Declaring `revert` here puts the browser's value back for exactly those properties,
+ * and every rule that does say something still outranks it by specificity (apart from
+ * `html`, the selectors below are all `:where()`, so zero).
+ *
+ * Anything inside a shadcn component is left alone. Its markup was written *against*
+ * preflight and stamps `data-slot` on every part, so `:where(:not([data-slot],
+ * [data-slot] *))` is "the CSS that predates Tailwind". Delete a rule here when the last
+ * element it serves has been converted, and this block with the last of them.
+ *
+ * One reset cannot be handed back: preflight's `[hidden] { display: none !important }`.
+ * An `!important` declaration in an earlier layer beats the same in a later one, so an
+ * element carrying `hidden` now stays hidden whatever a legacy `display` says.
+ */
+html {
+  /* Preflight's 1.5 reaches every element that sets none of its own. */
+  line-height: revert;
+  tab-size: revert;
+  -webkit-tap-highlight-color: revert;
+}
+
+:where(:not([data-slot], [data-slot] *)) {
+  margin: revert;
+  padding: revert;
+  border: revert;
+  outline-color: revert;
+}
+
+:where(h1, h2, h3, h4, h5, h6):where(:not([data-slot], [data-slot] *)) {
+  font-size: revert;
+  font-weight: revert;
+}
+
+:where(b, strong):where(:not([data-slot], [data-slot] *)) {
+  font-weight: revert;
+}
+
+:where(code, kbd, samp, pre):where(:not([data-slot], [data-slot] *)) {
+  font-family: revert;
+  font-feature-settings: revert;
+  font-variation-settings: revert;
+  font-size: revert;
+}
+
+:where(small):where(:not([data-slot], [data-slot] *)) {
+  font-size: revert;
+}
+
+:where(sub, sup):where(:not([data-slot], [data-slot] *)) {
+  font-size: revert;
+  line-height: revert;
+  position: revert;
+  vertical-align: revert;
+  top: revert;
+  bottom: revert;
+}
+
+:where(table):where(:not([data-slot], [data-slot] *)) {
+  text-indent: revert;
+  border-collapse: revert;
+}
+
+:where(hr):where(:not([data-slot], [data-slot] *)) {
+  height: revert;
+  color: revert;
+}
+
+:where(ol, ul, menu):where(:not([data-slot], [data-slot] *)) {
+  list-style: revert;
+}
+
+:where(progress):where(:not([data-slot], [data-slot] *)) {
+  vertical-align: revert;
+}
+
+:where(img, svg, video, canvas, audio, iframe, embed, object):where(:not([data-slot], [data-slot] *)) {
+  display: revert;
+  vertical-align: revert;
+}
+
+:where(img, video):where(:not([data-slot], [data-slot] *)) {
+  max-width: revert;
+  height: revert;
+}
+
+:where(button, input, select, optgroup, textarea):where(:not([data-slot], [data-slot] *)) {
+  font: revert;
+  font-feature-settings: revert;
+  font-variation-settings: revert;
+  letter-spacing: revert;
+  color: revert;
+  border-radius: revert;
+  background-color: revert;
+}
+
+:where(button, input:is([type="button"], [type="reset"], [type="submit"])):where(:not([data-slot], [data-slot] *)) {
+  appearance: revert;
+}
+
+:where(textarea):where(:not([data-slot], [data-slot] *)) {
+  resize: revert;
+}
+
+:where(:not([data-slot], [data-slot] *))::placeholder {
+  color: revert;
+  opacity: revert;
+}
+
+:where(:not([data-slot], [data-slot] *))::file-selector-button {
+  font: revert;
+  letter-spacing: revert;
+  color: revert;
+  border: revert;
+  border-radius: revert;
+  background-color: revert;
+  margin-inline-end: revert;
+  padding: revert;
+  appearance: revert;
+}
+
+/* Blink and WebKit's own parts of a date, search or number field. Firefox does not have
+   them, so they stay separate rules: one unknown selector would drop a whole list. */
+:where(:not([data-slot], [data-slot] *))::-webkit-search-decoration {
+  -webkit-appearance: revert;
+}
+
+:where(:not([data-slot], [data-slot] *))::-webkit-date-and-time-value {
+  min-height: revert;
+  text-align: revert;
+}
+
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit {
+  display: revert;
+}
+
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit,
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-year-field,
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-month-field,
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-day-field,
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-hour-field,
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-minute-field,
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-second-field,
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-millisecond-field,
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-meridiem-field {
+  padding-block: revert;
+}
+
+:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-fields-wrapper {
+  padding: revert;
+}
+
+:where(:not([data-slot], [data-slot] *))::-webkit-calendar-picker-indicator {
+  line-height: revert;
+}
+
+:where(:not([data-slot], [data-slot] *))::-webkit-inner-spin-button,
+:where(:not([data-slot], [data-slot] *))::-webkit-outer-spin-button {
+  height: revert;
+}
+
+/* Firefox: its own focus ring and its red glow on an invalid field. */
+:where(:-moz-focusring:not([data-slot], [data-slot] *)) {
+  outline: revert;
+}
+
+:where(:-moz-ui-invalid:not([data-slot], [data-slot] *)) {
+  box-shadow: revert;
+}
+
 *,
 *::before,
 *::after {
@@ -18,18 +195,40 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   -webkit-font-smoothing: antialiased;
 }
 
 a {
-  color: var(--accent);
+  color: var(--blob-accent);
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--accent-hover);
+  color: var(--blob-accent-hover);
   text-decoration: underline;
+}
+
+/* A link in prose is underlined. --blob-accent is shadcn's --primary now, 1.1:1 against
+   the text around it, so colour no longer says "link"; shadcn's typography underlines
+   (`underline underline-offset-4`). Keyed on the containers `renderMarkdown` and
+   `renderInline` draw into — a message and a file's or artifact's document, a pinned row,
+   a search hit, an app's blocks, a thread summary — and never on bare `a`: a row, card or
+   menu item that is an anchor must stay plain. `proseLinks.test.ts` lists the callers. */
+:is(
+    .message-body,
+    .work-document,
+    .pinned-item-body,
+    .search-result-text,
+    .block-section,
+    .block-fields,
+    .block-context,
+    .summary-overview,
+    .agentic-list
+  )
+  a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 button,
@@ -54,7 +253,7 @@ button {
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   border: 3px solid transparent;
   background-clip: content-box;
 }
@@ -75,7 +274,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--blob-accent);
   /* Where the ring rests. A control whose ring sits elsewhere — inside its own edge, like
      an emoji cell — sets `--focus-ring-offset` rather than `outline-offset`, so the
      entrance below starts from *its* resting place and not from this one. It is a knob
@@ -90,7 +289,7 @@ button {
      `transition` list is left alone while it is focused; and declared this early so
      that any element with an entrance of its own (a dialog's panel, an arriving
      message) outranks it and keeps that. */
-  animation: focus-ring-in var(--dur-fast) var(--ease-out);
+  animation: focus-ring-in var(--dur-fast) var(--blob-ease-out);
 }
 
 /* From a little further out, and from nothing. `outline-offset` is the one property here

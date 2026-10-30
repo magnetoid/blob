@@ -26,7 +26,7 @@
   width: 312px;
   max-height: 332px;
   padding: 8px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--surface-2);
   box-shadow: var(--elev-2);
 }
@@ -48,7 +48,7 @@
   height: 30px;
   padding: 0 9px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: var(--bg);
   color: var(--text-2);
   font-family: var(--font-ui);
@@ -57,7 +57,7 @@
 
 .emoji-search:focus {
   outline: none;
-  border-color: var(--accent-border);
+  border-color: var(--blob-accent-border);
 }
 
 .emoji-scroll {
@@ -90,9 +90,9 @@
   justify-content: center;
   aspect-ratio: 1;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: transparent;
-  font-size: var(--text-lg);
+  font-size: var(--blob-text-lg);
   line-height: 1;
   cursor: pointer;
 }
@@ -108,8 +108,8 @@
    so a cursor painted there faded out of every cell the arrow keys left. A layer that
    nothing transitions moves with the key, on and off. */
 .emoji-cell[data-active='true'] {
-  background-image: linear-gradient(var(--accent-wash), var(--accent-wash));
-  box-shadow: inset 0 0 0 1px var(--accent-border);
+  background-image: linear-gradient(var(--blob-accent-wash), var(--blob-accent-wash));
+  box-shadow: inset 0 0 0 1px var(--blob-accent-border);
 }
 
 /* Inside its own edge: the cells touch, so a ring outside one would be drawn over its
@@ -120,13 +120,13 @@
   --focus-ring-offset: -2px;
   transition:
     background-color var(--dur-fast) var(--ease-color),
-    scale var(--dur-fast) var(--ease-out);
+    scale var(--dur-fast) var(--blob-ease-out);
 }
 
 .emoji-empty {
   margin: 12px 4px;
   color: var(--text-4);
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
 }
 
 .emoji-tones {
@@ -141,9 +141,9 @@
   flex: 1;
   height: 32px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: transparent;
-  font-size: var(--text-lg);
+  font-size: var(--blob-text-lg);
   line-height: 1;
   cursor: pointer;
 }
@@ -153,6 +153,6 @@
 }
 
 .emoji-tone[aria-pressed='true'] {
-  background: var(--accent-wash);
-  box-shadow: inset 0 0 0 1px var(--accent-border);
+  background: var(--blob-accent-wash);
+  box-shadow: inset 0 0 0 1px var(--blob-accent-border);
 }

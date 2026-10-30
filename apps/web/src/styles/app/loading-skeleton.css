@@ -33,7 +33,7 @@
 .message-skeleton-avatar {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--surface-hover);
   flex: none;
 }
@@ -56,7 +56,7 @@
 
 .files-tile-skeleton {
   aspect-ratio: 1;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--surface-hover);
   animation: skeleton-breathe 1.4s ease-in-out infinite;
 }
@@ -79,7 +79,7 @@
 
 .message-skeleton-line {
   height: 10px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--blob-radius-xs);
   background: var(--surface-hover);
   animation: skeleton-breathe 1.4s ease-in-out infinite;
 }

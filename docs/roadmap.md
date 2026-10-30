@@ -70,8 +70,8 @@ so the revert is clean. Effort key: **S** ≤ 2 days, **M** ≤ 1 week, **L** > 
   brings it in line. No query layer is introduced anywhere.
 - Persist, then broadcast, through `db/engine.transaction()`'s `after` callbacks. Every
   consolidation of broadcast code keeps the closure shape.
-- The 44 colour token names in `styles/tokens.css` are a by-index contract with
-  `services/themes.py`. Nothing below touches their order.
+- The themeable colour names (shadcn's, plus presence and unread; ADR 0043) are a contract
+  with `services/themes.py`. Nothing below renames one without a migration.
 - `lib/llm.py` keeps exactly three callers. Nothing below adds a fourth.
 - Gate: `pnpm check` + `uv run alembic check` + `torsor guard --strict --severity error`.
   One Coolify build at a time.

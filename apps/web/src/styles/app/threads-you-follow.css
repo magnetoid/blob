@@ -4,23 +4,23 @@
    replies and there was no way to stop following one you had answered once. */
 .thread-follow {
   flex: none;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
 }
 
 .thread-follow[aria-pressed='true'] {
-  color: var(--accent);
+  color: var(--blob-accent);
   /* Following, the moment it is turned on — `badge-pop`, as Save for later does. The
      button is only drawn once the panel knows the answer, so a thread you already follow
      shows it once as it appears, which is the same news. */
-  animation: badge-pop var(--dur-fast) var(--ease-out);
+  animation: badge-pop var(--dur-fast) var(--blob-ease-out);
 }
 
 .thread-new {
   margin-left: 8px;
   padding: 1px 7px;
   border-radius: var(--radius-full);
-  background: var(--accent-wash);
-  color: var(--accent);
-  font-size: var(--text-xs);
+  background: var(--blob-accent-wash);
+  color: var(--blob-accent);
+  font-size: var(--blob-text-xs);
   font-weight: 600;
 }

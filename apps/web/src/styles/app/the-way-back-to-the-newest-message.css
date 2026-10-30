@@ -31,7 +31,7 @@
   white-space: nowrap;
   /* The centring is `translate`, so the keyframes' `transform` composes with it. */
   translate: -50% 0;
-  animation: toast-in var(--dur-open) var(--ease-out);
+  animation: toast-in var(--dur-open) var(--blob-ease-out);
   transition:
     background-color var(--dur-fast) var(--ease-color),
     scale var(--dur-fast) var(--ease-standard);
@@ -40,11 +40,11 @@
 /* Written out, not left to a shared `[data-state='closed']`, which this rule would
    outrank by coming later in the file — the trap the panel and the notices note. */
 .jump-latest[data-state='closed'] {
-  animation: fade-out var(--dur-exit) var(--ease-in) forwards;
+  animation: fade-out var(--dur-exit) var(--blob-ease-in) forwards;
 }
 
 .jump-latest svg {
-  color: var(--accent);
+  color: var(--blob-accent);
 }
 
 .jump-latest:hover {

@@ -11,7 +11,7 @@
   gap: 8px;
   align-items: baseline;
   margin-top: 3px;
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   color: var(--text-4);
 }
 

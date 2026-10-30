@@ -13,12 +13,12 @@
   height: 24px;
   padding: 0 8px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
+  border-radius: var(--blob-radius-lg);
   background: var(--surface);
   transition:
     border-color var(--dur-fast) var(--ease-color),
     background var(--dur-fast) var(--ease-color),
-    scale var(--dur-fast) var(--ease-out);
+    scale var(--dur-fast) var(--blob-ease-out);
 }
 
 /* Keyed by emoji, so a new one mounts and plays this while the others sit still.
@@ -27,7 +27,7 @@
    row mounts again on every scroll and channel switch, and every chip on it used to pop
    each time. */
 .reaction[data-arrived='true'] {
-  animation: reaction-pop var(--dur-fast) var(--ease-out);
+  animation: reaction-pop var(--dur-fast) var(--blob-ease-out);
 }
 
 @keyframes reaction-pop {
@@ -46,7 +46,7 @@
 }
 
 .reaction span:last-child {
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   font-weight: 600;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
@@ -61,7 +61,7 @@
 .reaction-count[data-changed='true'],
 .thread-summary-count[data-changed='true'],
 .panel-sub-count[data-changed='true'] {
-  animation: count-tick var(--dur-fast) var(--ease-out);
+  animation: count-tick var(--dur-fast) var(--blob-ease-out);
 }
 
 /* A transform does nothing to an inline box, and the thread panel's count is one. */
@@ -75,12 +75,12 @@
 }
 
 .reaction[data-mine='true'] {
-  background: var(--accent-wash);
-  border-color: var(--accent-border);
+  background: var(--blob-accent-wash);
+  border-color: var(--blob-accent-border);
 }
 
 .reaction[data-mine='true'] span:last-child {
-  color: var(--accent);
+  color: var(--blob-accent);
 }
 
 .thread-summary {
@@ -90,15 +90,15 @@
   margin-top: 9px;
   padding: 4px 8px 4px 4px;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--accent);
+  border-radius: var(--blob-radius-sm);
+  color: var(--blob-accent);
   font-size: var(--text-meta);
   font-weight: 600;
 }
 
 .thread-summary:hover {
-  background: var(--accent-wash);
-  border-color: var(--accent-border-soft);
+  background: var(--blob-accent-wash);
+  border-color: var(--blob-accent-border-soft);
 }
 
 .thread-summary-meta {
@@ -118,7 +118,7 @@
    was first drawn with, so a row that mounts already holding them keeps still. */
 .link-preview[data-arrived='true'],
 .attachments > [data-arrived='true'] {
-  animation: arrive var(--dur-open) var(--ease-out);
+  animation: arrive var(--dur-open) var(--blob-ease-out);
 }
 
 .files-grid {
@@ -134,7 +134,7 @@
   justify-content: center;
   aspect-ratio: 1;
   overflow: hidden;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--surface-hover);
   color: var(--text-3);
   text-align: center;
@@ -148,7 +148,7 @@
 
 .files-tile-name {
   padding: 10px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   word-break: break-word;
 }
 
@@ -177,7 +177,7 @@
   height: auto;
   cursor: zoom-in;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   display: block;
 }
 
@@ -216,17 +216,17 @@ dialog.lightbox-host::backdrop {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
 }
 
 .lightbox-image {
   max-width: 100%;
   max-height: calc(92vh - 48px);
   object-fit: contain;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: rgb(0 0 0 / 0.4);
   opacity: 0;
-  transition: opacity var(--dur-open) var(--ease-out);
+  transition: opacity var(--dur-open) var(--blob-ease-out);
 }
 
 .lightbox-image[data-loaded='true'] {
@@ -244,7 +244,7 @@ dialog.lightbox-host::backdrop {
   padding-right: 6px;
   background: var(--surface);
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   color: var(--text);
 }
 
@@ -285,7 +285,7 @@ dialog.lightbox-host::backdrop {
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: var(--surface-icon);
   color: var(--text-3);
 }
@@ -297,7 +297,7 @@ dialog.lightbox-host::backdrop {
 
 .attachment-size {
   margin-top: 1px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-5);
 }
 
@@ -307,21 +307,21 @@ dialog.lightbox-host::backdrop {
   margin-top: 9px;
   padding: 10px 13px;
   border: 1px solid var(--hairline);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-md);
+  border-left: 3px solid var(--blob-accent);
+  border-radius: var(--blob-radius-md);
   background: var(--surface);
 }
 
 .link-preview:hover {
   text-decoration: none;
   border-color: var(--hairline-strong);
-  border-left-color: var(--accent);
+  border-left-color: var(--blob-accent);
 }
 
 .link-preview-title {
   font-size: var(--text-ui);
   font-weight: 600;
-  color: var(--accent);
+  color: var(--blob-accent);
 }
 
 .link-preview-description {
@@ -333,7 +333,7 @@ dialog.lightbox-host::backdrop {
 
 .link-preview-site {
   margin-bottom: 2px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   font-weight: 600;
   color: var(--text-2);
 }
@@ -348,5 +348,5 @@ dialog.lightbox-host::backdrop {
   height: auto;
   margin-top: 8px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
 }
