@@ -95,7 +95,7 @@
 
 .pinned-label {
   font-weight: 600;
-  color: var(--accent);
+  color: var(--blob-accent);
 }
 
 .message-list {

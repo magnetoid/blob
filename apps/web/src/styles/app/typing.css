@@ -43,11 +43,11 @@
    the closed rule is written out, as theirs are, so the exit does not depend on which of
    this and the shared `[data-state="closed"]` happens to come later in the file. */
 .typing-dots {
-  animation: arrive var(--dur-open) var(--ease-out);
+  animation: arrive var(--dur-open) var(--blob-ease-out);
 }
 
 .typing-dots[data-state='closed'] {
-  animation: overlay-out var(--dur-exit) var(--ease-in) forwards;
+  animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
 }
 
 @keyframes typing-dot {

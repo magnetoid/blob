@@ -43,7 +43,7 @@
 
 .page-title {
   margin: 0;
-  font-size: var(--text-xl);
+  font-size: var(--blob-text-xl);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.25;
@@ -63,7 +63,7 @@
 .console-error {
   margin: var(--space-6) 0 0;
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   /* A light tint, and the edge carries the colour: at 8% the dark theme's red on its
      own wash measured 4.63:1, closer to the line than a failure message should sit. */
   background: color-mix(in srgb, var(--danger) 5%, var(--surface));
@@ -77,7 +77,7 @@
    Reduced motion takes --motion-slide to zero and keeps the fade. */
 .admin-page-body {
   margin-top: var(--space-8);
-  animation: console-enter var(--dur-open) var(--ease-out) backwards;
+  animation: console-enter var(--dur-open) var(--blob-ease-out) backwards;
 }
 
 @keyframes console-enter {

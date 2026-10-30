@@ -19,7 +19,7 @@
   font: inherit;
   color: inherit;
   cursor: pointer;
-  border-radius: var(--radius-xs);
+  border-radius: var(--blob-radius-xs);
 }
 
 button.person-trigger:hover {
@@ -54,13 +54,13 @@ button.person-trigger:hover {
 
 .person-card-name {
   font-weight: 600;
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
 }
 
 .person-card-title,
 .person-card-status {
   margin-top: 2px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-3);
 }
 

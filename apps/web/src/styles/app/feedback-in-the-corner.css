@@ -13,7 +13,7 @@
      thread stops shrinking the thing you opened it from. It is still a column at
      ≤768px, where it goes full-bleed. */
   .shell[data-panel='open'] {
-    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    grid-template-columns: var(--blob-sidebar-width) minmax(0, 1fr);
   }
 
   .shell[data-panel='open'] .panel {

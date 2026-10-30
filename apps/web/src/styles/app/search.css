@@ -28,11 +28,11 @@
   padding: 11px 14px;
   background: var(--surface);
   border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
 }
 
 .search-field:focus-within {
-  border-color: var(--accent);
+  border-color: var(--blob-accent);
 }
 
 .search-field input {
@@ -42,7 +42,7 @@
      .composer-box uses. Without this the field had no focus indicator of any kind. */
   outline: none;
   background: transparent;
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   color: var(--text);
 }
 
@@ -69,7 +69,7 @@
 .search-parsed code {
   padding: 2px 7px;
   background: var(--surface-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   font-size: var(--text-label-size);
   color: var(--text-3);
 }
@@ -82,7 +82,7 @@
   padding: 14px;
   background: var(--surface);
   border: 1px solid var(--hairline-soft);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   text-align: left;
   transition: border-color var(--dur-fast) var(--ease-color);
 }
@@ -103,7 +103,7 @@
 }
 
 .search-result-meta {
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-label);
 }
 
@@ -144,7 +144,7 @@
 mark.search-hit {
   padding: 0 0.12em;
   border-radius: 2px;
-  background: var(--accent-wash);
+  background: var(--blob-accent-wash);
   color: inherit;
-  box-shadow: inset 0 -1px 0 var(--accent-border);
+  box-shadow: inset 0 -1px 0 var(--blob-accent-border);
 }

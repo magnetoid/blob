@@ -8,7 +8,7 @@
   text-align: center;
   background: var(--surface-muted);
   border: 1px dashed var(--hairline-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--blob-radius-lg);
   gap: 16px;
   margin: 24px;
 }
@@ -25,7 +25,7 @@
 }
 .work-preview-gate-title {
   font-weight: 500;
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   color: var(--text);
   margin-bottom: 4px;
 }

@@ -4,7 +4,7 @@
 /* A memory's contents, behind a disclosure on its row. */
 .memory-preview {
   margin-top: 6px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
 }
 .memory-preview > summary {
   color: var(--text-3);
@@ -14,7 +14,7 @@
 /* One run in the console's log, opened: what it did and what it was shown. */
 .run-log-detail {
   margin-top: 6px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
 }
 .run-log-detail > summary {
   color: var(--text-3);
@@ -32,7 +32,7 @@
   list-style: none;
 }
 .run-history-when {
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   color: var(--text-4);
 }
 
@@ -48,8 +48,8 @@
 }
 
 .forward-list .menu-item[data-active='true'] {
-  background: var(--accent-wash);
-  color: var(--accent);
+  background: var(--blob-accent-wash);
+  color: var(--blob-accent);
   font-weight: 600;
 }
 

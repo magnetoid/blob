@@ -19,13 +19,13 @@
   background: none;
   padding: 3px;
   margin: -3px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   cursor: pointer;
 }
 
 .topbar-mark-btn .workspace-mark {
   transition:
-    transform var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--blob-ease-out),
     box-shadow var(--dur-fast) var(--ease-color);
 }
 
@@ -220,7 +220,7 @@
     cursor: default;
     /* The drawer slides in over --dur-panel; the dark behind it used to cut in on the
        first frame. It fades in with the drawer now. */
-    animation: fade-in var(--dur-panel) var(--ease-out);
+    animation: fade-in var(--dur-panel) var(--blob-ease-out);
   }
 
   /* The thread panel becomes the pane rather than a sibling of it. */

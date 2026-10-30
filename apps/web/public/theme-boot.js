@@ -6,7 +6,22 @@
 // nonce that needs a server-rendered page, and Blob has neither. Same behaviour — a
 // blocking script in <head> — from a URL the policy already allows.
 try {
-  var saved = JSON.parse(localStorage.getItem("blob.theme") || "null");
+  // `.v2` since the palette is written in shadcn's names: an entry under the old key
+  // holds `--accent` as Blob's brand green, which would now paint shadcn's hover wash.
+  var saved = JSON.parse(localStorage.getItem("blob.theme.v2") || "null");
+  if (!saved) {
+    // The first load after the move has nothing under `.v2` yet. Whoever chose a mode
+    // keeps it — otherwise a viewer who chose dark on a light OS sees a light page until
+    // the bootstrap answers — but only the choice is read from the old entry, never its
+    // tokens: they are Blob's old names.
+    var previous = JSON.parse(localStorage.getItem("blob.theme") || "null");
+    if (
+      previous &&
+      (previous.preference === "light" || previous.preference === "dark")
+    ) {
+      saved = { preference: previous.preference, mode: previous.preference };
+    }
+  }
   if (saved) {
     var root = document.documentElement;
     if (saved.preference && saved.preference !== "system") {
@@ -33,11 +48,13 @@ try {
       tokenNames.push(name);
     }
     root.dataset.themeTokens = tokenNames.join(" ");
+    // Browser chrome follows the page (`--background`), as in lib/theme.ts. This writes the
+    // stored value raw — it may be oklch() or rgb() — and hydration normalises it to hex.
     var themeColor = document.querySelector('meta[name="theme-color"]');
     if (themeColor) {
       themeColor.setAttribute(
         "content",
-        tokens["--accent"] || (mode === "dark" ? "#5fb287" : "#1f5c3d"),
+        tokens["--background"] || (mode === "dark" ? "#0a0a0a" : "#ffffff"),
       );
     }
   } else if (
@@ -45,6 +62,6 @@ try {
     window.matchMedia("(prefers-color-scheme: dark)").matches
   ) {
     var defaultThemeColor = document.querySelector('meta[name="theme-color"]');
-    if (defaultThemeColor) defaultThemeColor.setAttribute("content", "#5fb287");
+    if (defaultThemeColor) defaultThemeColor.setAttribute("content", "#0a0a0a");
   }
 } catch (e) {}

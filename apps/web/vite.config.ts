@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Ask git one question, or give up quietly.
@@ -80,7 +85,12 @@ const commitDate = stamp(
 );
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    // `@/components/ui/*` and `@/lib/utils` — the paths shadcn's CLI writes into the
+    // files it adds. `tsconfig.json` carries the same alias for the type checker.
+    alias: { '@': path.resolve(here, 'src') },
+  },
   /**
    * The build stamps its own identity in. Read once here, in Node, rather than fetched
    * at runtime: a page that describes the build it belongs to must not depend on a

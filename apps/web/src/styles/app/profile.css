@@ -6,7 +6,7 @@
   margin: 14px 0 20px;
   padding: 14px 16px;
   border: 1px solid var(--hairline-soft);
-  border-radius: var(--radius-lg);
+  border-radius: var(--blob-radius-lg);
   background: var(--surface-muted);
 }
 
@@ -17,6 +17,6 @@
 
 .profile-preview-meta {
   margin-top: 2px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-4);
 }

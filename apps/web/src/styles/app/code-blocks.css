@@ -15,10 +15,10 @@
   margin: 0;
   padding: 12px 14px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--surface);
   overflow-x: auto;
-  font-family: var(--font-mono);
+  font-family: var(--blob-font-mono);
   font-size: 0.9em;
   line-height: 1.55;
   tab-size: 2;
@@ -40,7 +40,7 @@
   top: 8px;
   left: 14px;
   color: var(--text-3);
-  font-family: var(--font-mono);
+  font-family: var(--blob-font-mono);
   font-size: var(--text-2xs);
   line-height: 14px;
   letter-spacing: 0.02em;
@@ -63,13 +63,13 @@
   background: var(--surface);
   box-shadow: var(--elev-1);
   color: var(--text-2);
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   font-weight: 600;
   opacity: 0;
   translate: 0 var(--motion-action-enter);
   transition:
-    opacity var(--dur-fast) var(--ease-out),
-    translate var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--blob-ease-out),
+    translate var(--dur-fast) var(--blob-ease-out),
     color var(--dur-fast) var(--ease-color),
     scale var(--dur-fast) var(--ease-standard);
 }
@@ -90,7 +90,7 @@
 }
 
 .code-block[data-copied='true'] .code-block-copy {
-  color: var(--accent);
+  color: var(--blob-accent);
 }
 
 /* Where there is no hover to reveal it, it is always there — so below the block, on a
@@ -113,28 +113,28 @@
    ever emitted by that renderer, so there is nothing else for it to catch. */
 .mention {
   padding: 0 3px;
-  border-radius: var(--radius-xs);
-  background: var(--accent-wash);
-  color: var(--accent);
+  border-radius: var(--blob-radius-xs);
+  background: var(--blob-accent-wash);
+  color: var(--blob-accent);
   font-weight: 600;
 }
 
 .mention[data-me='true'] {
-  background: var(--accent);
-  color: var(--accent-contrast);
+  background: var(--blob-accent);
+  color: var(--blob-accent-contrast);
 }
 
 /* A group reads as a group without needing a second colour: an outline says "more than
    one person" where a filled chip says "a person". */
 .mention[data-kind='group'] {
   background: transparent;
-  box-shadow: inset 0 0 0 1px var(--accent-wash);
+  box-shadow: inset 0 0 0 1px var(--blob-accent-wash);
 }
 
 .mention[data-kind='group'][data-me='true'] {
-  background: var(--accent-wash);
-  box-shadow: inset 0 0 0 1px var(--accent);
-  color: var(--accent);
+  background: var(--blob-accent-wash);
+  box-shadow: inset 0 0 0 1px var(--blob-accent);
+  color: var(--blob-accent);
 }
 
 /* The group's real name, beside its handle in the composer's autocomplete. */
@@ -145,11 +145,11 @@
 
 .message-edited {
   color: var(--text-faint);
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
 }
 
 .message-deleted {
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   font-style: italic;
   color: var(--text-faint);
 }
@@ -162,7 +162,7 @@
   gap: 1px;
   padding: 3px;
   background: var(--surface);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   /* The ring is the first layer of --elev-1, so there is no separate border to
      disagree with it. */
   box-shadow: var(--elev-1);
@@ -177,8 +177,8 @@
   visibility: hidden;
   transform: translateY(var(--motion-action-enter));
   transition:
-    opacity var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--blob-ease-out),
+    transform var(--dur-fast) var(--blob-ease-out),
     visibility var(--dur-fast);
 }
 
@@ -196,7 +196,7 @@
   min-width: 28px;
   height: 28px;
   padding: 0 6px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   color: var(--text-3);
   font-size: var(--text-ui);
 }
@@ -216,7 +216,7 @@
    `aria-pressed` flips, so turning it off again is still. A row that mounts already
    saved plays it too, inside a toolbar nobody can see until they hover. */
 .message-action[aria-pressed='true'] svg {
-  animation: badge-pop var(--dur-fast) var(--ease-out);
+  animation: badge-pop var(--dur-fast) var(--blob-ease-out);
 }
 
 .message-action[data-emoji='true'] {

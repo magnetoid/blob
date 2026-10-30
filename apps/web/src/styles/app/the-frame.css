@@ -43,7 +43,7 @@
 }
 
 .shell[data-panel='open'] {
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width);
+  grid-template-columns: var(--blob-sidebar-width) minmax(0, 1fr) var(--panel-width);
 }
 
 .shell[data-sidebar-collapsed='true'] {
@@ -60,7 +60,7 @@
    bar off the side of a phone. */
 @media (min-width: 901px) {
   .shell[data-panel='open'][data-panel-kind='file'] {
-    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width-file);
+    grid-template-columns: var(--blob-sidebar-width) minmax(0, 1fr) var(--panel-width-file);
   }
 
   .shell[data-sidebar-collapsed='true'][data-panel='open'][data-panel-kind='file'] {

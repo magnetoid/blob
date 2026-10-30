@@ -17,5 +17,5 @@
   padding: 14px;
   background: var(--surface);
   border: 1px solid var(--hairline-soft);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
 }

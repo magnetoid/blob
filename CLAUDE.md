@@ -21,7 +21,8 @@ Read before changing the equivalent code: the traps list in
 FastAPI's 422 vs the client's 400, `isoformat()` precision, the partial display-name
 index, the asyncpg uuid codec, AG-UI's SCREAMING_SNAKE wire values, and the Coolify and
 firewall mistakes that took production down. `.torsor/architecture/decisions/` holds the
-forty-two ADRs; the principles below are their summary, not a substitute. 0013–0020,
+forty-three ADRs; the principles below are their summary, not a substitute. 0043 is the
+design layer (shadcn's look, below) and 0013–0020,
 0022–0030 and 0040 are the agentic surface — chains, work channels, summaries and nudges, the MCP
 caller, whose an agent is, that Blob ships no agent of its own (0019), how an agent hands
 over a file (0020), that an agent may use Blob's tools (0022, which brings back 0017's
@@ -457,25 +458,63 @@ asks for the server's log only when the viewer is the server's administrator. Ol
 survive: `/admin/health` and the rest resolve to `/server/…`, and `/admin/huddles` and
 `/admin/meetups` are the two tabs of `/admin/calls`.
 
-**The design layer.** `styles/tokens.css` is the whole vocabulary and `styles/app.css`
-spends it: colour, type and layout, plus elevation (`--elev-1..3`), radius
-(`--radius-xs..full`), motion (`--dur-*`, `--ease-*`, `--motion-*`), a stacking ladder
-(`--z-raised` … `--z-toast`) and the frame (`--frame-*`, `--elev-frame`, `--ground-*`).
+**The design layer.** The client wears shadcn's preset b0 — Base UI, Lucide, Inter, radius
+`0.625rem`, neutral — and is mid-move: ADR 0043 and
+`docs/superpowers/specs/2026-10-29-shadcn-whole-app-design.md` carry the seven phases,
+of which only the first is built — it changed how every screen looks and no component.
+`styles/index.css` is the one CSS entry, and its layer order is the design:
+`@layer theme, base, legacy, components, utilities`. shadcn's variables are unlayered in
+`styles/theme.css`; `styles/tokens.css` and `styles/app.css` (and `app/`) are Blob's own,
+imported into `@layer legacy` — above Tailwind's preflight, below its utilities, so a
+converted component carries utilities and no legacy rule needs an `!important`. The
+legacy *colour* names (`--bg`, `--text`, `--surface`, `--hairline`, `--danger` …) are
+`var()` bridges onto shadcn's variables until phase 7, which is how an unconverted screen
+wears b0; they follow `--background` into dark by themselves, so the dark blocks name only
+what shadcn has no word for (presence, unread, the backdrop, elevation). Tailwind runs
+with `source(none)` and scans only the `@source` paths that have been converted
+(`components/ui` so far): add a path when its components are rewritten, never before, or
+every class-like string in the legacy markup becomes a utility. A name Tailwind or shadcn
+also owns is theirs — Blob's colliding tokens are `--blob-*` (`--blob-text-*`,
+`--blob-radius-xs..lg`, `--blob-ease-in|out`, `--blob-font-mono`, the whole
+`--blob-accent*` family), `tokenNames.test.ts` fails on a new collision or on a rule under
+`styles/app/` reading a shadcn variable, and preflight is handed back to the legacy CSS by
+the `revert` block that opens `app/base.css` (skipped inside `[data-slot]`). Dark is Blob's
+three states, not shadcn's `.dark` class: `theme.css` writes the palette under both
+`prefers-color-scheme` (unless `data-theme='light'`) and `[data-theme='dark']`, and
+`@custom-variant dark` answers to the same two; nothing may key on `.dark`. Blob's own
+structure tokens are elevation (`--elev-1..3`), radius (`--blob-radius-xs..lg` and
+`--radius-full`, derived from shadcn's `--radius`), motion (`--dur-*`, `--ease-standard`,
+`--blob-ease-*`, `--motion-*`), a stacking ladder (`--z-raised` … `--z-toast`) and the frame
+(`--frame-*`, `--elev-frame`, `--ground-*`). Two light colours depart from b0, both for
+AA: `--muted-foreground` is 0.54 where b0 has 0.556 (b0's own is 4.34:1 on its `--muted`),
+and `--destructive` is `oklch(0.54 0.22 27.3)` where b0 has `0.577 0.245 27.325` (b0's is
+4.13:1 on the 8% tint of itself that Blob's pills and badges sit on): `theme.test.ts`
+measures both.
 Five rules the file will not tell you on its own:
 
-* **The 44 colour names are a contract with the server.** `services/themes.py` allowlists
-  them by string and slices that tuple *by index* to group the theme editor, so renaming
-  or reordering one breaks stored themes and the editor's grouping at once. Everything
-  else in tokens.css is structure and is free. A themed *value* can only be hex or
-  `rgb()` — the grammar refuses `color-mix()` and `oklch()`, though app.css may use them.
+* **The themeable colour names are a contract with the server.** They are shadcn's colour
+  names (`--background`, `--primary`, `--muted-foreground` …) plus Blob's presence and
+  unread extras — 36, allowlisted by string in `services/themes.py` and grouped for the
+  theme editor by name in its `TOKEN_GROUPS`, not by position, so adding one moves nothing.
+  A stored theme is keyed by them, so renaming or dropping one needs a data migration
+  (0078 rekeyed every stored theme and replaced the twelve presets, which a migration
+  holds a frozen copy of — change a preset in a new one, not in 0078; its `downgrade` puts
+  the old names back best-effort, and rolling back an image past it means `alembic
+  downgrade 0077` from the new one first, ADR 0043). A themed *value* is
+  hex, `rgb()` or `oklch()`, literal numbers and ASCII only: the grammar refuses
+  `color-mix()`, `var()` and `calc()`, though app.css may use them. Only colour is
+  themeable; `--radius` and everything else in theme.css and tokens.css is structure and
+  free. Browser chrome (`theme-color`, the manifest) follows `--background`, never
+  `--primary`, and the client replays a palette from `blob.theme.v2`.
 * **Elevation carries its own border.** Every `--elev-*` opens with a `0 0 0 1px` ring, so
   an elevated surface sets `box-shadow` and no `border`. Setting both is how four
   different popover treatments drifted apart before.
 * **The work sits in a frame (Meadow `1a`, since 2026-10).** From 769px `.shell > .pane` —
   every view's root — and `.shell > .panel` — a thread, a file, a terminal — are one paper
   card, inset by `--frame-gap`, rounded `--frame-radius`, shadowed `--elev-frame`, on the
-  ground the top bar and the channel list share (`--bg-sidebar`, which in dark sits
-  *below* the page so the card lifts); the consoles' `.admin-main` is framed the same way.
+  ground the top bar and the channel list share (`--bg-sidebar`, shadcn's `--sidebar`, which
+  in dark is *lighter* than the card — shadcn's arrangement, where Meadow's sat below the
+  page so the card lifted); the consoles' `.admin-main` is framed the same way.
   It is a rule about those selectors with nothing wrapped round them and no
   `overflow: hidden` — the header's menus and the message toolbar overhang the card — so a
   view root sets no margin, radius or background of its own, and anything that paints to

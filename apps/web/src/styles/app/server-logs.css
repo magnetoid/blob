@@ -5,7 +5,7 @@
   /* The level is the thing being scanned for, so it is a stripe rather than a word to
      read: an error and a warning have to be tellable apart without stopping. */
   border-left: 3px solid var(--text-faint);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--surface);
 }
 
@@ -47,7 +47,7 @@
 
 .log-logger,
 .log-route {
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--blob-font-mono, ui-monospace, monospace);
 }
 
 .log-message {
@@ -67,10 +67,10 @@
 .log-detail {
   margin: 8px 0 0;
   padding: 10px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: var(--surface-hover);
   color: var(--text-4);
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--blob-font-mono, ui-monospace, monospace);
   font-size: 12px;
   line-height: 1.5;
   /* A traceback is wide and must scroll inside its own box rather than stretching the
@@ -88,7 +88,7 @@
   margin: 0 0 12px;
   padding: 14px 16px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
+  border-radius: var(--blob-radius-lg);
   background: var(--surface-muted);
   overflow-x: auto;
   font-size: 13px;
@@ -98,7 +98,7 @@
 }
 
 .admin-command-block code {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--blob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   background: none;
   padding: 0;
 }

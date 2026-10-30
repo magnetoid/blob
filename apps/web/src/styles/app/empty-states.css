@@ -12,7 +12,7 @@
    console section, or a tab or a filter inside one — and switching stays instant, so an
    empty state there simply appears. */
 .empty-state[data-arriving='true'] {
-  animation: arrive var(--dur-open) var(--ease-out);
+  animation: arrive var(--dur-open) var(--blob-ease-out);
 }
 
 /* And never in a conversation, a search or the channel browser, even on that first view:
@@ -32,22 +32,22 @@
   width: 44px;
   height: 44px;
   margin: 0 auto 18px;
-  border-radius: var(--radius-lg);
-  background: var(--accent-wash-soft);
-  color: var(--accent);
-  font-size: var(--text-lg);
+  border-radius: var(--blob-radius-lg);
+  background: var(--blob-accent-wash-soft);
+  color: var(--blob-accent);
+  font-size: var(--blob-text-lg);
   font-weight: 600;
 }
 
 .empty-state-title {
-  font-size: var(--text-lg);
+  font-size: var(--blob-text-lg);
   font-weight: 600;
   letter-spacing: -0.015em;
 }
 
 .empty-state-body {
   margin-top: 8px;
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   line-height: 1.6;
   color: var(--text-3);
   text-wrap: pretty;
@@ -69,7 +69,7 @@
   font-size: var(--text-meta);
   color: var(--text-3);
   /* News about the connection, so it arrives rather than cuts in over the conversation. */
-  animation: arrive var(--dur-open) var(--ease-out);
+  animation: arrive var(--dur-open) var(--blob-ease-out);
 }
 
 .message-delivery {
@@ -97,26 +97,26 @@
   max-width: 560px;
   margin-top: 8px;
   padding: 11px 13px;
-  border: 1px solid var(--accent-border-soft);
-  border-radius: var(--radius-md);
-  background: var(--accent-wash-soft);
+  border: 1px solid var(--blob-accent-border-soft);
+  border-radius: var(--blob-radius-md);
+  background: var(--blob-accent-wash-soft);
 }
 
 .message-translation-meta {
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-4);
 }
 
 .message-translation-text {
   margin-top: 6px;
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
   line-height: 1.6;
   color: var(--text-2);
   white-space: pre-wrap;
 }
 
 .message-translation-error {
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--danger);
 }
 

@@ -60,12 +60,12 @@
 
 .file-preview-document h1,
 .work-document h1 {
-  font-size: var(--text-xl);
+  font-size: var(--blob-text-xl);
 }
 
 .file-preview-document h2,
 .work-document h2 {
-  font-size: var(--text-lg);
+  font-size: var(--blob-text-lg);
 }
 
 .file-preview-document h3,
@@ -83,8 +83,8 @@
   margin: 0;
   padding: 14px var(--pane-gutter);
   overflow: auto;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-family: var(--blob-font-mono);
+  font-size: var(--blob-text-sm);
   line-height: 1.55;
   color: var(--text-body);
   white-space: pre;
@@ -98,7 +98,7 @@
 
 .file-preview-table {
   border-collapse: collapse;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-body);
 }
 
@@ -131,7 +131,7 @@
 .file-preview-note,
 .file-preview-status {
   padding: 12px var(--pane-gutter);
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-4);
 }
 
@@ -153,7 +153,7 @@
 
 /* A unified diff, drawn. Colour is the only thing added to the text. */
 .diff-view {
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   box-shadow: 0 0 0 1px var(--hairline); /* borders over shadows: only the frame, the composer and overlays float */
   overflow: hidden;
 }
@@ -162,7 +162,7 @@
   display: flex;
   gap: 10px;
   padding: 6px 12px;
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   font-variant-numeric: tabular-nums;
   border-bottom: 1px solid var(--line);
 }
@@ -179,8 +179,8 @@
   margin: 0;
   padding: 10px 0;
   overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-family: var(--blob-font-mono);
+  font-size: var(--blob-text-sm);
   line-height: 1.45;
 }
 
@@ -199,8 +199,8 @@
 }
 
 .diff-hunk {
-  color: var(--accent);
-  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  color: var(--blob-accent);
+  background: color-mix(in oklab, var(--blob-accent) 8%, transparent);
 }
 
 .diff-file {
@@ -212,20 +212,20 @@
 }
 
 .pane-call-btn[data-live='true'] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-contrast);
+  background: var(--blob-accent);
+  border-color: var(--blob-accent);
+  color: var(--blob-accent-contrast);
 }
 
 .pane-call-btn[data-live='true']:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+  background: var(--blob-accent-hover);
+  border-color: var(--blob-accent-hover);
 }
 
 .pane-call-btn[data-mine='true'] {
-  background: var(--accent-wash);
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--blob-accent-wash);
+  border-color: var(--blob-accent);
+  color: var(--blob-accent);
 }
 
 .call-faces {
@@ -237,7 +237,7 @@
   margin-left: -6px;
   border-radius: var(--radius-full);
   box-shadow: 0 0 0 2px var(--bg);
-  animation: badge-pop var(--dur-fast) var(--ease-out) both;
+  animation: badge-pop var(--dur-fast) var(--blob-ease-out) both;
 }
 
 .call-faces-more {
@@ -247,6 +247,6 @@
   height: 20px;
   padding: 0 4px;
   background: var(--surface-hover-deep);
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   font-variant-numeric: tabular-nums;
 }

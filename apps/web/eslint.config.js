@@ -36,5 +36,13 @@ export default tseslint.config(
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/immutability': 'warn',
     },
+  },
+  {
+    // shadcn's generated components export their `cva` variants beside the component
+    // (`export { Button, buttonVariants }`), which is the shape its CLI writes and
+    // overwrites on update. Fast refresh falling back to a full reload on an edit to one
+    // of these files costs nothing worth reshaping the files for.
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   }
 );

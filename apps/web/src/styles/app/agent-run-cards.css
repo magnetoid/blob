@@ -9,10 +9,10 @@
   padding: 12px 14px;
   border: 1px solid var(--iris-border);
   border-left: 3px solid var(--iris);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--iris-surface);
   max-width: 560px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   /* A run reaching its status: the rail's colour settles over a beat rather than
      flattening in one frame. The border colour is what travels; the fill still steps
      (a card may move its border colour and shadow, not its background), and a width
@@ -129,7 +129,7 @@
 
 .agent-run-lineage {
   color: var(--text-4);
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   white-space: nowrap;
 }
 
@@ -138,7 +138,7 @@
    where. */
 .agent-run-chain {
   margin-top: 6px;
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   color: var(--text-3);
   overflow-wrap: anywhere;
 }
@@ -165,7 +165,7 @@
 }
 .agent-run-decision-prompt {
   margin: 0 0 6px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-2);
   overflow-wrap: anywhere;
   /* An approval quotes what would be posted, or lists what a server's tool would be
@@ -190,7 +190,7 @@
    lines at most, since the note is a reason to wait and not the answer. */
 .agent-run-note {
   margin: 6px 0 0;
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   color: var(--text-3);
   overflow-wrap: anywhere;
   display: -webkit-box;
@@ -203,7 +203,7 @@
 /* What the run was shown: one quiet line under what it did. */
 .agent-run-seen {
   margin-top: 6px;
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   color: var(--text-4);
   overflow-wrap: anywhere;
 }
@@ -262,27 +262,27 @@
 .agent-run-tool summary code {
   /* A tool call names something real — a channel, a query, a file — so it is set as
      code on its own chip, the way the rest of the app sets an identifier. */
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-family: var(--blob-font-mono);
+  font-size: var(--blob-text-xs);
   color: var(--iris-text);
   background: var(--iris-surface-2);
   border: 1px solid var(--iris-border-soft);
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   padding: 2px 7px;
 }
 
 .agent-run-tool-state {
   color: var(--text-4);
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
 }
 
 .agent-run-io {
   margin: 6px 0 4px;
   padding: 8px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: var(--surface);
   border: 1px solid var(--iris-border-soft);
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 180px;
@@ -303,7 +303,7 @@
   max-height: 7.5em;
   margin-top: 8px;
   overflow: hidden;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   line-height: 1.5;
   color: var(--text-3);
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 2.5em);
@@ -316,7 +316,7 @@
 }
 
 .agent-run-reasoning-toggle {
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   padding: 2px 6px;
 }
 
@@ -331,7 +331,7 @@
    which then cut through the line. The row's bottom padding is the gap. */
 .agent-run-line {
   margin: 0 var(--pane-gutter) 2px calc(var(--pane-gutter) + 48px);
-  font-size: var(--text-xs);
+  font-size: var(--blob-text-xs);
   line-height: 1.45;
   color: var(--text-4);
 }
@@ -348,7 +348,7 @@
   gap: 1px;
   margin-left: 6px;
   padding: 0 2px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--blob-radius-xs);
   font-size: inherit;
   line-height: inherit;
   transition: color var(--dur-fast) var(--ease-color);
@@ -371,7 +371,7 @@
 .agent-run-line-work {
   max-width: 560px;
   padding-bottom: 6px;
-  font-size: var(--text-sm);
+  font-size: var(--blob-text-sm);
   color: var(--text-2);
 }
 

@@ -352,7 +352,10 @@ services:
   # `livekit_not_configured`.
   #
   # Signalling is an ordinary WebSocket, so once it has a domain Traefik terminates TLS
-  # and forwards to 7880 with nothing special needed. Media is not. WebRTC is UDP
+  # and forwards to 7880 with nothing special needed. The domain may be a path on the
+  # app's own, `https://chat.example.com/livekit` with Coolify stripping the prefix:
+  # the client keeps the path when it appends `/rtc`, and a same-origin address needs no
+  # DNS record, no certificate and nothing in the CSP. Media is not. WebRTC is UDP
   # and a reverse proxy only speaks TCP, so 7882/udp is published straight onto the host
   # and **must be open in the firewall**. Miss that and a call connects, shows both
   # participants, and carries no sound — the failure looks like a bug in the app.
@@ -398,13 +401,21 @@ services:
       # which parses to an empty one, per the warnings above — could only buy a webhook
       # LiveKit can never reach, degrading presence to the once-a-minute sweep with no
       # signal at all. Missing PUBLIC_URL should fail loudly, not quietly here too.
-      - 'LIVEKIT_CONFIG=webhook: {api_key: "${LIVEKIT_API_KEY:-devkey}", urls: ["${PUBLIC_URL}/api/calls/livekit"]}'
+      #
+      # `rtc.node_ip` is the address LiveKit tells browsers to send media to. Left empty
+      # it is worked out, and inside a container that means the bridge address — a
+      # 172.x nobody outside the host can reach, so a call connects, shows everyone and
+      # is silent. On a host with one public address, set `LIVEKIT_NODE_IP` to it.
+      #
+      # `rtc.tcp_port` is the TCP fallback LiveKit advertises; it has to match the host
+      # side of the mapping below, so it comes from the same variable.
+      - 'LIVEKIT_CONFIG={webhook: {api_key: "${LIVEKIT_API_KEY:-devkey}", urls: ["${PUBLIC_URL}/api/calls/livekit"]}, rtc: {node_ip: "${LIVEKIT_NODE_IP:-}", tcp_port: ${LIVEKIT_TCP_PORT:-7881}}}'
     ports:
-      # Media, and the TCP fallback for clients whose network blocks UDP outright.
-      # `LIVEKIT_TCP_PORT` moves only the host side: LiveKit still advertises 7881, so
-      # a host port that differs from it also needs `rtc.tcp_port` in a LiveKit config.
+      # Media, and the TCP fallback for clients whose network blocks UDP outright. Both
+      # ports are named on both sides because LiveKit advertises what it binds; a second
+      # instance on the same host sets its own `LIVEKIT_UDP_PORT` and `LIVEKIT_TCP_PORT`.
       - '${LIVEKIT_UDP_PORT:-7882}:${LIVEKIT_UDP_PORT:-7882}/udp'
-      - '${LIVEKIT_TCP_PORT:-7881}:7881'
+      - '${LIVEKIT_TCP_PORT:-7881}:${LIVEKIT_TCP_PORT:-7881}'
 
   # Janus, when this deployment wants it. Off unless COMPOSE_PROFILES=janus, for the same
   # reason LiveKit is: on 2026-09-11 an optional service that could not start stopped the

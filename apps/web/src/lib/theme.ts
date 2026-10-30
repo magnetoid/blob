@@ -11,9 +11,39 @@
  */
 
 import type { Theme, UserPrefs } from '@blob/shared';
+import { toHex } from './color.ts';
 
-/** Mirrors the chosen palette so the pre-hydration script can avoid a flash. */
-const STORAGE_KEY = 'blob.theme';
+/**
+ * Mirrors the chosen palette so the pre-hydration script can avoid a flash.
+ *
+ * `.v2` because the palette is written in shadcn's names now. Under the old key a stored
+ * `--accent` meant Blob's brand green; replayed under the new names it would paint
+ * shadcn's hover wash, so the old entry is never read again (`public/theme-boot.js`
+ * reads this key too, and `applyTheme` removes the other).
+ */
+const STORAGE_KEY = 'blob.theme.v2';
+const LEGACY_STORAGE_KEY = 'blob.theme';
+
+/**
+ * Preset b0's colours as hex, for what is drawn with a theme's colours but cannot wear
+ * its stylesheet — browser chrome, an editor swatch, a palette preview — whenever a
+ * theme leaves one unset. `styles/theme.test.ts` holds these to `styles/theme.css`,
+ * and `public/theme-boot.js` repeats the `--background` pair.
+ */
+export const B0_HEX = {
+  light: {
+    '--background': '#ffffff',
+    '--sidebar': '#fafafa',
+    '--muted': '#f5f5f5',
+    '--primary': '#171717',
+  },
+  dark: {
+    '--background': '#0a0a0a',
+    '--sidebar': '#171717',
+    '--muted': '#262626',
+    '--primary': '#e5e5e5',
+  },
+} as const;
 
 export interface ThemeChoice {
   mode: 'light' | 'dark';
@@ -86,12 +116,15 @@ function writeTheme(choice: ThemeChoice, preference: UserPrefs['theme']): void {
 
   // Native controls and scrollbars follow color-scheme, not our tokens.
   root.style.colorScheme = choice.mode;
-  const accent =
-    choice.tokens['--accent'] ??
-    (choice.mode === 'dark' ? '#5fb287' : '#1f5c3d');
+  // The browser's own bar wears the page's colour, not the brand's: b0's `--primary` is
+  // near-black in light and near-white in dark, a stark band over the page in both. A
+  // hex, because not every engine reads `oklch()` in a <meta>.
+  const chrome =
+    toHex(choice.tokens['--background'] ?? '') ??
+    B0_HEX[choice.mode]['--background'];
   document
     .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-    ?.setAttribute('content', accent);
+    ?.setAttribute('content', chrome);
 }
 
 /**
@@ -119,6 +152,7 @@ export function applyTheme(
           : undefined,
       }),
     );
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch {
     // Private browsing or a full quota: the theme still applies, it just flashes
     // on the next load.

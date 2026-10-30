@@ -10,7 +10,7 @@
      round thing next to a name can only ever mean presence. */
   border-radius: 10px;
   background: var(--avatar-bg);
-  color: var(--accent);
+  color: var(--blob-accent);
   /* One letter now (Avatar.tsx), so it can be read: two at this size were 10.5px. */
   font-size: 13px;
   font-weight: 700;
@@ -40,11 +40,11 @@
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  transition: opacity var(--dur-open) var(--ease-out);
+  transition: opacity var(--dur-open) var(--blob-ease-out);
 }
 
 .avatar-initials {
-  transition: opacity var(--dur-open) var(--ease-out);
+  transition: opacity var(--dur-open) var(--blob-ease-out);
 }
 
 .avatar img[data-loaded] {

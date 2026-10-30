@@ -56,8 +56,10 @@ torsor guard --strict --severity error $(git ls-files '*.py')
   both, and run `pnpm openapi` after any change to a route's shape.
 - **Migrations are numbered in sequence.** Run `uv run alembic heads` before writing a
   `down_revision`; a second head fails every test at setup.
-- **The 44 colour token names** in `styles/tokens.css` are a by-index contract with
-  `services/themes.py`. Do not rename or reorder them.
+- **The themeable colour names** — shadcn's, plus Blob's presence and unread colours — are a
+  contract with `services/themes.py` (ADR 0043), and stored themes are keyed by them. Do
+  not rename or drop one without a data migration; the groups are written out by name, so
+  adding one moves nothing.
 - **Agents are reached through AG-UI and the tool catalogue**, never through anything
   specific to one agent. Janus, the agent Blob seeds, is a separate project with its own
   releases; a feature that only Janus could use does not belong here.

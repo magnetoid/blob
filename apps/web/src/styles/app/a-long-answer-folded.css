@@ -43,18 +43,18 @@
   gap: 4px;
   margin: 4px 0 0 -6px;
   padding: 2px 6px;
-  border-radius: var(--radius-xs);
-  color: var(--accent);
+  border-radius: var(--blob-radius-xs);
+  color: var(--blob-accent);
   font-size: var(--text-meta);
   font-weight: 600;
   line-height: 1.4;
   transition:
     background var(--dur-fast) var(--ease-color),
-    scale var(--dur-fast) var(--ease-out);
+    scale var(--dur-fast) var(--blob-ease-out);
 }
 
 .reply-fold-toggle:hover {
-  background: var(--accent-wash);
+  background: var(--blob-accent-wash);
 }
 
 .reply-fold-toggle:active {

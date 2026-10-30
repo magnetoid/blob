@@ -34,7 +34,7 @@
   width: 34px;
   height: 34px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   display: grid;
   place-items: center;
   background: var(--surface-icon);
@@ -74,7 +74,7 @@
 }
 
 .consent-facts li[data-tone='ok']::before {
-  background: var(--accent);
+  background: var(--blob-accent);
 }
 
 .consent-facts li[data-tone='warn']::before {

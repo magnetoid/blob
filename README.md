@@ -687,13 +687,15 @@ set `COMPOSE_PROFILES=meetups` alongside the values below. Leave these empty and
 answers `livekit_not_configured` while everything else carries on.
 
 Per-workspace controls — each kind on or off, cameras and screens, the participant cap —
-live in the console at **Admin → Huddles** and **Admin → Video meetups**, and the second
-also says whether LiveKit is actually reachable.
+live in the console at **Workspace settings → Calls**, a tab for each kind, which also says
+whether LiveKit is actually reachable.
 
 | Variable | Notes |
 |---|---|
 | `LIVEKIT_URL` | What the **browser** dials, so the public `wss://` address, never the container name. `ws://localhost:7880` in dev. |
 | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | `docker run --rm livekit/livekit-server generate-keys`. Dev mode mints `devkey` / `secret`, which are not secrets. |
+| `LIVEKIT_NODE_IP` | Production compose only: the host's public address, which LiveKit tells browsers to send media to. Left empty, LiveKit in a container advertises its bridge address and every call is silent. |
+| `LIVEKIT_UDP_PORT`, `LIVEKIT_TCP_PORT` | Production compose only: `7882` and `7881`. A second stack on the same host sets its own pair. |
 | `LIVEKIT_API_URL` | Optional: where **Blob itself** reaches LiveKit's API, when that differs from `LIVEKIT_URL` — the stack's own network, `http://livekit:7880`, in the production compose. |
 
 LiveKit's webhook has to reach Blob at `<PUBLIC_URL>/api/calls/livekit`, and both compose
@@ -706,9 +708,15 @@ brew install livekit
 livekit-server --dev --config-body 'webhook: {api_key: devkey, urls: ["http://localhost:3000/api/calls/livekit"]}'
 ```
 
-Signalling is an ordinary WebSocket and a reverse proxy carries it. Media is not: WebRTC is
+Signalling is an ordinary WebSocket and a reverse proxy carries it. It can live on a path of
+Blob's own domain — give the `livekit` service `https://chat.example.com/livekit` in Coolify,
+which strips the prefix, and set `LIVEKIT_URL=wss://chat.example.com/livekit` — so it needs
+no DNS record or certificate of its own. On a separate domain the content security policy
+allows `LIVEKIT_URL`'s origin by itself. Media is not: WebRTC is
 UDP and a proxy only speaks TCP, so the stack publishes **7882/udp** straight onto the host
-and that port has to be open in the firewall. Miss it and a call connects, shows everyone
+and that port has to be reachable. A port Docker publishes passes through Docker's own
+chains rather than the host's INPUT rules, so a firewall in front of the machine is what
+usually stands in the way. Miss it and a call connects, shows everyone
 present, and carries no sound. A second Blob stack on the same machine needs its own
 `LIVEKIT_UDP_PORT` and `LIVEKIT_TCP_PORT`, both opened in the firewall.
 

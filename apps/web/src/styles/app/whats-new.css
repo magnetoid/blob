@@ -4,7 +4,7 @@
   width: 6px;
   height: 6px;
   border-radius: var(--radius-full);
-  background: var(--accent);
+  background: var(--blob-accent);
   flex: none;
 }
 
@@ -57,7 +57,7 @@
 }
 
 .release-version {
-  font-family: var(--font-mono);
+  font-family: var(--blob-font-mono);
   font-size: var(--text-label-size);
   font-variant-numeric: tabular-nums;
   color: var(--text-3);

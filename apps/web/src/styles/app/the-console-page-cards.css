@@ -19,7 +19,7 @@
   --card-pad-x: var(--space-6);
   --card-pad-y: var(--space-5);
   padding: var(--card-pad-y) var(--card-pad-x);
-  border-radius: var(--radius-lg);
+  border-radius: var(--blob-radius-lg);
   background: var(--surface);
   box-shadow: var(--elev-1);
   overflow: clip;
@@ -190,7 +190,7 @@
 .console-details > summary {
   cursor: pointer;
   width: fit-content;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
 }
 
 .console-details[open] > summary {
@@ -432,7 +432,7 @@
   display: block;
   width: 100%;
   text-align: left;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
 }
 
 /* What such a row opens: a Replay, a payload. */
@@ -470,14 +470,14 @@
   flex: none;
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   box-shadow: inset 0 0 0 1px rgb(var(--shadow-ink) / 12%);
 }
 
 /* The console's inputs show focus as a ring, the way the nav's filter does, rather than
    as a one-pixel change of hue. */
 .admin-page :is(.input, .agentic-textarea):focus {
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: 0 0 0 1px var(--blob-accent);
 }
 
 /* The profile's fields, two across where the card has room: name beside full name,

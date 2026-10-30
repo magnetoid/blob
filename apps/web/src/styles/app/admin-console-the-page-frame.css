@@ -15,7 +15,7 @@
      padding its box keeps clear under it are one number, so they cannot drift apart. */
   --table-head-height: 32px;
   display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-columns: var(--blob-sidebar-width) minmax(0, 1fr);
   /* Same top row as the chat shell, because the account menu lives in it and a menu
      that exists in only some views is a menu people lose. */
   grid-template-rows: var(--topbar-height) minmax(0, 1fr);
@@ -24,7 +24,7 @@
   /* The ground, as in the chat shell: the page is the paper card (`.admin-main`). */
   background: var(--bg-sidebar);
   color: var(--text);
-  font-size: var(--text-base);
+  font-size: var(--blob-text-base);
 }
 
 .admin-nav {

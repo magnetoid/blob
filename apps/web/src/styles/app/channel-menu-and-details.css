@@ -8,7 +8,7 @@
   left: 0;
   min-width: 232px;
   padding: 5px;
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
   background: var(--surface-2);
   box-shadow: var(--elev-2);
 }
@@ -46,7 +46,7 @@
   width: 100%;
   padding: 7px 9px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: none;
   color: var(--text);
   font: inherit;
@@ -82,7 +82,7 @@
 .menu-check {
   flex: none;
   width: 14px;
-  color: var(--accent);
+  color: var(--blob-accent);
 }
 
 .menu-sep {
@@ -99,7 +99,7 @@
   padding: 2px 6px 2px 4px;
   margin-left: -4px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: none;
   color: inherit;
   font: inherit;
@@ -111,7 +111,7 @@
 }
 
 .pane-star {
-  color: var(--accent);
+  color: var(--blob-accent);
   font-size: 13px;
 }
 
@@ -128,7 +128,7 @@
   max-height: 200px;
   padding: 4px;
   border: 1px solid var(--hairline-soft);
-  border-radius: var(--radius-md);
+  border-radius: var(--blob-radius-md);
 }
 
 .member-row {
@@ -138,7 +138,7 @@
   width: 100%;
   padding: 6px 7px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--blob-radius-sm);
   background: none;
   color: var(--text);
   font: inherit;
