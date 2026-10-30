@@ -111,6 +111,27 @@ def _contrast(text: str, ground: str) -> float:
     return (lighter + 0.05) / (darker + 0.05)
 
 
+#: Red text on a wash of its own red — a role pill, a task badge, a bug ticket — as
+#: (share of red, the ground the wash is mixed over). The CSS mixes these with
+#: `color-mix(in srgb, var(--danger) N%, …)`, at 8% and in one place 9%; a pill over a
+#: muted panel is the thinnest case, so it is listed at the share it is drawn with.
+DESTRUCTIVE_TINTS = [
+    (0.09, "--background"),
+    (0.09, "--card"),
+    (0.08, "--muted"),
+]
+
+
+def _mix(colour: str, ground: str, share: float) -> str:
+    """`color-mix(in srgb, colour share, ground)`, rounded to the hex a browser draws."""
+    a, b = colour.lstrip("#"), ground.lstrip("#")
+    channels = (
+        round(int(a[i : i + 2], 16) * share + int(b[i : i + 2], 16) * (1 - share))
+        for i in (0, 2, 4)
+    )
+    return "#" + "".join(f"{value:02x}" for value in channels)
+
+
 @pytest_asyncio.fixture
 async def team(client: Client) -> dict:
     owner = await sign_up(client, "Owner")
@@ -224,6 +245,18 @@ def test_every_preset_is_readable(preset: dict) -> None:
         f"{text} on {ground}": round(_contrast(palette[text], palette[ground]), 2)
         for text, ground in READABLE_PAIRS
         if _contrast(palette[text], palette[ground]) < 4.5
+    }
+    assert not low, f"{preset['slug']} is under 4.5:1 for {low}"
+
+
+@pytest.mark.parametrize("preset", PRESETS, ids=lambda preset: preset["slug"])
+def test_every_preset_reads_on_its_own_red(preset: dict) -> None:
+    palette = {**(B0_LIGHT_HEX if preset["mode"] == "light" else B0_DARK_HEX), **preset["tokens"]}
+    red = palette["--destructive"]
+    low = {
+        f"--destructive on {round(share * 100)}% of itself over {ground}": round(ratio, 2)
+        for share, ground in DESTRUCTIVE_TINTS
+        if (ratio := _contrast(red, _mix(red, palette[ground], share))) < 4.5
     }
     assert not low, f"{preset['slug']} is under 4.5:1 for {low}"
 

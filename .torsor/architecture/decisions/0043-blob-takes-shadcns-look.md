@@ -109,7 +109,8 @@ shadcn's colour names.**
   migration overwrites the twelve shipped presets by slug with a frozen copy — Paper and
   Midnight are b0 light and dark exactly and set nothing, and the other ten are adjusted
   until every text pair, destructive on the sidebar included, is 4.5:1 against b0's values
-  for what they leave unset (`tests/test_themes.py` holds it from then on). None was
+  for what they leave unset, and their red reads at 4.5:1 on the 8–9% wash of itself that
+  pills and badges are drawn on (`tests/test_themes.py` holds both from then on). None was
   retired: nobody's chosen theme falls back silently. The rewrite is safe to meet twice —
   a dict that already holds a name only the new vocabulary has is left alone — and
   `downgrade` is a best-effort inverse, not a no-op (see "Rolling back" below). The client

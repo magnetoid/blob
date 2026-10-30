@@ -317,7 +317,7 @@ PRESET_TOKENS: dict[str, dict[str, str]] = {
         "--sidebar-ring": "#7a4f22",
         "--border": "#e6ddcd",
         "--sidebar-border": "#e6ddcd",
-        "--destructive": "#d8000b",
+        "--destructive": "#c9000a",
     },
     "harbour": {
         "--background": "#fafbfd",
@@ -336,7 +336,7 @@ PRESET_TOKENS: dict[str, dict[str, str]] = {
         "--sidebar-ring": "#14508c",
         "--border": "#d9e2ee",
         "--sidebar-border": "#d9e2ee",
-        "--destructive": "#d9000b",
+        "--destructive": "#cc000a",
     },
     "sage": {
         "--background": "#f9fbf8",
@@ -355,7 +355,7 @@ PRESET_TOKENS: dict[str, dict[str, str]] = {
         "--sidebar-ring": "#2f6344",
         "--border": "#dbe4da",
         "--sidebar-border": "#dbe4da",
-        "--destructive": "#da000b",
+        "--destructive": "#cd000a",
     },
     "blossom": {
         "--background": "#fdfafc",
@@ -374,7 +374,7 @@ PRESET_TOKENS: dict[str, dict[str, str]] = {
         "--sidebar-ring": "#7d2f56",
         "--border": "#e9d8e2",
         "--sidebar-border": "#e9d8e2",
-        "--destructive": "#d7000b",
+        "--destructive": "#cc000a",
     },
     "plum": {
         "--background": "#17121a",
