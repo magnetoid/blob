@@ -2,8 +2,8 @@
 /**
  * Are you sure? — shadcn's alert dialog, in the words the caller chose.
  *
- * The overlay chunk is already here (`src/test/setup.ts`), so the question is drawn in the
- * render that asked it.
+ * The overlay chunk is already here (`src/test/overlayChunk.ts`), so the question is drawn
+ * in the render that asked it.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';

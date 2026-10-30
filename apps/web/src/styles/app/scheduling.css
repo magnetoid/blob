@@ -18,11 +18,11 @@
   padding-bottom: 0;
 }
 
-/* Hangs above the composer, which sits at the bottom of the window. */
+/* Hangs above the composer, which sits at the bottom of the window, from the right edge
+   of the clock (components/overlays/MenuImpl.tsx reads these). */
 .schedule-menu {
-  top: auto;
-  bottom: calc(100% + 6px);
-  right: 0;
-  left: auto;
+  --menu-side: top;
+  --menu-align: end;
+  --menu-gap: 6px;
   min-width: 232px;
 }

@@ -7,6 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import '../test/overlayChunk.ts';
 
 const getUser = vi.fn();
 vi.mock('../lib/api.ts', async (importOriginal) => {

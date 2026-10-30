@@ -151,11 +151,12 @@ describe('styles/index.css', () => {
     readFileSync(join(STYLES, 'index.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
   /**
-   * Directories Tailwind may scan, relative to `src/`. A phase that converts a path adds
-   * it here in the same commit as its `@source` — the point of the list is that adding
-   * one is deliberate.
+   * Directories and files Tailwind may scan, relative to `src/`. A phase that converts a
+   * path adds it here in the same commit as its `@source` — the point of the list is that
+   * adding one is deliberate. `components/Menu.tsx` is one file, not `components/`, which
+   * still holds legacy markup.
    */
-  const CONVERTED = ['components/ui', 'components/overlays'];
+  const CONVERTED = ['components/ui', 'components/overlays', 'components/Menu.tsx'];
 
   it('scans only converted paths', () => {
     const css = indexCss();

@@ -2,10 +2,10 @@
  *
  * Three menus grew three private copies of the same dismissal wiring, and no two got
  * it quite alike. This is the house contract, once: dismissed by a click *outside*
- * the panel — decided by `ref.contains`, never "any click" — or by Escape, with both
- * suspended while the caller has a dialog up, because a dialog rendered beside the
- * panel is "outside" by that test and would be unmounted by the very click that
- * asked for it. See the ChannelMenu trap note in `.torsor/active/context.md`.
+ * the panel — decided by `contains`, never "any click" — by Escape, or by focus moving
+ * out of it, with all three suspended while the caller has a dialog up, because a dialog
+ * rendered beside the panel is "outside" by that test and would be unmounted by the very
+ * click that asked for it. See the ChannelMenu trap note in `.torsor/active/context.md`.
  *
  * Escape goes through `lib/useEscape`, which owns one capture-phase listener and a stack,
  * so the key stops here instead of also reaching the shell.
@@ -13,21 +13,23 @@
  * The trigger stays with the caller: what opens a menu is one-off (an avatar, a
  * workspace name, a channel title) and what closes one is not. The panel keeps the
  * caller's own class so each menu's existing CSS continues to key on its own name.
+ *
+ * The panel is shadcn's DropdownMenu, which is Base UI's Menu, and lives in the overlay
+ * chunk (`components/overlays/MenuImpl.tsx`): it places the panel, turns it over and caps
+ * it where there is no room, plays its exit and moves focus to its first item. This file is
+ * what the first load carries — the contract above, and a zero-size anchor where the panel
+ * used to sit, which the panel is drawn into and hangs from. The contract lives here rather
+ * than in the chunk so it holds from the first click: a menu opened before the chunk lands
+ * already answers Escape and a click outside, and opens once the chunk is here.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { usePresence } from '../lib/usePresence.ts';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { lazyOverlay } from './lazyOverlay.tsx';
 import { useEscape } from '../lib/useEscape.ts';
-import { fitPanel, type Fit } from '../lib/menuFit.ts';
+import { FALLBACK_MS } from '../lib/usePresence.ts';
 
-/** The nearest ancestor that clips what overflows it — the conversation's scroll area, a
- *  thread panel — or null, when only the viewport does. */
-function clippingAncestor(node: HTMLElement): HTMLElement | null {
-  for (let el = node.parentElement; el; el = el.parentElement) {
-    if (getComputedStyle(el).overflowY !== 'visible') return el;
-  }
-  return null;
-}
+/** Base UI's root, portal, positioner and popup, from the overlay chunk. */
+const MenuPanel = lazyOverlay((m) => m.MenuImpl);
 
 /** Every focusable menu item, in DOM order. Disabled ones cannot take focus, so
  *  offering them to the arrows would strand the roving focus on the way past. */
@@ -51,47 +53,59 @@ export function Menu({
   suspendDismiss = false,
   children,
 }: Props) {
-  const panelRef = useRef<HTMLDivElement>(null);
+  // Where the panel used to sit. It is drawn inside this — so `contains` on it is "inside
+  // the panel" — and hangs from the box this is positioned in, the caller's own wrapper.
+  const anchorRef = useRef<HTMLSpanElement>(null);
   // Whatever held focus when the menu opened — the trigger, wherever the browser left
   // it. Focus goes back there on close so a keyboard user is not stranded on <body>.
   const openerRef = useRef<HTMLElement | null>(null);
-  const { present, state } = usePresence(open, panelRef);
-  const [fit, setFit] = useState<Fit>({ above: false, maxHeight: null });
+  // True for the moment focus is being sent home, which is a close and not a reason for one.
+  const goingHomeRef = useRef(false);
+  // Set when focus moving out closed the menu: it is on its way somewhere the person sent it
+  // — mid-move, so `document.activeElement` is still <body> — and is not brought back.
+  const focusLeftRef = useRef(false);
 
-  // Where the panel goes so all of it can be seen (`lib/menuFit.ts`). Before paint, so a
-  // panel that belongs above its trigger is never drawn below it first; once per opening,
-  // and nothing is measured while it stays open.
-  useLayoutEffect(() => {
-    if (!open) return;
-    const panel = panelRef.current;
-    const anchor = panel?.offsetParent ?? panel?.parentElement;
-    if (!panel || !anchor) return;
-    const clip = clippingAncestor(panel)?.getBoundingClientRect();
-    const bounds = {
-      top: Math.max(clip?.top ?? 0, 0),
-      bottom: Math.min(clip?.bottom ?? window.innerHeight, window.innerHeight),
-    };
-    setFit(fitPanel({ height: panel.scrollHeight }, anchor.getBoundingClientRect(), bounds));
-  }, [open]);
-
+  // Mounted while open and through the exit, and not otherwise: a closed menu carries
+  // nothing of the chunk, and a chunk that failed to load is asked for again on the next
+  // opening (`lazyOverlay`). Adjusted during render, React's "adjusting state when a prop
+  // changes", so the panel goes in the same commit as the `open` that asked for it.
+  const [phase, setPhase] = useState({ open, leaving: false });
+  if (phase.open !== open) setPhase({ open, leaving: !open });
+  const exited = useCallback(() => {
+    setPhase((current) => (current.leaving ? { ...current, leaving: false } : current));
+  }, []);
+  // The floor, for an exit nobody reports: a chunk that never arrived has none to play.
   useEffect(() => {
+    if (!phase.leaving) return undefined;
+    const timer = window.setTimeout(exited, FALLBACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [phase.leaving, exited]);
+
+  // A layout effect, so the opener is the trigger and not wherever the panel has taken
+  // focus since; and so focus is home before a dialog that one of its items opened looks
+  // for where to send focus back.
+  useLayoutEffect(() => {
     if (!open) return undefined;
     openerRef.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    const panel = panelRef.current;
+    focusLeftRef.current = false;
+    const anchor = anchorRef.current;
     return () => {
-      // Restore only when closing left focus nowhere — the panel that held it is
-      // already gone when this cleanup runs. A click that closed the menu by landing
-      // on another control has given that control focus, and keeps it.
+      // Restore only when closing left focus nowhere — on <body>, or in the panel that is
+      // going. A click that closed the menu by landing on another control has given that
+      // control focus, and keeps it.
       const active = document.activeElement;
       if (
-        active === null ||
-        active === document.body ||
-        (active instanceof Node && panel?.contains(active))
+        !focusLeftRef.current &&
+        (active === null ||
+          active === document.body ||
+          (active instanceof Node && anchor?.contains(active)))
       ) {
+        goingHomeRef.current = true;
         openerRef.current?.focus();
+        goingHomeRef.current = false;
       }
       openerRef.current = null;
     };
@@ -108,8 +122,10 @@ export function Menu({
     // Capture phase, so a click that lands on another control closes this first
     // rather than leaving two panels open.
     const onClick = (event: globalThis.MouseEvent) => {
-      if (!panelRef.current?.contains(event.target as Node)) onClose();
+      if (!anchorRef.current?.contains(event.target as Node)) onClose();
     };
+    // Capture phase too, so the keys arrive whatever the panel is drawn inside: a dialog
+    // stops the arrow keys at its edge, and a menu opened in one would never hear them.
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (
         event.key !== 'ArrowDown' &&
@@ -119,7 +135,7 @@ export function Menu({
       ) {
         return;
       }
-      const panel = panelRef.current;
+      const panel = anchorRef.current;
       if (!panel) return;
       const active = document.activeElement;
       const inPanel = active instanceof HTMLElement && panel.contains(active);
@@ -164,31 +180,58 @@ export function Menu({
             : (index - 1 + items.length) % items.length;
       items[next]?.focus();
     };
+    // And when focus moves out of it — Tab past its last item, Shift+Tab back to its
+    // trigger — as a menu does everywhere else. Not for focus going nowhere (the window
+    // losing focus, a click on something that takes none), which leaves it open as a
+    // click inside would. An open menu with focus elsewhere was never much use, and is
+    // now worse: Base UI takes the items of a panel it has portalled out of the tab order
+    // while focus is outside it, so Tab would no longer find them.
+    const anchor = anchorRef.current;
+    const onFocusOut = (event: globalThis.FocusEvent) => {
+      const next = event.relatedTarget;
+      if (goingHomeRef.current || !(next instanceof Node) || anchor?.contains(next)) return;
+      focusLeftRef.current = true;
+      onClose();
+    };
+    // Back in, as when a caller kept it open: a close after this is an ordinary one again.
+    const onFocusIn = () => {
+      focusLeftRef.current = false;
+    };
     window.addEventListener('click', onClick, true);
-    window.addEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    anchor?.addEventListener('focusout', onFocusOut);
+    anchor?.addEventListener('focusin', onFocusIn);
     return () => {
       window.removeEventListener('click', onClick, true);
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
+      anchor?.removeEventListener('focusout', onFocusOut);
+      anchor?.removeEventListener('focusin', onFocusIn);
     };
   }, [open, suspendDismiss, onClose]);
 
-  // Held through its exit rather than dropped on the render that closes it, so the
-  // panel can animate away. Every effect above keys on `open`, not on presence: a
-  // menu on its way out must stop answering Escape and arrow keys the moment it is
-  // asked to close, or it would still be steering focus while it faded.
-  if (!present) return null;
-
+  // Every effect above keys on `open`, not on whether the panel is still drawn: a menu
+  // on its way out must stop answering Escape and arrow keys the moment it is asked to
+  // close, or it would still be steering focus while it faded.
+  //
+  // The anchor is out of the flow and the span round it has no box (`contents`), so neither
+  // costs the caller's layout anything, and the anchor still hangs from the caller's own
+  // wrapper. The panel comes after the anchor rather than inside it so the anchor is in the
+  // document by the time Base UI looks for it to draw into.
+  //
+  // Everything Base UI draws for the menu lands inside the outer span, including the focus
+  // guards it puts round a portal to carry Tab from a trigger to a panel drawn somewhere
+  // else in the page. This panel is drawn here, so the page's own order already does that,
+  // and the guards are taken out of it: left in, the one after the last item swallowed the
+  // Tab that should have moved on, because it hands focus to a trigger of Base UI's own,
+  // and these menus have none.
   return (
-    <div
-      className={className}
-      role="menu"
-      ref={panelRef}
-      data-state={state}
-      data-placement={fit.above ? 'above' : undefined}
-      style={fit.maxHeight !== null ? { maxHeight: fit.maxHeight, overflowY: 'auto' } : undefined}
-      inert={state === 'closed' ? true : undefined}
-    >
-      {children}
-    </div>
+    <span className="contents [&_[data-base-ui-focus-guard]]:hidden!">
+      <span ref={anchorRef} className="absolute" />
+      {(open || phase.leaving) && (
+        <MenuPanel open={open} anchor={anchorRef} className={className} onExited={exited}>
+          {children}
+        </MenuPanel>
+      )}
+    </span>
   );
 }

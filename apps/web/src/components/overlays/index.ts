@@ -7,14 +7,13 @@
  * that needs an overlay does not import from here; it asks `lazyOverlay` for the export it
  * wants (`lazyOverlay((m) => m.DialogImpl)`).
  *
- * The implementations join this list as they are written — `DialogImpl` and
- * `ConfirmDialogImpl` so far, `MenuImpl` and `PopoverImpl` to come. Until those two arrive,
- * the generated menu and popover modules are exported as namespaces so the chunk holds
- * what it will hold: the build guard is only worth having if it has overlay code to look
- * for. Each of these exports goes when the implementation that uses the same module
- * arrives.
+ * The implementations join this list as they are written — `DialogImpl`,
+ * `ConfirmDialogImpl` and `MenuImpl` so far, `PopoverImpl` to come. Until it arrives, the
+ * generated popover module is exported as a namespace so the chunk holds what it will
+ * hold: the build guard is only worth having if it has overlay code to look for. That
+ * export goes when `PopoverImpl` arrives.
  */
 export { DialogImpl } from './DialogImpl.tsx';
 export { ConfirmDialogImpl } from './ConfirmDialogImpl.tsx';
-export * as dropdownMenuUi from '../ui/dropdown-menu.tsx';
+export { MenuImpl } from './MenuImpl.tsx';
 export * as popoverUi from '../ui/popover.tsx';

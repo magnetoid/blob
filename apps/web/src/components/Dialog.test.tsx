@@ -2,9 +2,9 @@
 /**
  * Blob's dialog, standing on shadcn's.
  *
- * The overlay chunk is already here in every test (`src/test/setup.ts`), as it normally is
- * in the app by the time anybody opens a dialog, so each case below draws its dialog in the
- * render that opened it. What Base UI does a frame later — move focus in, finish an exit —
+ * The overlay chunk is already here in every test (`src/test/overlayChunk.ts`), as it
+ * normally is in the app by the time anybody opens a dialog, so each case below draws its
+ * dialog in the render that opened it. What Base UI does a frame later — move focus in, finish an exit —
  * the cases that care wait for.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
