@@ -102,9 +102,10 @@ shadcn's colour names.**
 - **Stored themes were rekeyed, and the presets replaced.** Migration `0078` renames every
   stored theme's tokens old name to new. A name with one home goes there; one shadcn has
   several homes for (`--text` coloured the page, cards, popovers, a hover wash and the
-  sidebar) goes to all of them; twenty-five old names have no counterpart and are dropped,
-  listed in the migration's docstring, so a custom theme that set one loses that one colour
-  and keeps the rest. `ensure_presets` inserts once and never refreshes, so the same
+  sidebar) goes to all of them; where the old stylesheet had several names for what shadcn
+  has one (five greys of muted text, four hover washes) the first the theme sets fills it;
+  thirteen old names have no counterpart and are dropped, listed in the migration's
+  docstring, so a custom theme that set one loses that one colour and keeps the rest. `ensure_presets` inserts once and never refreshes, so the same
   migration overwrites the twelve shipped presets by slug with a frozen copy — Paper and
   Midnight are b0 light and dark exactly and set nothing, and the other ten are adjusted
   until every text pair, destructive on the sidebar included, is 4.5:1 against b0's values
@@ -165,10 +166,10 @@ shadcn's colour names.**
   directory holds `alembic.ini`), and only then repoint `BLOB_IMAGE_TAG` at an older
   commit; the new image's entrypoint upgrades again on every start, so do not restart it
   in between. The downgrade restores the twelve presets exactly and gives each custom
-  theme back the colours the old vocabulary has a name for; the twenty-five dropped names
-  and the new vocabulary's own (`--secondary`, `--chart-*` …) do not come back, and an
-  `oklch()` value, which the old grammar refused, is carried over as written. Upgrading
-  again afterwards is safe.
+  theme back the colours the old vocabulary has a name for; the thirteen dropped names,
+  the fallback greys and washes that shared a home, and the new vocabulary's own
+  (`--secondary`, `--chart-*` …) do not come back, and an `oklch()` value, which the old
+  grammar refused, is carried over as written. Upgrading again afterwards is safe.
 - `CLAUDE.md`'s design-layer section is rewritten for this state, not for the end of the
   migration; phase 7 rewrites it again.
 

@@ -8,14 +8,20 @@ default. This renames each stored theme's tokens and rewrites the twelve shipped
 Custom themes are renamed key by key (`REKEY`). A name with one home goes there; a name
 shadcn has two homes for (`--text` is the foreground of the page, the cards, the popovers,
 a hover wash and the sidebar) goes to both, because the old name coloured all of them.
-These 25 have no counterpart and are dropped, so a custom theme that set one of them loses
-that one colour and keeps the rest:
+Several old names shared one new home — the old stylesheet had five greys for muted text
+and four hover washes — so a home is filled by the first of its chain that the theme sets
+(`FALLBACKS`, each chain in the order a person would have set them): `--text-3`, else
+`--text-4`, `--text-5`, `--text-label`, `--text-faint` for `--muted-foreground`; `--text`,
+else `--text-body`; `--bg-sidebar`, else `--bg-rail`; `--hairline`, else `--hairline-soft`,
+`--hairline-popover`; `--surface-hover`, else `--surface-row-hover`, `--surface-hover-warm`,
+`--surface-hover-deep`; `--surface-muted`, else `--surface-icon`. A name further down a
+chain is read only when the ones above it are absent, so a theme that sets the first gets
+what it always did. These 13 have no counterpart and are dropped, so a custom theme that
+set one of them loses that one colour and keeps the rest:
 
-    --bg-rail --surface-hover-warm --surface-hover-deep --surface-row-hover
-    --surface-icon --hairline-soft --hairline-popover --text-body --text-2 --text-4
-    --text-5 --text-label --text-faint --text-rail --accent-hover --accent-wash-rail
-    --accent-wash-soft --accent-border-soft --avatar-bg --disabled-bg --disabled-fg
-    --track-off --scrollbar --knob --backdrop
+    --text-2 --text-rail --accent-hover --accent-wash-rail --accent-wash-soft
+    --accent-border-soft --avatar-bg --disabled-bg --disabled-fg --track-off --scrollbar
+    --knob --backdrop
 
 Presets are not renamed but replaced, by slug, with `PRESET_TOKENS`: a frozen copy of
 `services/themes.PRESETS` as it shipped with this release, values checked for contrast
@@ -36,13 +42,14 @@ and the downgrade below puts them back in it — so it is only a re-run by hand.
 `downgrade` is a best-effort inverse, because the old client cannot be left to read the
 new names: it applies `--accent` in both vocabularies, so a rekeyed theme would paint its
 hover wash as the brand colour, and the old server refuses to save one. Presets go back to
-`OLD_PRESET_TOKENS`, a frozen copy of what `services/themes.PRESETS` held at 0077, and every
-other row has each name `RESTORE` knows put back on its old one (`--card` is `--surface`,
-`--primary` is `--accent`, `--accent` is `--surface-hover`). It is lossy: the 25 names above
-are gone for good, `--popover` and the other second homes are discarded, and what only the
-new vocabulary has (`--secondary`, `--chart-*` …) has no old name to go back to. Run it from
-the new image — `alembic downgrade 0077` — before pointing anything at an older one, which
-cannot boot with a database at 0078 ("Can't locate revision").
+`OLD_PRESET_TOKENS`, a frozen copy of what `services/themes.PRESETS` held at 0077, and
+every other row has each name `RESTORE` knows put back on its old one (`--card` is
+`--surface`, `--primary` is `--accent`, `--accent` is `--surface-hover`). It is lossy: the
+13 names above are gone for good, so are the greys and washes that shared a home (only the
+first one's name comes back), `--popover` and the other second homes are discarded, and
+what only the new vocabulary has (`--secondary`, `--chart-*` …) has no old name to go back
+to. Run it from the new image — `alembic downgrade 0077` — before pointing anything at an
+older one, which cannot boot with a database at 0078 ("Can't locate revision").
 
 Revision ID: 0078
 Revises: 0077
@@ -178,8 +185,24 @@ REKEY: dict[str, tuple[str, ...]] = {
     "--unread-text": ("--unread-text",),
 }
 
-#: The old names that have no new one.
-DROPPED: tuple[str, ...] = tuple(name for name in OLD_NAMES if name not in REKEY)
+#: For a home's main old name, the old names that fill it when the theme does not set that
+#: one — in order, the first present wins. The old stylesheet drew muted text in five greys
+#: and a hover in four washes, and the new one has one of each.
+FALLBACKS: dict[str, tuple[str, ...]] = {
+    "--text": ("--text-body",),
+    "--text-3": ("--text-4", "--text-5", "--text-label", "--text-faint"),
+    "--bg-sidebar": ("--bg-rail",),
+    "--hairline": ("--hairline-soft", "--hairline-popover"),
+    "--surface-hover": ("--surface-row-hover", "--surface-hover-warm", "--surface-hover-deep"),
+    "--surface-muted": ("--surface-icon",),
+}
+
+#: The old names that have no new one, not even as somebody else's fallback.
+DROPPED: tuple[str, ...] = tuple(
+    name
+    for name in OLD_NAMES
+    if name not in REKEY and not any(name in chain for chain in FALLBACKS.values())
+)
 
 #: Names only the new vocabulary has: finding one means a theme is already rewritten.
 _NEW_ONLY = frozenset(NEW_NAMES) - frozenset(OLD_NAMES)
@@ -191,7 +214,7 @@ def rekey(tokens: Mapping[str, str]) -> dict[str, str]:
     "Already uses them" means holding at least one name only the new vocabulary has. A theme
     whose keys are all in the shared set (`--accent`, `--presence-*`, `--unread-*`) cannot
     be told from an old one and is renamed, which is only reachable by running the
-    migration again after a downgrade.
+    migration again by hand.
     """
     if any(name in _NEW_ONLY for name in tokens):
         return {name: value for name, value in tokens.items() if name in NEW_NAMES}
@@ -199,6 +222,14 @@ def rekey(tokens: Mapping[str, str]) -> dict[str, str]:
     for name, value in tokens.items():
         for home in REKEY.get(name, ()):
             renamed[home] = value
+    # A main name a theme did not set may have been set under one of its fallbacks.
+    for main, chain in FALLBACKS.items():
+        if main in tokens:
+            continue
+        found = next((name for name in chain if name in tokens), None)
+        if found is not None:
+            for home in REKEY[main]:
+                renamed[home] = tokens[found]
     return renamed
 
 
@@ -684,7 +715,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Best effort: the old names back where there is one, the rest dropped.
 
-    A new name can stand for several old ones and 25 old names were dropped outright, so
+    A new name can stand for several old ones and a dozen old names were dropped outright, so
     this is not `upgrade` run backwards: a custom theme comes back with the colours the old
     client has a name for, and the presets come back exactly. See the top of the file.
     """

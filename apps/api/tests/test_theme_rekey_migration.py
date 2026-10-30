@@ -83,22 +83,10 @@ def test_rekey_maps_every_name_that_has_a_home(migration: ModuleType) -> None:
 
 
 def test_rekey_drops_names_with_no_home(migration: ModuleType) -> None:
-    assert migration.rekey({"--text-4": "#666"}) == {}
+    assert migration.rekey({"--text-2": "#666"}) == {}
     # The names the new vocabulary has no word for, all of them.
     assert set(migration.DROPPED) == {
-        "--bg-rail",
-        "--surface-hover-warm",
-        "--surface-hover-deep",
-        "--surface-row-hover",
-        "--surface-icon",
-        "--hairline-soft",
-        "--hairline-popover",
-        "--text-body",
         "--text-2",
-        "--text-4",
-        "--text-5",
-        "--text-label",
-        "--text-faint",
         "--text-rail",
         "--accent-hover",
         "--accent-wash-rail",
@@ -113,6 +101,64 @@ def test_rekey_drops_names_with_no_home(migration: ModuleType) -> None:
         "--backdrop",
     }
     assert migration.rekey(dict.fromkeys(migration.DROPPED, "#666")) == {}
+
+
+# Each of these homes was filled by one main name and, failing that, by the first of its
+# fallbacks the theme set. A theme with only a fallback used to lose the colour entirely.
+FALLBACK_CASES = {
+    "--text": (["--text-body"], ["--foreground", "--card-foreground", "--popover-foreground"]),
+    "--text-3": (
+        ["--text-4", "--text-5", "--text-label", "--text-faint"],
+        ["--muted-foreground"],
+    ),
+    "--bg-sidebar": (["--bg-rail"], ["--sidebar"]),
+    "--hairline": (["--hairline-soft", "--hairline-popover"], ["--border", "--sidebar-border"]),
+    "--surface-hover": (
+        ["--surface-row-hover", "--surface-hover-warm", "--surface-hover-deep"],
+        ["--accent"],
+    ),
+    "--surface-muted": (["--surface-icon"], ["--muted"]),
+}
+
+
+@pytest.mark.parametrize("main", FALLBACK_CASES)
+def test_rekey_falls_back_to_the_next_name_that_had_the_same_home(
+    migration: ModuleType, main: str
+) -> None:
+    chain, homes = FALLBACK_CASES[main]
+    assert tuple(chain) == migration.FALLBACKS[main], "the chain is the one the brief names"
+    for index, name in enumerate(chain):
+        # Alone, a fallback fills every home its main name would have.
+        alone = migration.rekey({name: "#aaaaaa"})
+        for home in homes:
+            assert alone[home] == "#aaaaaa", f"{name} -> {home}"
+        # With the names above it, it is not read: the first present wins.
+        above = {earlier: f"#00000{i}" for i, earlier in enumerate(chain[:index], start=1)}
+        got = migration.rekey({**above, name: "#aaaaaa"})
+        if above:
+            for home in homes:
+                assert got[home] == "#000001", f"{name} must lose to {chain[0]} on {home}"
+    # The main name beats the whole chain.
+    everything = {name: f"#1{i}1{i}1{i}" for i, name in enumerate(chain)}
+    got = migration.rekey({**everything, main: "#abcdef"})
+    for home in homes:
+        assert got[home] == "#abcdef", f"{main} -> {home}"
+
+
+def test_rekey_with_the_main_names_present_ignores_every_fallback(migration: ModuleType) -> None:
+    mains = dict.fromkeys(migration.FALLBACKS, "#111111")
+    fallbacks = {name: "#999999" for chain in migration.FALLBACKS.values() for name in chain}
+    assert migration.rekey({**mains, **fallbacks}) == migration.rekey(mains)
+
+
+def test_a_cloned_preset_keeps_its_greys(migration: ModuleType) -> None:
+    """A theme copied from Linen carries the old preset's fallback names beside the main ones."""
+    cloned = dict(migration.OLD_PRESET_TOKENS["linen"])
+    assert {"--surface-row-hover", "--hairline-soft"} <= set(cloned)
+    got = migration.rekey(cloned)
+    assert got["--accent"] == cloned["--surface-hover"]
+    assert got["--border"] == cloned["--hairline"]
+    assert got["--sidebar"] == cloned["--bg-sidebar"]
 
 
 def test_rekey_is_idempotent(migration: ModuleType) -> None:
@@ -144,7 +190,10 @@ def test_rekey_only_writes_names_a_theme_may_set(migration: ModuleType) -> None:
 def test_the_old_vocabulary_is_accounted_for(migration: ModuleType) -> None:
     assert len(migration.OLD_NAMES) == len(set(migration.OLD_NAMES)) == 44
     assert set(migration.REKEY) <= set(migration.OLD_NAMES)
-    assert set(migration.DROPPED) == set(migration.OLD_NAMES) - set(migration.REKEY)
+    in_chains = {name for chain in migration.FALLBACKS.values() for name in chain}
+    assert set(migration.FALLBACKS) <= set(migration.REKEY)
+    assert in_chains <= set(migration.OLD_NAMES) - set(migration.REKEY)
+    assert set(migration.DROPPED) == set(migration.OLD_NAMES) - set(migration.REKEY) - in_chains
 
 
 def test_the_frozen_presets_are_the_ones_shipped(migration: ModuleType) -> None:
@@ -228,7 +277,7 @@ def test_unkey_after_rekey_keeps_what_both_vocabularies_share(migration: ModuleT
     }
     assert migration.unkey(migration.rekey(old)) == old
     # And what has no way back is the loss, not a surprise: dropped on the way down.
-    lossy = {"--text-4": "#777777", "--bg-rail": "#ece4d6", "--bg": "#fff"}
+    lossy = {"--text-2": "#777777", "--text-rail": "#ece4d6", "--bg": "#fff"}
     assert migration.unkey(migration.rekey(lossy)) == {"--bg": "#fff"}
 
 
@@ -299,6 +348,9 @@ async def test_upgrade_rewrites_custom_and_preset_rows(
         "--sidebar-foreground": "#e6efe9",
         "--primary": "#3fb394",
         "--sidebar-primary": "#3fb394",
+        # Set under a name that shares its home with a main one the theme did not set.
+        "--muted-foreground": "#8aa396",
+        "--sidebar": "#0a100c",
     }
     assert tokens["linen"] == migration.PRESET_TOKENS["linen"]
     # Every shipped preset, not only the one the test spoiled.
@@ -354,6 +406,7 @@ async def test_a_downgrade_gives_the_old_presets_back_and_a_second_upgrade_agree
         "--danger": "#ff6b6b",
         "--text-4": "#8aa396",
         "--bg-rail": "#0a100c",
+        "--text-rail": "#5d5347",
     }
     # Saved by the new client after the upgrade: nothing in it is an old-only name.
     new_custom = {
@@ -433,12 +486,16 @@ async def test_a_downgrade_gives_the_old_presets_back_and_a_second_upgrade_agree
     # Presets are exactly what they were; Paper and Midnight are still empty.
     for slug, tokens in migration.OLD_PRESET_TOKENS.items():
         assert downgraded[slug] == tokens, slug
-    # A custom theme is back on the old names, with only what had a name to go back to.
+    # A custom theme is back on the old names, with only what had a name to go back to:
+    # `--text-4` and `--bg-rail` came back as the names that stood in for them (`--text-3`,
+    # `--bg-sidebar`), `--text-rail` had no home at all.
     assert downgraded["greenhouse"] == {
         "--bg": "#0e1210",
         "--surface": "#16201a",
         "--surface-hover": "#1f2c24",
         "--text": "#e6efe9",
+        "--text-3": "#8aa396",
+        "--bg-sidebar": "#0a100c",
         "--accent": "#3fb394",
         "--accent-contrast": "#06130f",
         "--danger": "#ff6b6b",
