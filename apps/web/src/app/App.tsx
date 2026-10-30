@@ -98,10 +98,13 @@ export function App() {
 
   // The overlay chunk (dialogs, menus, popovers: Base UI's overlay code) is not in the
   // first load. Start fetching it once the page has painted and the browser is idle, so
-  // the first menu of the session is usually there before anyone reaches for it.
+  // the first menu of the session is usually there before anyone reaches for it. The two
+  // pages that open no overlay at all — the unsubscribe link and an assistant's consent
+  // question — do not pay for it.
+  const opensOverlays = unsubscribeToken === null && !consenting;
   useEffect(() => {
-    preloadOverlays();
-  }, []);
+    if (opensOverlays) preloadOverlays();
+  }, [opensOverlays]);
 
   // Write anything the composer scheduled before the tab goes away. `pagehide` rather
   // than `beforeunload`: it is the one that fires on iOS and when a page goes into the

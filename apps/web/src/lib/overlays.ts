@@ -16,10 +16,13 @@ export type OverlayModule = typeof import('../components/overlays/index.ts');
 /**
  * Wrap an import so it happens once, and so a failure is not remembered.
  *
- * A rejected import must not stay the answer: it is what a dropped connection or a deploy
- * that replaced the chunk's file mid-session looks like, and either would otherwise break
- * every overlay until the page was reloaded. The memo is cleared as the rejection passes
+ * A rejected import must not stay the answer, or one dropped connection would break every
+ * overlay until the page was reloaded. The memo is cleared as the rejection passes
  * through, so the next caller tries again and the one after that shares its attempt.
+ * That helps with a transient network failure, and only in an engine that fetches a
+ * failed module again (WHATWG html#10327; not every browser does). It does not help with
+ * a deploy that replaced the chunk mid-session: the old file is gone, its URL answers 404
+ * to every attempt, and only a reload picks up the new build.
  *
  * Exported for the test; the app uses `loadOverlays`.
  */

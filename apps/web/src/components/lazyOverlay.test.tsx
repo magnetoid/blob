@@ -12,9 +12,12 @@ import { Suspense, type ComponentType } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { lazyOverlay } from './lazyOverlay.tsx';
+import { ErrorBoundary } from './ErrorBoundary.tsx';
+import { reportClientError } from '../lib/clientErrors.ts';
 import { loadOverlays, type OverlayModule } from '../lib/overlays.ts';
 
 vi.mock('../lib/overlays.ts', () => ({ loadOverlays: vi.fn() }));
+vi.mock('../lib/clientErrors.ts', () => ({ reportClientError: vi.fn() }));
 const load = vi.mocked(loadOverlays);
 
 function Greeting({ name }: { name: string }) {
@@ -39,6 +42,7 @@ function deferred<T>() {
 let consoleError: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   load.mockReset();
+  vi.mocked(reportClientError).mockReset();
   // React reports a caught render error through console.error too; the cases below
   // count only the overlay's own line.
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -125,5 +129,33 @@ describe('lazyOverlay', () => {
     expect(screen.getByText('Hello Ada')).toBeTruthy();
     expect(load).toHaveBeenCalledTimes(2);
     expect(ours()).toHaveLength(1);
+  });
+
+  it('leaves a render error inside the overlay to the app’s error boundary', async () => {
+    // The chunk arrives fine; what is thrown is the overlay's own content — a dialog body
+    // or a menu item a caller passed in. That is a bug to be reported, not a chunk that
+    // failed to load, so it must reach the boundary that reports it.
+    function Broken(): never {
+      throw new Error('the body threw');
+    }
+    load.mockResolvedValue({ Broken } as unknown as OverlayModule);
+    const Overlay = lazyOverlay<object>(
+      (m) => (m as unknown as { Broken: ComponentType<object> }).Broken,
+    );
+
+    render(
+      <ErrorBoundary>
+        <p>the page</p>
+        <Overlay />
+      </ErrorBoundary>,
+    );
+    await act(async () => {});
+
+    expect(screen.getByText('Something broke')).toBeTruthy();
+    expect(reportClientError).toHaveBeenCalledTimes(1);
+    expect(reportClientError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'the body threw' }),
+    );
+    expect(ours()).toHaveLength(0);
   });
 });

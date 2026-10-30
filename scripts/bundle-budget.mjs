@@ -56,9 +56,10 @@ for (const file of initial) {
   }
 }
 
-// The guard above only means something while the marker still matches overlay code. If
-// no chunk at all carries it (the overlay chunk is where it should be), Base UI renamed the strings or the overlays are no longer
-// built, and a pass would be a pass for the wrong reason.
+// The scan above only means something while OVERLAY_SDK still matches Base UI's overlay
+// code. So the marker has to turn up in some chunk of dist/assets (the overlay chunk, as
+// built today). If no chunk carries it, upstream renamed the strings or the overlays are
+// no longer built, and a pass would be a pass for the wrong reason.
 const assets = new URL('assets/', DIST);
 const overlayChunk = readdirSync(assets).find(
   (name) => name.endsWith('.js') && OVERLAY_SDK.test(readFileSync(new URL(name, assets), 'utf8')),

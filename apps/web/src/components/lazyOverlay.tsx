@@ -1,29 +1,8 @@
-import {
-  Component,
-  Suspense,
-  lazy,
-  type ComponentType,
-  type JSX,
-  type ReactNode,
-} from 'react';
+import { Suspense, lazy, type ComponentType, type JSX } from 'react';
 import { loadOverlays, type OverlayModule } from '../lib/overlays.ts';
 
-/** Renders nothing once the chunk has failed to load, and says so once. */
-class OverlayBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  override state = { failed: false };
-
-  static getDerivedStateFromError(): { failed: boolean } {
-    return { failed: true };
-  }
-
-  override componentDidCatch(error: unknown): void {
-    console.error('overlay chunk failed to load', error);
-  }
-
-  override render(): ReactNode {
-    return this.state.failed ? null : this.props.children;
-  }
-}
+/** What an overlay whose chunk would not load draws: nothing. */
+const drawNothing = () => null;
 
 /**
  * Make a component out of an export of the overlay chunk.
@@ -33,33 +12,39 @@ class OverlayBoundary extends Component<{ children: ReactNode }, { failed: boole
  * the thing that opens it, so a click that lands before the chunk does is not lost: the
  * wrapper holds the person's intent and the overlay catches up with it.
  *
- * A chunk that cannot be fetched costs that overlay and nothing else. The boundary around
- * it renders nothing, says so once in the console, and the page carries on. `React.lazy`
- * keeps a rejection for good, so the next mount — the next time the overlay is opened —
- * gets a fresh `lazy`, and with it a fresh attempt (`loadOverlays` forgets its failure).
- * So mount the result when the overlay opens and let it go when it closes: one kept
- * mounted through a failure stays blank until something remounts it.
+ * A chunk that cannot be fetched costs that overlay and nothing else: it draws nothing,
+ * says so once in the console, and the page carries on. That is handled where the load
+ * happens, inside the lazy thunk, and not by an error boundary around the overlay — a
+ * boundary there would also swallow a render error from the overlay's own content (a
+ * dialog body, a menu item a caller passed in), which belongs to the app's `ErrorBoundary`
+ * and its report to the admins.
+ *
+ * `React.lazy` keeps a settled result for good, so the failure also replaces the `lazy`
+ * that failed: the next mount — the next time the overlay is opened — gets a fresh one,
+ * and with it a fresh attempt (`loadOverlays` forgets its failure). Mount the result when
+ * the overlay opens and let it go when it closes.
  */
 export function lazyOverlay<P>(pick: (m: OverlayModule) => ComponentType<P>): ComponentType<P> {
   const make = () =>
-    lazy(async () => {
+    lazy(async (): Promise<{ default: ComponentType<P> }> => {
+      let overlays: OverlayModule;
       try {
-        return { default: pick(await loadOverlays()) };
+        overlays = await loadOverlays();
       } catch (error) {
+        console.error('overlay chunk failed to load', error);
         // Whoever mounts next starts from a lazy that has not failed.
         Lazy = make();
-        throw error;
+        return { default: drawNothing };
       }
+      return { default: pick(overlays) };
     });
   let Lazy = make();
 
   return function LazyOverlay(props: P) {
     return (
-      <OverlayBoundary>
-        <Suspense fallback={null}>
-          <Lazy {...(props as P & JSX.IntrinsicAttributes)} />
-        </Suspense>
-      </OverlayBoundary>
+      <Suspense fallback={null}>
+        <Lazy {...(props as P & JSX.IntrinsicAttributes)} />
+      </Suspense>
     );
   };
 }

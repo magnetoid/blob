@@ -74,8 +74,10 @@ describe('loading the overlay chunk', () => {
     const load = memoiseImport(importer);
 
     await expect(load()).rejects.toThrow('Failed to fetch');
-    // The rejected promise must not be the answer for ever — a deploy mid-session or a
-    // dropped connection would otherwise break every overlay until the page reloads.
+    // The rejected promise must not be the answer for ever, or one dropped connection
+    // would break every overlay until the page reloads. (Whether the retry then succeeds
+    // is the browser's: a failed module is re-fetched only by engines that do so, and a
+    // chunk replaced by a deploy 404s however often it is asked for.)
     await expect(load()).resolves.toBe('chunk');
     expect(importer).toHaveBeenCalledTimes(2);
 
@@ -140,7 +142,7 @@ describe('preloading after first paint', () => {
       // Nobody asked for it, so nobody is told: a failed preload is not an error.
       expect(unhandled).not.toHaveBeenCalled();
 
-      // The person opens a menu: that is the retry, and it does not need a reload.
+      // The person opens a menu: that is the retry, made with no reload.
       await expect(loadOverlays()).resolves.toMatchObject({ chunk: 'overlays' });
       expect(attempts).toBe(2);
     } finally {
