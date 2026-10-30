@@ -155,7 +155,7 @@ describe('styles/index.css', () => {
    * it here in the same commit as its `@source` — the point of the list is that adding
    * one is deliberate.
    */
-  const CONVERTED = ['components/ui'];
+  const CONVERTED = ['components/ui', 'components/overlays'];
 
   it('scans only converted paths', () => {
     const css = indexCss();

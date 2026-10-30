@@ -3,16 +3,30 @@
 // `pnpm build`; CI's `check` job does.
 //
 // A ratchet like `sourceRatchets.test.ts`: lower BUDGET_KB when the app gets lighter, and
-// raise it only on purpose, in the commit that says why. It also holds one line CLAUDE.md
+// raise it only on purpose, in the commit that says why. It also holds two lines CLAUDE.md
 // draws: the call SDK (livekit-client) never reaches the first load — opening a channel
-// that merely shows a Meetup button must not cost everybody the media stack.
-import { readFileSync } from 'node:fs';
+// that merely shows a Meetup button must not cost everybody the media stack — and neither
+// does Base UI's overlay code, which would put some 75 KB of dialog, menu and popover machinery
+// in front of every first paint (components/overlays/, lib/overlays.ts).
+import { readdirSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
 const BUDGET_KB = 220;
 const DIST = new URL('../apps/web/dist/', import.meta.url);
 /** Strings only livekit-client's own code carries. */
 const CALL_SDK = /LiveKitError|LiveKitReactNativeGlobal/;
+/**
+ * Strings only Base UI's overlay code carries in the minified build. Each survives
+ * minification because it is a string the browser reads rather than a name the bundler
+ * may shorten: `data-base-ui-inert` is the attribute a modal puts on everything outside
+ * it, `--available-height` is a CSS variable every Base UI popup's positioner sets for its
+ * stylesheet (the same documented family as `--anchor-width` and `--transform-origin`),
+ * and `referenceHidden` is the key floating-ui's `hide` middleware answers with. Any one
+ * of them in a first-load chunk means a popup, and with it floating-ui, was imported
+ * statically instead of through `lib/overlays.ts`. Several, so that one rename upstream
+ * cannot blind the guard; and if they all go, the check on every chunk below says so.
+ */
+const OVERLAY_SDK = /data-base-ui-inert|--available-height|referenceHidden/;
 
 const html = readFileSync(new URL('index.html', DIST), 'utf8');
 const initial = [...new Set([...html.matchAll(/(?:src|href)="\/(assets\/[^"]+\.js)"/g)].map((m) => m[1]))];
@@ -28,10 +42,30 @@ for (const file of initial) {
   const kb = gzipSync(source).length / 1024;
   total += kb;
   console.log(`${kb.toFixed(1).padStart(7)} KB  ${file}`);
-  if (CALL_SDK.test(source.toString('utf8'))) {
+  const text = source.toString('utf8');
+  if (CALL_SDK.test(text)) {
     console.error(`  ${file} carries the call SDK: livekit-client is in the first load.`);
     failed = true;
   }
+  if (OVERLAY_SDK.test(text)) {
+    console.error(
+      `  ${file} carries Base UI's overlay code: a dialog, menu or popover is imported ` +
+        'statically. Reach it through lazyOverlay (components/lazyOverlay.tsx) instead.',
+    );
+    failed = true;
+  }
+}
+
+// The guard above only means something while the marker still matches overlay code. If
+// no chunk at all carries it (the overlay chunk is where it should be), Base UI renamed the strings or the overlays are no longer
+// built, and a pass would be a pass for the wrong reason.
+const assets = new URL('assets/', DIST);
+const overlayChunk = readdirSync(assets).find(
+  (name) => name.endsWith('.js') && OVERLAY_SDK.test(readFileSync(new URL(name, assets), 'utf8')),
+);
+if (!overlayChunk) {
+  console.error('OVERLAY_SDK matches no chunk in dist/assets: the guard has gone blind. Pick a new marker.');
+  failed = true;
 }
 console.log(`${total.toFixed(1).padStart(7)} KB  first load, gzipped (budget ${BUDGET_KB} KB)`);
 if (total > BUDGET_KB) {
