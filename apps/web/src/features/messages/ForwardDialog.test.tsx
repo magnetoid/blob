@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { Message } from '@blob/shared';
 import { ForwardDialog } from './ForwardDialog.tsx';
 import { useStore } from '../../lib/store.ts';
+import '../../test/overlayChunk.ts';
 
 afterEach(cleanup);
 

@@ -84,21 +84,7 @@ const commitDate = stamp(
   'CI_COMMIT_TIMESTAMP',
 );
 
-/**
- * Vitest's options. It reads them from this file, but its types extend the Vite it ships
- * with rather than the one this config is built with, so they are spread in below, past
- * the type of `defineConfig`'s argument.
- */
-const vitest = {
-  test: {
-    // The overlay chunk, loaded before each test file the way the app preloads it after
-    // first paint — see the file.
-    setupFiles: ['./src/test/setup.ts'],
-  },
-};
-
 export default defineConfig({
-  ...vitest,
   plugins: [react(), tailwindcss()],
   resolve: {
     // `@/components/ui/*` and `@/lib/utils` — the paths shadcn's CLI writes into the

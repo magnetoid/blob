@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ChannelWithState, UserRole } from '@blob/shared';
 import { ChannelMenu } from './ChannelMenu.tsx';
+import '../../test/overlayChunk.ts';
 
 const setMembership = vi.fn(async () => ({}));
 const archive = vi.fn(async () => ({ ok: true as const }));

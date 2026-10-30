@@ -16,6 +16,7 @@ import type { Decision } from "@blob/shared";
 import { DecisionsView } from "./DecisionsView.tsx";
 import { api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
+import '../../test/overlayChunk.ts';
 
 afterEach(() => {
   cleanup();

@@ -12,6 +12,7 @@ import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { ArtifactsTab } from './ArtifactsTab.tsx';
 import { groupArtifacts } from './artifacts.ts';
+import '../../test/overlayChunk.ts';
 
 const showThread = vi.fn();
 vi.mock('../../lib/navigation.ts', () => ({

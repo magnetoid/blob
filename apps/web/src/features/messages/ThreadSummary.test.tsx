@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import type { ThreadSummary } from '@blob/shared';
 import { ThreadSummaryCard } from './ThreadSummary.tsx';
 import { api } from '../../lib/api.ts';
+import '../../test/overlayChunk.ts';
 
 afterEach(() => {
   cleanup();

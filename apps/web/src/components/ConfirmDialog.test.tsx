@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ConfirmDialog } from './ConfirmDialog.tsx';
+import '../test/overlayChunk.ts';
 
 afterEach(cleanup);
 

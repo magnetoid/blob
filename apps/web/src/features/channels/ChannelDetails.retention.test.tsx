@@ -9,6 +9,7 @@ import type { ChannelWithState } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { ChannelDetails } from './ChannelDetails.tsx';
+import '../../test/overlayChunk.ts';
 
 const channel = (legalHoldAt: string | null): ChannelWithState =>
   ({

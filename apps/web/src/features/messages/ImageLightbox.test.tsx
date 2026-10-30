@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { Attachment } from '@blob/shared';
+import '../../test/overlayChunk.ts';
 
 const { ImageLightbox } = await import('./ImageLightbox.tsx');
 

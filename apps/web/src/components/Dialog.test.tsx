@@ -12,6 +12,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogPresence } from './Dialog.tsx';
 import { useEscape } from '../lib/useEscape.ts';
+import '../test/overlayChunk.ts';
 
 afterEach(cleanup);
 

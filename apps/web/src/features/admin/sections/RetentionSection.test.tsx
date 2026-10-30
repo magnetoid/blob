@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { api, type RetentionView } from '../../../lib/api.ts';
 import { RetentionSection } from './RetentionSection.tsx';
+import '../../../test/overlayChunk.ts';
 
 const NOTHING: RetentionView = {
   messageDays: null,

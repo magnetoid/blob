@@ -15,6 +15,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import '../../test/overlayChunk.ts';
 
 const search = vi.fn();
 const listFiles = vi.fn();

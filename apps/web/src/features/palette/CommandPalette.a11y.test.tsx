@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { CommandPalette } from './CommandPalette.tsx';
 import { useStore } from '../../lib/store.ts';
+import '../../test/overlayChunk.ts';
 
 afterEach(cleanup);
 
