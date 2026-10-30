@@ -26,7 +26,8 @@ THEME_CSS = Path(__file__).resolve().parents[3] / "apps" / "web" / "src" / "styl
 #: `toHex()` in `apps/web/src/lib/color.ts`, which is what the theme editor uses — so
 #: this is the same arithmetic, not a second opinion. A preset names only what it
 #: changes, and a name it leaves out falls back to these. Light `--muted-foreground` is
-#: `oklch(0.54 0 0)`, not b0's 0.556 (see the note at the top of theme.css). b0's dark
+#: `oklch(0.54 0 0)`, not b0's 0.556, and light `--destructive` is `oklch(0.54 0.22 27.3)`
+#: (`#d00114`), not b0's 0.577 0.245 27.325 (see the note at the top of theme.css). b0's dark
 #: borders are translucent white, which is a line and not text, and nothing here reads
 #: them.
 B0_LIGHT_HEX = {
@@ -44,7 +45,7 @@ B0_LIGHT_HEX = {
     "--muted-foreground": "#6f6f6f",
     "--accent": "#f5f5f5",
     "--accent-foreground": "#171717",
-    "--destructive": "#e7000b",
+    "--destructive": "#d00114",
     "--sidebar": "#fafafa",
     "--sidebar-foreground": "#0a0a0a",
     "--sidebar-accent": "#f5f5f5",

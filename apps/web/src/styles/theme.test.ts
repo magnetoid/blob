@@ -25,6 +25,14 @@ interface Rule {
   children: Rule[];
 }
 
+/** `front` at `amount` over `back` — `color-mix(in srgb, front <amount>, back)`. */
+const mix = (front: Rgb, back: Rgb, amount: number): Rgb => ({
+  red: front.red * amount + back.red * (1 - amount),
+  green: front.green * amount + back.green * (1 - amount),
+  blue: front.blue * amount + back.blue * (1 - amount),
+  alpha: 1,
+});
+
 const normalise = (text: string) => text.replace(/"/g, "'").replace(/\s+/g, ' ').trim();
 
 /** Just enough of a CSS parser for two hand-written files: blocks, and what is in them. */
@@ -93,9 +101,11 @@ function palettes(file: string) {
 }
 
 /**
- * Preset b0 (Nova, Neutral) as ui.shadcn.com/create publishes it, light then dark. The
- * one departure is light `--muted-foreground`: b0's `oklch(0.556 0 0)` is 4.35:1 on its
- * own `--muted`, under WCAG AA, and Blob does not ship a grey nobody can read.
+ * Preset b0 (Nova, Neutral) as ui.shadcn.com/create publishes it, light then dark. Two
+ * departures, both for WCAG AA, and Blob does not ship a colour nobody can read: light
+ * `--muted-foreground` (b0's `oklch(0.556 0 0)` is 4.35:1 on its own `--muted`) and light
+ * `--destructive` (b0's `oklch(0.577 0.245 27.325)` is 4.13:1 on the 8% destructive tint
+ * Blob's pills and badges are drawn on).
  */
 const B0: Record<string, [light: string, dark: string | null]> = {
   '--background': ['oklch(1 0 0)', 'oklch(0.145 0 0)'],
@@ -112,7 +122,7 @@ const B0: Record<string, [light: string, dark: string | null]> = {
   '--muted-foreground': ['oklch(0.54 0 0)', 'oklch(0.708 0 0)'],
   '--accent': ['oklch(0.97 0 0)', 'oklch(0.269 0 0)'],
   '--accent-foreground': ['oklch(0.205 0 0)', 'oklch(0.985 0 0)'],
-  '--destructive': ['oklch(0.577 0.245 27.325)', 'oklch(0.704 0.191 22.216)'],
+  '--destructive': ['oklch(0.54 0.22 27.3)', 'oklch(0.704 0.191 22.216)'],
   '--border': ['oklch(0.922 0 0)', 'oklch(1 0 0 / 10%)'],
   '--input': ['oklch(0.922 0 0)', 'oklch(1 0 0 / 15%)'],
   '--ring': ['oklch(0.708 0 0)', 'oklch(0.556 0 0)'],
@@ -185,6 +195,37 @@ describe('styles/theme.css — preset b0', () => {
       for (const ground of ['--muted', '--sidebar', '--background', '--card', '--accent']) {
         const ratio = contrastRatio(colour('--muted-foreground'), colour(ground));
         expect(ratio, `${mode} --muted-foreground on ${ground}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('keeps destructive text readable on the page, a card, and its own 8% tint', () => {
+    // `.role-pill`, `.task-badge`, `.feedback-kind` and `.janus-banner` draw the danger
+    // colour on `color-mix(in srgb, var(--danger) 8%, …)` of themselves, over whatever the
+    // card is. b0's light red is 4.13:1 on that; this holds the one Blob ships to AA.
+    const { light, darkByOs } = palettes('theme.css');
+    for (const [mode, palette] of [
+      ['light', light],
+      ['dark', darkByOs],
+    ] as const) {
+      const colour = (name: string) => {
+        const parsed = parseColor(palette.declarations.get(name) ?? '');
+        expect(parsed, `${mode} ${name} parses`).not.toBeNull();
+        return parsed!;
+      };
+      const red = colour('--destructive');
+      for (const ground of ['--background', '--card', '--muted', '--accent', '--sidebar']) {
+        expect(
+          contrastRatio(red, colour(ground)),
+          `${mode} --destructive on ${ground}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+      for (const ground of ['--background', '--card']) {
+        const tint = mix(red, colour(ground), 0.08);
+        expect(
+          contrastRatio(red, tint),
+          `${mode} --destructive on an 8% tint of itself over ${ground}`,
+        ).toBeGreaterThanOrEqual(4.5);
       }
     }
   });

@@ -79,13 +79,18 @@ shadcn's colour names.**
   for `:root:not([data-theme='light'])`, and under `:root[data-theme='dark']` — and
   redefines Tailwind's `dark:` with `@custom-variant` to the same two conditions. The two
   copies are held identical by a test, and nothing may key on `.dark`.
-- **Two departures from b0's values, both for contrast.** Light `--muted-foreground` is
+- **Departures from b0's values, all for contrast.** Light `--muted-foreground` is
   `oklch(0.54 0 0)` where b0 has `0.556`, which is 4.34:1 on b0's own `--muted` and under
-  WCAG AA; 0.54 is 4.64:1. Light `--unread-text` is `#a0663a`, because the colour it
-  replaced was 4.42:1 on the page. In dark, an off switch's knob takes `--foreground`, through a
-  dark-only bridge, as shadcn's own Switch does: the knob the bridge would otherwise give it,
-  `--background`, is 1.7:1 on the off track. `styles/theme.test.ts` holds every b0 value and
-  measures the muted grey on every ground it is drawn on.
+  WCAG AA; 0.54 is 4.64:1. Light `--destructive` is `oklch(0.54 0.22 27.3)` (`#d00114`)
+  where b0 has `0.577 0.245 27.325` (`#e7000b`): Blob draws danger text on an 8% tint of
+  itself (`.role-pill`, `.task-badge`, `.feedback-kind`, `.janus-banner`), and b0's red is
+  4.13:1 there and 4.37:1 on `--muted`, where this one is 4.91:1 and 5.20:1 (5.67:1 on the
+  page) — a slightly deeper red than shadcn's. Light `--unread-text` is `#a0663a`, because
+  the colour it replaced was 4.42:1 on the page. In dark, an off switch's knob takes
+  `--foreground`, through a dark-only bridge, as shadcn's own Switch does: the knob the
+  bridge would otherwise give it, `--background`, is 1.7:1 on the off track.
+  `styles/theme.test.ts` holds every b0 value, measures the muted grey on every ground it is
+  drawn on, and measures destructive on the page, a card, the muted grounds and its own tint.
 - **The themeable names are shadcn's, plus Blob's extras.** `services/themes.py` allowlists
   36 names in six groups — Surfaces, Text, Brand, Lines, State (destructive, presence,
   unread), Charts — by string. The groups are written out, not cut from one tuple by index

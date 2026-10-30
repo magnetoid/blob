@@ -3,10 +3,13 @@
  * theme that turns them into utilities — `bg-background`, `text-muted-foreground`,
  * `rounded-lg`, `font-sans`.
  *
- * The values are b0's as ui.shadcn.com/create publishes them, with one departure: light
- * `--muted-foreground` is `oklch(0.54 0 0)` where b0 has 0.556, which is 4.34:1 on its
- * own `--muted` and under WCAG AA's 4.5 (0.54 is 4.64:1). `theme.test.ts` holds every
- * value and measures that pair; ADR 0043 records the change.
+ * The values are b0's as ui.shadcn.com/create publishes them, with two departures, both
+ * for WCAG AA's 4.5:1. Light `--muted-foreground` is `oklch(0.54 0 0)` where b0 has 0.556,
+ * which is 4.34:1 on its own `--muted` (0.54 is 4.64:1). Light `--destructive` is
+ * `oklch(0.54 0.22 27.3)` where b0 has `0.577 0.245 27.325`: b0's red is 4.13:1 on the 8%
+ * tint of itself that Blob's pills and badges sit on, and 4.37:1 on `--muted`; this one is
+ * 4.91:1 and 5.20:1. `theme.test.ts` holds every value and measures those pairs; ADR 0043
+ * records the changes.
  *
  * Dark is Blob's three states, not shadcn's `.dark` class: an explicit choice stamps
  * `data-theme` on <html>, "system" stamps nothing and leaves it to the OS. So the dark
@@ -92,7 +95,8 @@
   --muted-foreground: oklch(0.54 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  /* b0 has 0.577 0.245 27.325 — 4.13:1 on its own 8% tint. See the note at the top. */
+  --destructive: oklch(0.54 0.22 27.3);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);

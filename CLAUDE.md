@@ -485,8 +485,11 @@ three states, not shadcn's `.dark` class: `theme.css` writes the palette under b
 structure tokens are elevation (`--elev-1..3`), radius (`--blob-radius-xs..lg` and
 `--radius-full`, derived from shadcn's `--radius`), motion (`--dur-*`, `--ease-standard`,
 `--blob-ease-*`, `--motion-*`), a stacking ladder (`--z-raised` … `--z-toast`) and the frame
-(`--frame-*`, `--elev-frame`, `--ground-*`). The light `--muted-foreground` is 0.54 where
-b0 has 0.556, because b0's own is 4.34:1 on its `--muted`: `theme.test.ts` measures it.
+(`--frame-*`, `--elev-frame`, `--ground-*`). Two light colours depart from b0, both for
+AA: `--muted-foreground` is 0.54 where b0 has 0.556 (b0's own is 4.34:1 on its `--muted`),
+and `--destructive` is `oklch(0.54 0.22 27.3)` where b0 has `0.577 0.245 27.325` (b0's is
+4.13:1 on the 8% tint of itself that Blob's pills and badges sit on): `theme.test.ts`
+measures both.
 Five rules the file will not tell you on its own:
 
 * **The themeable colour names are a contract with the server.** They are shadcn's colour
