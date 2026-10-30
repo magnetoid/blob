@@ -87,7 +87,7 @@ describe('the windows', () => {
 
     fireEvent.click(card('How long things are kept').getByRole('button', { name: 'Save' }));
     expect(api.admin.setRetention).not.toHaveBeenCalled();
-    const dialog = await screen.findByRole('dialog', { name: 'Remove history past these windows?' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove history past these windows?' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
@@ -106,7 +106,7 @@ describe('the windows', () => {
     await waitFor(() =>
       expect(api.admin.setRetention).toHaveBeenCalledWith({ messageDays: null, fileDays: null }),
     );
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
   it('says what the last sweep removed', async () => {
@@ -126,7 +126,7 @@ describe('legal holds', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Release the hold on #lawsuit' }));
     expect(api.admin.holdConversation).not.toHaveBeenCalled();
-    const dialog = await screen.findByRole('dialog', { name: 'Release the hold on #lawsuit?' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Release the hold on #lawsuit?' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Release' }));
 
     await waitFor(() => expect(api.admin.holdConversation).toHaveBeenCalledWith('c9', false));

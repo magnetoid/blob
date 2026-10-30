@@ -1,7 +1,11 @@
 /* ─── command palette ────────────────────────────────────────────────────── */
-/* Near the top rather than centred: a palette is typed into, and the eye starts high. */
-dialog.palette-host {
-  margin-block: 12vh auto;
+/* Near the top rather than centred: a palette is typed into, and the eye starts high. And
+   still: it is opened dozens of times a day from the keyboard, so it neither rises nor
+   fades in (overlay-motion.css). `palette-host` is the element holding the dialog shell's
+   backdrop and panel (`components/overlays/DialogImpl.tsx`), which read these two. */
+.palette-host {
+  --dialog-top: 12vh;
+  --dialog-enter: 0s;
 }
 
 .palette {

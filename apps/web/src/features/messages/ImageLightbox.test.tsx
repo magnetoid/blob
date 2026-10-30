@@ -51,8 +51,8 @@ describe('the lightbox', () => {
   it('closes on the backdrop', () => {
     const onClose = vi.fn();
     render(<ImageLightbox attachment={attachment()} onClose={onClose} />);
-    // The host <dialog> is where a click on its backdrop lands.
-    fireEvent.click(screen.getByRole('dialog'));
+    // The dialog shell's backdrop, behind the picture.
+    fireEvent.click(document.querySelector('[data-slot="dialog-overlay"]')!);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -81,11 +81,11 @@ describe('the lightbox', () => {
   });
 
   it('is a dialog, named for the file it is showing', () => {
-    render(<ImageLightbox attachment={attachment()} onClose={vi.fn()} />);
-    const dialog = screen.getByRole('dialog', { name: 'screenshot.png' }) as HTMLDialogElement;
-    // A native modal: open through showModal(), so everything behind it is inert.
-    expect(dialog.tagName).toBe('DIALOG');
-    expect(dialog.open).toBe(true);
+    const { container } = render(<ImageLightbox attachment={attachment()} onClose={vi.fn()} />);
+    const dialog = screen.getByRole('dialog', { name: 'screenshot.png' });
+    // A modal: drawn outside the page, and the page behind it hidden while it is up.
+    expect(container.contains(dialog)).toBe(false);
+    expect(container.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('copes with a picture whose size nobody recorded', () => {

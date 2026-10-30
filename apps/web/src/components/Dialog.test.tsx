@@ -1,61 +1,88 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { useEffect, useState } from 'react';
+/**
+ * Blob's dialog, standing on shadcn's.
+ *
+ * The overlay chunk is already here in every test (`src/test/setup.ts`), as it normally is
+ * in the app by the time anybody opens a dialog, so each case below draws its dialog in the
+ * render that opened it. What Base UI does a frame later — move focus in, finish an exit —
+ * the cases that care wait for.
+ */
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogPresence } from './Dialog.tsx';
-import { FALLBACK_MS } from '../lib/usePresence.ts';
 import { useEscape } from '../lib/useEscape.ts';
 
 afterEach(cleanup);
 
-function renderDialog(onClose = vi.fn()) {
-  render(
-    <Dialog label="Archive #general?" onClose={onClose}>
+/** Escape as the browser sends it: to whatever has focus. */
+function pressEscape() {
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+}
+
+const dialogs = () => [...document.querySelectorAll<HTMLElement>('[data-slot="dialog-content"]')];
+const dialog = () => dialogs()[0] ?? null;
+const backdrop = () => document.querySelector<HTMLElement>('[data-slot="dialog-overlay"]');
+
+function renderDialog(onClose = vi.fn(), className?: string) {
+  const view = render(
+    <Dialog label="Archive #general?" onClose={onClose} className={className}>
       <div className="dialog">
         <p>It stays searchable.</p>
         <button type="button">Archive</button>
       </div>
     </Dialog>,
   );
-  return onClose;
+  return { onClose, ...view };
 }
 
 describe('Dialog', () => {
   it('is a modal dialog with the name it was given', () => {
-    renderDialog();
-    const dialog = screen.getByRole('dialog', { name: 'Archive #general?' }) as HTMLDialogElement;
-    expect(dialog.tagName).toBe('DIALOG');
-    expect(dialog.open).toBe(true);
+    const { container } = renderDialog();
+    const node = screen.getByRole('dialog', { name: 'Archive #general?' });
+    expect(node).toBe(dialog());
+    // Portalled out of the tree that rendered it, so a dialog opened from inside a
+    // transformed, virtualised row is not trapped in that row — and the page behind it is
+    // hidden from assistive tech while it asks.
+    expect(container.contains(node)).toBe(false);
+    expect(container.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('closes on Escape, through the stack every overlay shares', () => {
-    const onClose = renderDialog();
-    fireEvent.keyDown(window, { key: 'Escape' });
+  it('keeps the body it was given a legacy island', () => {
+    // The feature's own markup predates Tailwind and is styled by the legacy CSS, which
+    // stops at shadcn's `data-slot` unless an island says otherwise (styles/app/base.css).
+    renderDialog();
+    const island = screen.getByText('It stays searchable.').closest('[data-legacy]');
+    expect(island).not.toBeNull();
+    expect(dialog()?.contains(island)).toBe(true);
+  });
+
+  it('closes on Escape', () => {
+    const { onClose } = renderDialog();
+    pressEscape();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('closes on a click that lands on the backdrop, and not on one inside', () => {
-    const onClose = renderDialog();
+    const { onClose } = renderDialog();
     fireEvent.click(screen.getByText('It stays searchable.'));
     expect(onClose).not.toHaveBeenCalled();
-    // Clicks on `::backdrop` are delivered to the dialog element itself; the content
-    // wrapper fills the element, so a click whose target is the element is on the backdrop.
-    fireEvent.click(screen.getByRole('dialog'));
+    fireEvent.click(backdrop()!);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('closes once, however many ways it was asked', () => {
-    const onClose = renderDialog();
-    fireEvent.click(screen.getByRole('dialog'));
-    fireEvent.keyDown(window, { key: 'Escape' });
+    const { onClose } = renderDialog();
+    fireEvent.click(backdrop()!);
+    pressEscape();
+    fireEvent.click(backdrop()!);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('puts focus back where it came from', () => {
+  it('puts focus back where it came from', async () => {
     const opener = document.createElement('button');
     document.body.appendChild(opener);
     opener.focus();
-    expect(document.activeElement).toBe(opener);
 
     const { unmount } = render(
       <Dialog label="A question" onClose={() => {}}>
@@ -64,10 +91,48 @@ describe('Dialog', () => {
         </div>
       </Dialog>,
     );
-    expect(document.activeElement).not.toBe(opener);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByText('Yes')));
     unmount();
     expect(document.activeElement).toBe(opener);
     opener.remove();
+  });
+
+  it('gives a variant’s host class to the element that holds its backdrop and panel', () => {
+    // `lightbox-host` darkens its own backdrop and lets the picture use more of the screen;
+    // `palette-host` sits high. Both are custom properties set on the host.
+    renderDialog(vi.fn(), 'lightbox-host');
+    const host = backdrop()!.parentElement!;
+    expect(host.classList.contains('lightbox-host')).toBe(true);
+    expect(host.contains(dialog())).toBe(true);
+  });
+
+  it('holds the key above whatever was open before it', () => {
+    // A panel or a legacy menu under the dialog keeps its place on the shared stack but
+    // does not hear the Escape that closes the dialog.
+    const underneath = vi.fn();
+    function Underneath() {
+      useEscape(underneath);
+      return null;
+    }
+    render(<Underneath />);
+    const { onClose } = renderDialog();
+
+    pressEscape();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(underneath).not.toHaveBeenCalled();
+  });
+
+  it('does not let the Escape it answers reach the shell', () => {
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+    try {
+      const { onClose } = renderDialog();
+      pressEscape();
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(shell).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', shell);
+    }
   });
 });
 
@@ -75,8 +140,9 @@ describe('Dialog', () => {
  * A dialog that leaves as well as arrives.
  *
  * The contract is that nothing about *opening* changes: the dialog mounts on the render
- * that opens it, so its focus trap, autofocus and on-mount request fire exactly when
- * `{open && <X/>}` fired them. Only the close is different — held for one exit, then gone.
+ * that opens it — the chunk being here — so its autofocus and on-mount request fire when
+ * `{open && <X/>}` fired them. Only the close is different: held for Base UI's exit, then
+ * gone.
  */
 describe('DialogPresence', () => {
   /** A dialog with on-mount work, as CatchUpPanel's request is: counts every mount. */
@@ -88,6 +154,7 @@ describe('DialogPresence', () => {
       <Dialog label={`About ${name}`} onClose={onClose}>
         <div className="dialog">
           <p>{name}</p>
+          <button type="button">Done</button>
         </div>
       </Dialog>
     );
@@ -119,8 +186,6 @@ describe('DialogPresence', () => {
     );
   }
 
-  const dialog = () => document.querySelector('dialog');
-
   it('renders nothing, and runs nothing, until it is opened', () => {
     const mounted = vi.fn();
     render(<Harness mounted={mounted} />);
@@ -128,45 +193,56 @@ describe('DialogPresence', () => {
     expect(mounted).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByText('open'));
-    expect(dialog()?.open).toBe(true);
+    expect(screen.getByRole('dialog', { name: 'About #general' })).toBe(dialog());
     expect(mounted).toHaveBeenCalledTimes(1);
   });
 
-  it('stays modal, inert and closed-for-the-stylesheet until its own exit ends', () => {
-    render(<Harness mounted={vi.fn()} />);
-    fireEvent.click(screen.getByText('open'));
-    const node = dialog()!;
-    expect(node.getAttribute('data-state')).toBe('open');
-    expect(node.hasAttribute('inert')).toBe(false);
-
-    fireEvent.click(screen.getByText('close'));
-    // The same element: held, not re-rendered into a new one.
-    expect(dialog()).toBe(node);
-    expect(node.open).toBe(true);
-    expect(node.getAttribute('data-state')).toBe('closed');
-    expect(node.hasAttribute('inert')).toBe(true);
-
-    // An animation ending inside it — the panel's own entrance, a reaction chip — is not
-    // the end of the exit.
-    act(() => {
-      node.querySelector('p')!.dispatchEvent(new Event('animationend', { bubbles: true }));
-    });
-    expect(dialog()).toBe(node);
-
-    act(() => {
-      node.dispatchEvent(new Event('animationend'));
-    });
-    expect(dialog()).toBeNull();
+  it('lets what it opened reach into its own body as it mounts', () => {
+    // The pattern every form here uses: `useEffect(() => ref.current?.focus(), [])` in the
+    // component that renders <Dialog>. Base UI draws a portal's contents a render or two
+    // after the portal itself, so that component has to sit inside the dialog for its body
+    // to be there when its effect runs. Focus on Summary rather than on the first chip is
+    // the difference somebody would notice.
+    function Feedback({ onClose }: { onClose: () => void }) {
+      const summary = useRef<HTMLInputElement>(null);
+      useEffect(() => summary.current?.focus(), []);
+      return (
+        <Dialog label="Send feedback" onClose={onClose}>
+          <form className="dialog">
+            <button type="button">Bug</button>
+            <input ref={summary} aria-label="Summary" />
+          </form>
+        </Dialog>
+      );
+    }
+    function Opener() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            feedback
+          </button>
+          <DialogPresence when={open}>{() => <Feedback onClose={() => setOpen(false)} />}</DialogPresence>
+        </>
+      );
+    }
+    render(<Opener />);
+    fireEvent.click(screen.getByText('feedback'));
+    expect(document.activeElement).toBe(screen.getByLabelText('Summary'));
   });
 
-  it('keeps the thing it was opened for while it leaves', () => {
+  it('keeps the thing it was opened for while it leaves', async () => {
     // The caller's state is null by now; a dialog redrawn from null would empty itself
     // in the middle of fading out.
     render(<Harness mounted={vi.fn()} />);
     fireEvent.click(screen.getByText('open'));
     fireEvent.click(screen.getByText('close'));
-    expect(dialog()?.getAttribute('data-state')).toBe('closed');
+
+    expect(dialog()?.hasAttribute('data-closed')).toBe(true);
     expect(screen.getByText('#general')).toBeTruthy();
+
+    // And it goes once Base UI says the exit is over.
+    await waitFor(() => expect(dialog()).toBeNull());
   });
 
   it('stops answering Escape the moment it starts to leave', () => {
@@ -187,13 +263,50 @@ describe('DialogPresence', () => {
     );
     fireEvent.click(screen.getByText('open'));
 
-    fireEvent.keyDown(window, { key: 'Escape' });
+    pressEscape();
     expect(onEscape).toHaveBeenCalledTimes(1);
     expect(underneath).not.toHaveBeenCalled();
-    expect(dialog()?.getAttribute('data-state')).toBe('closed');
+    expect(dialog()?.hasAttribute('data-closed')).toBe(true);
 
-    fireEvent.keyDown(window, { key: 'Escape' });
+    pressEscape();
     expect(underneath).toHaveBeenCalledTimes(1);
+    expect(onEscape).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes one layer per Escape when a dialog opens another', async () => {
+    function Inner({ onClose }: { onClose: () => void }) {
+      return (
+        <Dialog label="Inner" onClose={onClose}>
+          <div className="dialog">
+            <button type="button">inner</button>
+          </div>
+        </Dialog>
+      );
+    }
+    function Outer({ onClose }: { onClose: () => void }) {
+      const [inner, setInner] = useState(false);
+      return (
+        <Dialog label="Outer" onClose={onClose}>
+          <div className="dialog">
+            <button type="button" onClick={() => setInner(true)}>
+              more
+            </button>
+            <DialogPresence when={inner}>{() => <Inner onClose={() => setInner(false)} />}</DialogPresence>
+          </div>
+        </Dialog>
+      );
+    }
+    const closeOuter = vi.fn();
+    render(<Outer onClose={closeOuter} />);
+    fireEvent.click(screen.getByText('more'));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByText('inner')));
+
+    pressEscape();
+    expect(closeOuter).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByText('inner')).toBeNull());
+
+    pressEscape();
+    expect(closeOuter).toHaveBeenCalledTimes(1);
   });
 
   it('mounts a new dialog when it is reopened before the old one has gone', () => {
@@ -207,113 +320,49 @@ describe('DialogPresence', () => {
     fireEvent.click(screen.getByText('open'));
 
     expect(mounted).toHaveBeenCalledTimes(2);
+    expect(dialogs()).toHaveLength(1);
     expect(dialog()).not.toBe(first);
-    expect(dialog()?.getAttribute('data-state')).toBe('open');
+    expect(dialog()?.hasAttribute('data-open')).toBe(true);
 
     // And it closes, which a revived one would not.
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(dialog()?.getAttribute('data-state')).toBe('closed');
+    pressEscape();
+    expect(dialog()?.hasAttribute('data-closed')).toBe(true);
   });
 
-  it('without popovers, stays modal through the exit and hands focus back as it goes', () => {
-    // happy-dom has no popover API, which is the case `letGo` falls back on: the dialog
-    // keeps the page inert for the 150ms, and focus goes home on unmount as it always did.
+  it('gives focus back to its opener as the exit begins, not when it ends', async () => {
     render(<Harness mounted={vi.fn()} />);
     const opener = screen.getByText('open');
     opener.focus();
     fireEvent.click(opener);
-    const node = dialog()!;
-    expect(document.activeElement).not.toBe(opener);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByText('Done')));
 
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(node.open).toBe(true);
-    expect(node.hasAttribute('popover')).toBe(false);
+    pressEscape();
 
-    act(() => {
-      node.dispatchEvent(new Event('animationend'));
-    });
-    expect(dialog()).toBeNull();
+    // Still drawn, leaving, and nothing in it can be reached — but focus is home already.
+    expect(dialog()?.hasAttribute('data-closed')).toBe(true);
+    expect(dialog()?.hasAttribute('inert')).toBe(true);
     expect(document.activeElement).toBe(opener);
   });
 
-  it('lets go on the fallback when no animation ever ends', () => {
-    vi.useFakeTimers();
+  it('does not take focus back from wherever it went during the exit', async () => {
+    // Somebody who clicked into the composer while the dialog faded is typing there; the
+    // unmount a moment later must not pull them back to the button that opened it.
+    const composer = document.createElement('textarea');
+    document.body.appendChild(composer);
     try {
-      render(<Harness mounted={vi.fn()} />);
-      fireEvent.click(screen.getByText('open'));
-      fireEvent.click(screen.getByText('close'));
-      expect(dialog()).not.toBeNull();
-      act(() => {
-        vi.advanceTimersByTime(FALLBACK_MS);
-      });
-      expect(dialog()).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  /**
-   * Where the browser has popovers — every current one — a leaving dialog stops being
-   * modal the moment its exit starts, so focus is home and the page takes keys and
-   * clicks again while it fades. happy-dom has no popover API, so `showPopover` is
-   * stood in for here; what is under test is the order of things, not the platform.
-   */
-  describe('with popovers', () => {
-    const shown: Element[] = [];
-    beforeEach(() => {
-      shown.length = 0;
-      HTMLElement.prototype.showPopover = function (this: HTMLElement) {
-        shown.push(this);
-      };
-    });
-    afterEach(() => {
-      Reflect.deleteProperty(HTMLElement.prototype, 'showPopover');
-    });
-
-    it('gives focus back to its opener as the exit begins, not when it ends', () => {
       render(<Harness mounted={vi.fn()} />);
       const opener = screen.getByText('open');
       opener.focus();
       fireEvent.click(opener);
-      const node = dialog()!;
-
-      fireEvent.keyDown(window, { key: 'Escape' });
-
-      // Closed — so nothing behind it is inert any more — and straight back on screen
-      // as a manual popover, still held for its exit.
-      expect(node.open).toBe(false);
-      expect(node.getAttribute('popover')).toBe('manual');
-      expect(shown).toEqual([node]);
-      expect(dialog()).toBe(node);
-      expect(node.getAttribute('data-state')).toBe('closed');
-      expect(node.hasAttribute('inert')).toBe(true);
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByText('Done')));
+      pressEscape();
       expect(document.activeElement).toBe(opener);
-    });
 
-    it('does not take focus back from wherever it went during the exit', () => {
-      // Somebody who clicked into the composer while the dialog faded is typing there;
-      // the unmount 150ms later must not pull them back to the button that opened it.
-      const composer = document.createElement('textarea');
-      document.body.appendChild(composer);
-      try {
-        render(<Harness mounted={vi.fn()} />);
-        const opener = screen.getByText('open');
-        opener.focus();
-        fireEvent.click(opener);
-        const node = dialog()!;
-        fireEvent.keyDown(window, { key: 'Escape' });
-        expect(document.activeElement).toBe(opener);
-
-        composer.focus();
-        act(() => {
-          node.dispatchEvent(new Event('animationend'));
-        });
-
-        expect(dialog()).toBeNull();
-        expect(document.activeElement).toBe(composer);
-      } finally {
-        composer.remove();
-      }
-    });
+      composer.focus();
+      await waitFor(() => expect(dialog()).toBeNull());
+      expect(document.activeElement).toBe(composer);
+    } finally {
+      composer.remove();
+    }
   });
 });

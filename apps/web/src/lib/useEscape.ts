@@ -22,8 +22,13 @@ import { useEffect } from 'react';
 
 type Handler = () => void;
 
+/** One thing open. `close` is null for an overlay that answers the key itself. */
+interface Layer {
+  close: Handler | null;
+}
+
 /** Innermost last. Empty means nothing is open and the shell may have the key. */
-const open: Handler[] = [];
+const open: Layer[] = [];
 
 let listening = false;
 
@@ -31,20 +36,41 @@ function onKeyDown(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return;
   const innermost = open[open.length - 1];
   if (!innermost) return;
+  if (innermost.close === null) {
+    // A Base UI dialog on top. Its own listener, on `document`, closes it and stops the key
+    // there, before it can bubble back up to the shell's; all the stack does is hold the top,
+    // so nothing opened before it hears this. The exception is the Escape that only ends an
+    // input method's composition: Base UI leaves that one alone, so nothing would stop it.
+    if (!event.isComposing) return;
+    event.stopPropagation();
+    return;
+  }
   event.stopPropagation();
   // And the browser's own answer to the key, which comes after every handler: a close
-  // request, sent to whichever modal dialog is on top *by then*. A dialog leaving through
-  // `letGo` has already stopped being modal, so that is the one underneath — and one
-  // Escape closed two dialogs and threw away what was typed in the lower one. The key
-  // has been answered here; nothing else should answer it again.
+  // request, sent to whichever native modal is on top *by then* — which need not be the
+  // thing that just answered. The key has been answered here; nothing else should answer
+  // it again.
   event.preventDefault();
-  innermost();
+  innermost.close();
 }
 
 function listenOnce(): void {
   if (listening) return;
   window.addEventListener('keydown', onKeyDown, true);
   listening = true;
+}
+
+function useLayer(close: Handler | null, active: boolean): void {
+  useEffect(() => {
+    if (!active) return undefined;
+    listenOnce();
+    const layer: Layer = { close };
+    open.push(layer);
+    return () => {
+      const at = open.lastIndexOf(layer);
+      if (at !== -1) open.splice(at, 1);
+    };
+  }, [close, active]);
 }
 
 /**
@@ -54,14 +80,19 @@ function listenOnce(): void {
  * the exit animation, and a menu on its way out must not still be answering Escape.
  */
 export function useEscape(onClose: () => void, active = true): void {
-  useEffect(() => {
-    if (!active) return undefined;
-    listenOnce();
-    const handler: Handler = () => onClose();
-    open.push(handler);
-    return () => {
-      const at = open.lastIndexOf(handler);
-      if (at !== -1) open.splice(at, 1);
-    };
-  }, [onClose, active]);
+  useLayer(onClose, active);
+}
+
+/**
+ * Hold the top of the stack for an overlay whose own Escape handling closes it.
+ *
+ * A Base UI dialog answers Escape itself, and has to: that is what runs its exit, hands
+ * focus back and lets a dialog nested in it close first. What it does not know about is
+ * everything on this stack — a panel or a menu opened before it, which would otherwise
+ * be innermost and take the key out from under it. So it takes a place here too, one that
+ * closes nothing: while it is on top the key goes on to its own listener untouched, and
+ * nothing beneath it hears that Escape. One key, one layer.
+ */
+export function useEscapeLayer(active = true): void {
+  useLayer(null, active);
 }

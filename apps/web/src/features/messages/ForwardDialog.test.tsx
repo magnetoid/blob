@@ -94,7 +94,7 @@ describe('forwarding a message', () => {
   it('closes on Escape', () => {
     const { onClose } = setup();
 
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
 
     expect(onClose).toHaveBeenCalled();
   });

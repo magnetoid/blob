@@ -183,14 +183,12 @@
 
 /* The image at full size, over everything. Its own backdrop is darker than a dialog's
    because the point is the picture, and the surface under it is black rather than
-   --surface so a screenshot with a white background does not bleed into the frame. */
-dialog.lightbox-host {
-  max-width: calc(100vw - 48px);
-  max-height: calc(100dvh - 48px);
-}
-
-dialog.lightbox-host::backdrop {
-  background: rgb(0 0 0 / 0.82);
+   --surface so a screenshot with a white background does not bleed into the frame.
+   `lightbox-host` is the element holding the dialog shell's backdrop and panel
+   (`components/overlays/DialogImpl.tsx`), which read these two. */
+.lightbox-host {
+  --dialog-gutter: 48px;
+  --dialog-backdrop: rgb(0 0 0 / 0.82);
 }
 
 .lightbox {
