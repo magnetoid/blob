@@ -209,6 +209,28 @@ a:hover {
   text-decoration: underline;
 }
 
+/* A link in prose is underlined. --blob-accent is shadcn's --primary now, 1.1:1 against
+   the text around it, so colour no longer says "link"; shadcn's typography underlines
+   (`underline underline-offset-4`). Keyed on the containers `renderMarkdown` and
+   `renderInline` draw into — a message and a file's or artifact's document, a pinned row,
+   a search hit, an app's blocks, a thread summary — and never on bare `a`: a row, card or
+   menu item that is an anchor must stay plain. `proseLinks.test.ts` lists the callers. */
+:is(
+    .message-body,
+    .work-document,
+    .pinned-item-body,
+    .search-result-text,
+    .block-section,
+    .block-fields,
+    .block-context,
+    .summary-overview,
+    .agentic-list
+  )
+  a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 button,
 input,
 textarea,
