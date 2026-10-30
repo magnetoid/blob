@@ -498,7 +498,9 @@ Five rules the file will not tell you on its own:
   theme editor by name in its `TOKEN_GROUPS`, not by position, so adding one moves nothing.
   A stored theme is keyed by them, so renaming or dropping one needs a data migration
   (0078 rekeyed every stored theme and replaced the twelve presets, which a migration
-  holds a frozen copy of — change a preset in a new one, not in 0078). A themed *value* is
+  holds a frozen copy of — change a preset in a new one, not in 0078; its `downgrade` puts
+  the old names back best-effort, and rolling back an image past it means `alembic
+  downgrade 0077` from the new one first, ADR 0043). A themed *value* is
   hex, `rgb()` or `oklch()`, literal numbers and ASCII only: the grammar refuses
   `color-mix()`, `var()` and `calc()`, though app.css may use them. Only colour is
   themeable; `--radius` and everything else in theme.css and tokens.css is structure and

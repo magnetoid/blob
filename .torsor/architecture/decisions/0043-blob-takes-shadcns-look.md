@@ -110,8 +110,9 @@ shadcn's colour names.**
   until every text pair, destructive on the sidebar included, is 4.5:1 against b0's values
   for what they leave unset (`tests/test_themes.py` holds it from then on). None was
   retired: nobody's chosen theme falls back silently. The rewrite is safe to meet twice —
-  a dict that already holds a name only the new vocabulary has is left alone — but
-  `downgrade` cannot restore the old names. The client keeps the palette it replays before
+  a dict that already holds a name only the new vocabulary has is left alone — and
+  `downgrade` is a best-effort inverse, not a no-op (see "Rolling back" below). The client
+  keeps the palette it replays before
   hydration under `blob.theme.v2`, and never reads the old key again, because a stored
   `--accent` would now paint shadcn's hover wash in the old brand colour.
 - **Browser chrome follows the page, not the brand.** The `theme-color` meta and the
@@ -154,6 +155,20 @@ shadcn's colour names.**
   them; that is the moment to snapshot the migration's copy, not to edit it.
 - Dark mode costs two copies of one palette, kept identical by a test, so that "system"
   works before JavaScript and an explicit choice works after it.
+- **Rolling back past 0078 is a database step, not only an image step.** The old client
+  applies `--accent` in both vocabularies, so a theme left on the new names would paint
+  its hover wash in the brand colour on nine of the twelve presets and on any custom theme
+  that set one; the old server refuses to save a rekeyed theme; and an old image cannot
+  boot against a database at 0078 (Alembic: "Can't locate revision"). A plain revert PR
+  passes CI on a fresh database and then fails to start in production. So run `alembic
+  downgrade 0077` from the **new** image, in its running app container (the working
+  directory holds `alembic.ini`), and only then repoint `BLOB_IMAGE_TAG` at an older
+  commit; the new image's entrypoint upgrades again on every start, so do not restart it
+  in between. The downgrade restores the twelve presets exactly and gives each custom
+  theme back the colours the old vocabulary has a name for; the twenty-five dropped names
+  and the new vocabulary's own (`--secondary`, `--chart-*` …) do not come back, and an
+  `oklch()` value, which the old grammar refused, is carried over as written. Upgrading
+  again afterwards is safe.
 - `CLAUDE.md`'s design-layer section is rewritten for this state, not for the end of the
   migration; phase 7 rewrites it again.
 
