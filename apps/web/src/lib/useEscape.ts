@@ -41,6 +41,9 @@ function onKeyDown(event: KeyboardEvent): void {
     // there, before it can bubble back up to the shell's; all the stack does is hold the top,
     // so nothing opened before it hears this. The exception is the Escape that only ends an
     // input method's composition: Base UI leaves that one alone, so nothing would stop it.
+    // Where the key says so (`isComposing`) it stops here; Safari's says false, because its
+    // `compositionend` comes first, and the dialog's popup stops that one itself
+    // (`DialogImpl`), since the field being composed in is inside it.
     if (!event.isComposing) return;
     event.stopPropagation();
     return;
