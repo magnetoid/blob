@@ -8,7 +8,7 @@
  * the cases that care wait for.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogPresence } from './Dialog.tsx';
 import { useEscape } from '../lib/useEscape.ts';
@@ -120,6 +120,44 @@ describe('Dialog', () => {
     pressEscape();
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(underneath).not.toHaveBeenCalled();
+  });
+
+  it('lets nothing behind it hear the Escape that ends a composition, in Safari’s order', async () => {
+    // Safari fires `compositionend` before `keydown`, so the Escape that dismisses an input
+    // method's candidates arrives saying `isComposing: false`. Base UI still knows it
+    // belongs to the input method and leaves the dialog open — and the shell behind must
+    // leave it too, or it closes the thread under the dialog or marks the channel read.
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+    try {
+      const onClose = vi.fn();
+      render(
+        <Dialog label="Send feedback" onClose={onClose}>
+          <form className="dialog">
+            <input aria-label="Summary" />
+          </form>
+        </Dialog>,
+      );
+      const field = screen.getByLabelText('Summary');
+      field.focus();
+
+      fireEvent.compositionStart(field);
+      fireEvent.compositionEnd(field);
+      fireEvent.keyDown(field, { key: 'Escape', isComposing: false });
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(shell).not.toHaveBeenCalled();
+
+      // Once the input method has let go, Escape is the dialog's again — once.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+      fireEvent.keyDown(field, { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(shell).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', shell);
+    }
   });
 
   it('does not let the Escape it answers reach the shell', () => {

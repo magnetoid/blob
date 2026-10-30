@@ -151,6 +151,16 @@ export function DialogImpl({ open, onExited, children }: DialogImplProps) {
           finalFocus={false}
           // Still drawn while it leaves, and nothing in it can be clicked, focused or read.
           inert={!open}
+          // An Escape from inside goes no further than the dialog, whether or not Base UI
+          // acts on it. Base UI's own handler on this element still runs — handlers merge —
+          // and closes the dialog; what this stops is the one it deliberately leaves alone:
+          // the Escape that ends an input method's composition, which in Safari arrives
+          // after `compositionend` saying `isComposing: false`. Left to bubble it reached
+          // the shell's listener on `window`, which closed the thread behind the dialog or
+          // marked the channel read.
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') event.stopPropagation();
+          }}
           className={POPUP}
         >
           <DialogHostContext.Provider value={host}>{children}</DialogHostContext.Provider>
