@@ -14,11 +14,12 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { lazyOverlay } from './lazyOverlay.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
 import { reportClientError } from '../lib/clientErrors.ts';
-import { loadOverlays, type OverlayModule } from '../lib/overlays.ts';
+import { loadOverlays, loadedOverlays, type OverlayModule } from '../lib/overlays.ts';
 
-vi.mock('../lib/overlays.ts', () => ({ loadOverlays: vi.fn() }));
+vi.mock('../lib/overlays.ts', () => ({ loadOverlays: vi.fn(), loadedOverlays: vi.fn() }));
 vi.mock('../lib/clientErrors.ts', () => ({ reportClientError: vi.fn() }));
 const load = vi.mocked(loadOverlays);
+const loaded = vi.mocked(loadedOverlays);
 
 function Greeting({ name }: { name: string }) {
   return <p>Hello {name}</p>;
@@ -42,6 +43,8 @@ function deferred<T>() {
 let consoleError: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   load.mockReset();
+  // Not here yet, unless a case says otherwise.
+  loaded.mockReset().mockReturnValue(null);
   vi.mocked(reportClientError).mockReset();
   // React reports a caught render error through console.error too; the cases below
   // count only the overlay's own line.
@@ -75,6 +78,19 @@ describe('lazyOverlay', () => {
     await act(async () => chunk.resolve(fakeModule));
     expect(screen.getByText('Hello Ada')).toBeTruthy();
     expect(screen.getByText('the page')).toBeTruthy();
+  });
+
+  it('draws in the render that opened it when its chunk is already here', () => {
+    // The normal case once the app has preloaded the chunk: a dialog's body has to be in
+    // the document when the component that opened it runs its effects, and a lazy that
+    // suspended even for a microtask would miss that.
+    loaded.mockReturnValue(fakeModule);
+    const Overlay = lazyOverlay<{ name: string }>(pickGreeting);
+
+    render(<Overlay name="Ada" />);
+
+    expect(screen.getByText('Hello Ada')).toBeTruthy();
+    expect(load).not.toHaveBeenCalled();
   });
 
   it('opens with the props it had when its chunk lands', async () => {

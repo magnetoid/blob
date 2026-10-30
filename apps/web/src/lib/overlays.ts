@@ -37,10 +37,28 @@ export function memoiseImport<T>(importer: () => Promise<T>): () => Promise<T> {
   };
 }
 
+/** Set once the chunk has arrived; never unset, because a module that loaded stays loaded. */
+let arrived: OverlayModule | null = null;
+
 /** The overlay chunk, fetched the first time anybody needs it and shared after that. */
-export const loadOverlays: () => Promise<OverlayModule> = memoiseImport(
-  () => import('../components/overlays/index.ts'),
+export const loadOverlays: () => Promise<OverlayModule> = memoiseImport(() =>
+  import('../components/overlays/index.ts').then((overlays) => {
+    arrived = overlays;
+    return overlays;
+  }),
 );
+
+/**
+ * The overlay chunk if it is already here, and null if it is not.
+ *
+ * What lets an overlay opened after the preload be drawn in the very render that opened
+ * it, rather than a microtask later: a dialog's body has to be in the document by the time
+ * the component that opened it runs its effects, which is where every form here focuses
+ * its first field (`lazyOverlay`).
+ */
+export function loadedOverlays(): OverlayModule | null {
+  return arrived;
+}
 
 /**
  * Past this a page that is never quiet — a busy channel redraws all day — still gets its
