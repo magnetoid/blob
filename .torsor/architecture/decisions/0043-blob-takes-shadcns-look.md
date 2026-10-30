@@ -113,9 +113,12 @@ shadcn's colour names.**
   retired: nobody's chosen theme falls back silently. The rewrite is safe to meet twice —
   a dict that already holds a name only the new vocabulary has is left alone — and
   `downgrade` is a best-effort inverse, not a no-op (see "Rolling back" below). The client
-  keeps the palette it replays before
-  hydration under `blob.theme.v2`, and never reads the old key again, because a stored
-  `--accent` would now paint shadcn's hover wash in the old brand colour.
+  keeps the palette it replays before hydration under `blob.theme.v2`, and never replays
+  the old key's palette, because a stored `--accent` would now paint shadcn's hover wash
+  in the old brand colour; the one thing it takes from the old key, on the first load
+  after the move and until hydration removes it, is the viewer's explicit light or dark
+  choice, so that someone who chose dark on a light OS does not see a light page until the
+  bootstrap answers.
 - **Browser chrome follows the page, not the brand.** The `theme-color` meta and the
   manifest's `theme_color` and `background_color` are `--background` (`#ffffff` light,
   `#0a0a0a` dark when no theme sets one). b0's `--primary` is near-black in light and
@@ -149,7 +152,8 @@ shadcn's colour names.**
   replace rules. Each phase deletes the legacy file for what it converts, in the same PR.
 - A custom theme survives, rekeyed, on the colours that have a home; colours that had none
   are gone for good. A theme saved before this release and replayed from a browser's
-  `blob.theme` is ignored once, then replaced by the server's answer.
+  `blob.theme` is ignored once, its light or dark choice apart, then replaced by the
+  server's answer.
 - `tests/test_theme_rekey_migration.py` pins the frozen presets and 0078's name lists to the
   live code (`test_the_frozen_presets_are_the_ones_shipped`, and `NEW_NAMES` equal to
   `THEMEABLE_TOKENS`). The first legitimate change to a preset or a themeable name will fail

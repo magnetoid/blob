@@ -515,7 +515,8 @@ Worth knowing before changing the equivalent code:
   and replaced the presets by slug with a frozen copy). `--accent` is a name in both the
   legacy vocabulary (brand green) and shadcn's (hover wash), so a rekey must ask whether a
   theme already speaks the new one, and a browser holding a palette under the old
-  `blob.theme` key must never replay it (the client reads `blob.theme.v2`).
+  `blob.theme` key must never replay it (the client reads `blob.theme.v2`; `theme-boot.js`
+  takes only that old entry's light/dark choice, once, so the first paint is in the right mode).
 - **A custom property's computed value is resolved, not literal.** `getComputedStyle`
   returns `#141614` for `--bg: var(--dark-bg)`, which is what lets the dark palette be
   written once and aliased twice — and what stops `ThemesSection`'s colour-input

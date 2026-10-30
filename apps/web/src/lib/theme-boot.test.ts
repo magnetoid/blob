@@ -51,7 +51,7 @@ describe('pre-hydration theme boot', () => {
     ).toBe('#0a0a0a');
   });
 
-  it('ignores a palette stored under the old key', () => {
+  it('ignores the palette stored under the old key', () => {
     // `blob.theme` held `--accent` and `--bg`. `--accent` is now shadcn's hover wash, so
     // replaying it would paint every hover in the old brand colour until the first save.
     boot(
@@ -59,7 +59,7 @@ describe('pre-hydration theme boot', () => {
       false,
       {
         'blob.theme': {
-          preference: 'light',
+          preference: 'system',
           mode: 'light',
           tokens: { '--accent': '#1f5c3d' },
           palettes: { light: { '--accent': '#1f5c3d' }, dark: {} },
@@ -72,6 +72,74 @@ describe('pre-hydration theme boot', () => {
     expect(root.style.length).toBe(0);
     expect(root.hasAttribute('data-theme')).toBe(false);
     expect(root.hasAttribute('data-theme-tokens')).toBe(false);
+  });
+
+  it('keeps a viewer who chose dark in dark on the first load after the move, tokens aside', () => {
+    // Nothing under `.v2` yet, so without this someone who chose dark on a light OS would see a
+    // light page until bootstrap. The old key is read for its preference and nothing else.
+    boot(
+      null,
+      false,
+      {
+        'blob.theme': {
+          preference: 'dark',
+          mode: 'dark',
+          tokens: { '--accent': '#3fb394', '--bg': '#0e1210' },
+          palettes: { light: {}, dark: { '--accent': '#3fb394', '--bg': '#0e1210' } },
+        },
+      },
+    );
+
+    const root = document.documentElement;
+    expect(root.getAttribute('data-theme')).toBe('dark');
+    expect(root.dataset.resolvedTheme).toBe('dark');
+    expect(root.style.colorScheme).toBe('dark');
+    expect(root.style.getPropertyValue('--accent')).toBe('');
+    expect(root.style.getPropertyValue('--bg')).toBe('');
+    // No tokens are named as set, so the first save has none of this to clean up.
+    expect(root.dataset.themeTokens).toBe('');
+    expect(
+      document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content,
+    ).toBe('#0a0a0a');
+  });
+
+  it('does the same for light on a dark OS, and nothing for "system"', () => {
+    const old = (preference: string) => ({
+      'blob.theme': { preference, mode: preference, tokens: { '--accent': '#1f5c3d' } },
+    });
+    const root = document.documentElement;
+
+    boot(null, true, old('light'));
+    expect(root.getAttribute('data-theme')).toBe('light');
+    expect(root.dataset.resolvedTheme).toBe('light');
+    expect(root.style.getPropertyValue('--accent')).toBe('');
+
+    root.removeAttribute('data-theme');
+    root.removeAttribute('data-resolved-theme');
+    root.removeAttribute('style');
+    boot(null, true, old('system'));
+    expect(root.hasAttribute('data-theme')).toBe(false);
+    expect(root.style.length).toBe(0);
+  });
+
+  it('prefers the v2 palette to the old key, and does not mix them', () => {
+    boot(
+      null,
+      false,
+      {
+        'blob.theme.v2': {
+          preference: 'light',
+          mode: 'light',
+          tokens: { '--primary': '#7a4f22' },
+        },
+        'blob.theme': { preference: 'dark', mode: 'dark', tokens: { '--accent': '#3fb394' } },
+      },
+    );
+
+    const root = document.documentElement;
+    expect(root.getAttribute('data-theme')).toBe('light');
+    expect(root.style.getPropertyValue('--primary')).toBe('#7a4f22');
+    expect(root.style.getPropertyValue('--accent')).toBe('');
   });
 
   it('reads the palette stored under the v2 key', () => {

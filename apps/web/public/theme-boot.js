@@ -9,6 +9,19 @@ try {
   // `.v2` since the palette is written in shadcn's names: an entry under the old key
   // holds `--accent` as Blob's brand green, which would now paint shadcn's hover wash.
   var saved = JSON.parse(localStorage.getItem("blob.theme.v2") || "null");
+  if (!saved) {
+    // The first load after the move has nothing under `.v2` yet. Whoever chose a mode
+    // keeps it — otherwise a viewer who chose dark on a light OS sees a light page until
+    // the bootstrap answers — but only the choice is read from the old entry, never its
+    // tokens: they are Blob's old names.
+    var previous = JSON.parse(localStorage.getItem("blob.theme") || "null");
+    if (
+      previous &&
+      (previous.preference === "light" || previous.preference === "dark")
+    ) {
+      saved = { preference: previous.preference, mode: previous.preference };
+    }
+  }
   if (saved) {
     var root = document.documentElement;
     if (saved.preference && saved.preference !== "system") {
