@@ -18,7 +18,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { Menu } from './Menu.tsx';
 import { ConfirmDialog } from './ConfirmDialog.tsx';
@@ -352,6 +352,92 @@ describe('a menu’s dismissal', () => {
 
     expect(onClose).not.toHaveBeenCalled();
     dialog.remove();
+  });
+
+  describe('a press on its own trigger', () => {
+    // The panel closed and its trigger's own click — MessageMenu's toggle, TopBar's open —
+    // opened it again, in every engine: a close from a listener of the page's commits
+    // between that listener and React's, so the trigger saw it closed. And in Chrome and
+    // Firefox it closed sooner still, on the focus the press gives the button.
+    function MoreActions({ beside }: { beside?: () => void }) {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            onClick={() => setOpen((current) => !current)}
+          >
+            More actions
+          </button>
+          <button type="button" onClick={beside}>
+            Reply
+          </button>
+          <Menu open={open} onClose={() => setOpen(false)} className="menu">
+            <button role="menuitem" type="button">
+              Edit
+            </button>
+          </Menu>
+        </>
+      );
+    }
+    function openIt() {
+      const trigger = screen.getByText('More actions');
+      fireEvent.click(trigger);
+      expect(trigger.getAttribute('aria-expanded')).toBe('true');
+      screen.getByText('Edit').focus();
+      return trigger;
+    }
+
+    it('closes it, as Chrome and Firefox send the press', () => {
+      render(<MoreActions />);
+      const trigger = openIt();
+
+      // The press, focus to the button and a render, then the click.
+      fireEvent.pointerDown(trigger);
+      act(() => trigger.focus());
+      fireEvent.click(trigger);
+
+      expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('closes it, as Safari sends the press', () => {
+      // Safari gives a pressed button no focus: the press, then the click.
+      render(<MoreActions />);
+      const trigger = openIt();
+
+      fireEvent.pointerDown(trigger);
+      fireEvent.click(trigger);
+
+      expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('still lets a click on anything else do what it does', () => {
+      const replied = vi.fn();
+      render(<MoreActions beside={replied} />);
+      const trigger = openIt();
+
+      fireEvent.pointerDown(screen.getByText('Reply'));
+      fireEvent.click(screen.getByText('Reply'));
+
+      expect(replied).toHaveBeenCalledTimes(1);
+      expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    });
+  });
+
+  it('hands focus leaving back to the keyboard at the next key after a press', () => {
+    const elsewhere = document.createElement('button');
+    document.body.append(elsewhere);
+    const onClose = open();
+    screen.getByText('First').focus();
+    fireEvent.pointerDown(document.body);
+    press('Tab');
+
+    elsewhere.focus();
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    elsewhere.remove();
   });
 
   it('closes when focus moves out of it, and not while it moves within it', () => {

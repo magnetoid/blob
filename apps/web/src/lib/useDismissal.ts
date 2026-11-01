@@ -3,8 +3,8 @@
  * Three menus grew three private copies of the same dismissal wiring, and no two got it
  * quite alike; a popover would have been the fourth. This is the house contract, once, for
  * `components/Menu.tsx` and `components/Popover.tsx` both: dismissed by a click *outside*
- * the panel — decided by `contains`, never "any click" — by Escape, or by focus moving out
- * of it, with all three suspended while the caller has a dialog up, because a dialog
+ * the panel — decided by `contains`, never "any click" — by Escape, or by the keyboard
+ * moving focus out of it, with all three suspended while the caller has a dialog up, because a dialog
  * rendered beside the panel is "outside" by that test and would be unmounted by the very
  * click that asked for it. See the ChannelMenu trap note in `.torsor/active/context.md`.
  * And focus goes back to whatever opened the panel when it closes, unless the person sent
@@ -64,6 +64,9 @@ export function useDismissal(
   // Set when focus moving out closed the panel: it is on its way somewhere the person sent
   // it — mid-move, so `document.activeElement` is still <body> — and is not brought back.
   const focusLeftRef = useRef(false);
+  // Which was used last: a pointer from its press until the next key, the keyboard from
+  // that key on. Focus moving out closes the panel only for the keyboard (below).
+  const byPointerRef = useRef(false);
 
   // A layout effect, so the opener is the trigger and not wherever the panel has taken
   // focus since; and so focus is home before a dialog that one of its items opened looks
@@ -105,29 +108,58 @@ export function useDismissal(
     if (!open || suspended) return undefined;
     // Capture phase, so a click that lands on another control closes this first
     // rather than leaving two panels open.
+    //
+    // And one that lands on the trigger of a panel that is open — this one's, by the
+    // menu-button contract (`aria-haspopup` with `aria-expanded="true"`) — has done all it
+    // came to do by closing it, and goes no further. Let through, it reached the trigger's
+    // own handler after the close had been drawn — a close from a listener of the page's
+    // commits before React's own runs — and the toggle, or TopBar's open, opened the panel
+    // again, in every engine.
     const onClick = (event: globalThis.MouseEvent) => {
-      if (!anchor.current?.contains(event.target as Node)) onClose();
+      const target = event.target;
+      if (!(target instanceof Node) || anchor.current?.contains(target)) return;
+      onClose();
+      const element = target instanceof Element ? target : target.parentElement;
+      if (element?.closest('[aria-haspopup]:not([aria-haspopup="false"])[aria-expanded="true"]')) {
+        event.stopPropagation();
+      }
     };
-    // And when focus moves out of it — Tab past its last control, Shift+Tab back to its
-    // trigger — as a menu or a popover does everywhere else (`focusMovedOut`). An open panel
-    // with focus elsewhere was never much use, and is now worse: Base UI takes the contents
-    // of a panel it has portalled out of the tab order while focus is outside it, so Tab
-    // would no longer find them.
+    // And when the keyboard moves focus out of it — Tab past its last control, Shift+Tab
+    // back to its trigger — as a menu or a popover does everywhere else (`focusMovedOut`).
+    // An open panel with focus elsewhere was never much use, and is now worse: Base UI takes
+    // the contents of a panel it has portalled out of the tab order while focus is outside
+    // it, so Tab would no longer find them.
+    //
+    // Not for a pointer. Chrome and Firefox focus a button as the press goes down, and a
+    // close then is drawn before the click, which finds the trigger saying the panel is
+    // shut and opens it again. A press is the click's to judge, above. The emoji picker's
+    // rule (`components/EmojiPicker.tsx`): a pointer from its press until the next key,
+    // since a tap focuses after the finger has lifted.
     const node = anchor.current;
     const onFocusOut = (event: globalThis.FocusEvent) => {
-      if (goingHomeRef.current || !focusMovedOut(event, node)) return;
+      if (goingHomeRef.current || byPointerRef.current || !focusMovedOut(event, node)) return;
       focusLeftRef.current = true;
       onClose();
+    };
+    const onPointerDown = () => {
+      byPointerRef.current = true;
+    };
+    const onKeyDown = () => {
+      byPointerRef.current = false;
     };
     // Back in, as when a caller kept it open: a close after this is an ordinary one again.
     const onFocusIn = () => {
       focusLeftRef.current = false;
     };
     window.addEventListener('click', onClick, true);
+    window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('keydown', onKeyDown, true);
     node?.addEventListener('focusout', onFocusOut);
     node?.addEventListener('focusin', onFocusIn);
     return () => {
       window.removeEventListener('click', onClick, true);
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('keydown', onKeyDown, true);
       node?.removeEventListener('focusout', onFocusOut);
       node?.removeEventListener('focusin', onFocusIn);
     };

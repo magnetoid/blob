@@ -308,10 +308,15 @@ attribute. What it decided, and why:
   swallowed Tab, handing focus to a trigger of Base UI's own that these panels do not have —
   and a canary in `Menu.test.tsx` and `Popover.test.tsx` fails if Base UI's attribute stops
   matching. Because Base UI takes a portalled panel's contents out of the tab order once
-  focus leaves it, focus moving out closes a menu or a person card; the emoji picker, whose
-  closing is its callers', closes on a keyboard focus-out only, and from a `pointerdown`
-  until the next key the pointer is the input mode, since a tap moves focus after the
-  finger lifts. The exit is in the design spec: phase 4 moves the account menu, the
+  focus leaves it, the keyboard moving focus out closes a menu or a person card, and so
+  does it for the emoji picker, whose closing is otherwise its callers'. Not a pointer:
+  from a `pointerdown` until the next key the pointer is the input mode, since a tap moves
+  focus after the finger lifts, and a press is the click's to judge. A click on an open
+  panel's own trigger — `aria-haspopup` with `aria-expanded="true"` — closes it and is
+  stopped there. Let through, it reopened the panel in every engine (Codex on #43): a
+  close from a listener of the page's commits before React's own handler runs, so the
+  trigger's toggle saw the panel shut. That was true on main for the menus; Chrome and
+  Firefox made it worse here by closing on the focus the press gave the button. The exit is in the design spec: phase 4 moves the account menu, the
   section menu and ChannelMenu to `DropdownMenuTrigger` and `DropdownMenuItem`, phase 5
   MessageMenu, and SchedulePicker becomes a Popover; then the root's `disabled`, the
   cancel-all, the anchor span, the guard hiding and its canary, the `--menu-*` properties
