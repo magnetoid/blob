@@ -9,7 +9,7 @@
  * rejection for good, so that is not free.
  */
 import { Suspense, type ComponentType } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { lazyOverlay } from './lazyOverlay.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
@@ -40,7 +40,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-let consoleError: ReturnType<typeof vi.spyOn>;
+let consoleError: MockInstance<typeof console.error>;
 beforeEach(() => {
   load.mockReset();
   // Not here yet, unless a case says otherwise.
