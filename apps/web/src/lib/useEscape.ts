@@ -22,18 +22,20 @@ import { useEffect } from 'react';
 
 type Handler = () => void;
 
-/** One thing open. `close` is null for an overlay that answers the key itself, and `early`
- *  is what answers for such an overlay until it can. */
+/** One thing open. `close` is null for an overlay that answers the key itself, and
+ *  `standIn` is what answers for such an overlay where it cannot. */
 interface Layer {
   close: Handler | null;
-  early: EarlyAnswer | null;
+  standIn: StandIn | null;
 }
 
-/** For an overlay that is open before it is drawn — see `useEscapeLayer`. */
-export interface EarlyAnswer {
+/** For an overlay that answers Escape itself, except where it cannot — see `useEscapeLayer`. */
+export interface StandIn {
   /** Whether it is drawn, with its own listener in the document. Asked as each key arrives. */
   drawn: () => boolean;
-  /** What an Escape pressed before then does. */
+  /** Whether the key came from inside it, where its own handler stops it. */
+  holds: (target: EventTarget | null) => boolean;
+  /** What an Escape it cannot answer does. */
   close: Handler;
 }
 
@@ -45,9 +47,16 @@ let listening = false;
 /** What answers this Escape for a layer: a handler, or null to leave it to the overlay. */
 function answerFor(layer: Layer, event: KeyboardEvent): Handler | null {
   if (layer.close) return layer.close;
-  // Not drawn yet, so nothing of the overlay's own is listening and the layer answers for
-  // it — except the Escape that only ends a composition, which the overlay would leave alone.
-  if (layer.early && !layer.early.drawn() && !event.isComposing) return layer.early.close;
+  // The Escape that only ends a composition is the input method's, and the overlay leaves
+  // it alone.
+  if (!layer.standIn || event.isComposing) return null;
+  // Not drawn yet, so nothing of the overlay's own is listening and the layer answers for it.
+  if (!layer.standIn.drawn()) return layer.standIn.close;
+  // Drawn, but the key came from outside it — focus left on the page's body when the field
+  // it was in went away, or on a toast. Its own listener on `document` would close it, and
+  // so would every other Base UI dialog's that was opened apart from it, because nothing
+  // inside this one was there to stop the key. Answered here, it reaches none of them.
+  if (!layer.standIn.holds(event.target)) return layer.standIn.close;
   return null;
 }
 
@@ -57,10 +66,11 @@ function onKeyDown(event: KeyboardEvent): void {
   if (!innermost) return;
   const close = answerFor(innermost, event);
   if (close === null) {
-    // A Base UI dialog on top. Its own listener, on `document`, closes it and stops the key
-    // there, before it can bubble back up to the shell's; all the stack does is hold the top,
-    // so nothing opened before it hears this. The exception is the Escape that only ends an
-    // input method's composition: Base UI leaves that one alone, so nothing would stop it.
+    // A Base UI dialog on top, and the key came from inside it. Its own handler closes it
+    // and the key stops at its popup, before it can bubble up to the shell's listener; all
+    // the stack does is hold the top, so nothing opened before it hears this. The exception
+    // is the Escape that only ends an input method's composition: Base UI leaves that one
+    // alone, so nothing would stop it.
     // Where the key says so (`isComposing`) it stops here; Safari's says false, because its
     // `compositionend` comes first, and the dialog's popup stops that one itself
     // (`DialogImpl`), since the field being composed in is inside it.
@@ -81,17 +91,17 @@ function listenOnce(): void {
   listening = true;
 }
 
-function useLayer(close: Handler | null, active: boolean, early: EarlyAnswer | null = null): void {
+function useLayer(close: Handler | null, active: boolean, standIn: StandIn | null = null): void {
   useEffect(() => {
     if (!active) return undefined;
     listenOnce();
-    const layer: Layer = { close, early };
+    const layer: Layer = { close, standIn };
     open.push(layer);
     return () => {
       const at = open.lastIndexOf(layer);
       if (at !== -1) open.splice(at, 1);
     };
-  }, [close, early, active]);
+  }, [close, standIn, active]);
 }
 
 /**
@@ -114,13 +124,20 @@ export function useEscape(onClose: () => void, active = true): void {
  * closes nothing: while it is on top the key goes on to its own listener untouched, and
  * nothing beneath it hears that Escape. One key, one layer.
  *
- * `early` is for an overlay that is open before it is drawn: a dialog is opened by
- * first-load code (`DialogPresence`) and drawn by the overlay chunk, which may still be on
- * its way. Until `early.drawn()` says it is there, an Escape is the dialog's all the same —
- * stopped here, default prevented and handed to `early.close` — where letting it through
- * would hand it to nobody, and it would reach the shell. Pass the same object on every
- * render: a new one re-registers the layer, which puts it back on top.
+ * `standIn` answers for the overlay where its own listener cannot, stopping the key here,
+ * preventing its default and handing it to `standIn.close`. Twice over:
+ *
+ * - Before it is drawn. A dialog is opened by first-load code (`DialogPresence`) and drawn
+ *   by the overlay chunk, which may still be on its way. Until `standIn.drawn()` says it is
+ *   there, letting the key through would hand it to nobody, and it would reach the shell.
+ * - For a key from outside it (`standIn.holds`). Base UI's listener is on `document`, and
+ *   what keeps a key to the dialog on top is that its popup stops it on the way up. Focus
+ *   on the body, or on a toast, puts nothing in the way, and every Base UI dialog open
+ *   heard it: "Confirm it’s you" asked over New channel closed both.
+ *
+ * Pass the same object on every render: a new one re-registers the layer, which puts it
+ * back on top.
  */
-export function useEscapeLayer(active = true, early: EarlyAnswer | null = null): void {
-  useLayer(null, active, early);
+export function useEscapeLayer(active = true, standIn: StandIn | null = null): void {
+  useLayer(null, active, standIn);
 }

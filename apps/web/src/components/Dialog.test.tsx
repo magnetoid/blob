@@ -348,6 +348,71 @@ describe('DialogPresence', () => {
     expect(closeOuter).toHaveBeenCalledTimes(1);
   });
 
+  it('closes one layer per Escape when two were opened apart and focus is in neither', async () => {
+    // "Confirm it’s you" asked over New channel is a dialog of its own, not one nested in
+    // it. With focus left on the page's body — the field it was in went away — nothing
+    // inside the top one was there to stop the key, and Base UI's listener on `document`
+    // in each closed both.
+    function Closable({ label, onClose }: { label: string; onClose: () => void }) {
+      const [open, setOpen] = useState(true);
+      return (
+        <DialogPresence when={open}>
+          {() => (
+            <Dialog
+              label={label}
+              onClose={() => {
+                onClose();
+                setOpen(false);
+              }}
+            >
+              <div className="dialog">
+                <button type="button">{label}</button>
+              </div>
+            </Dialog>
+          )}
+        </DialogPresence>
+      );
+    }
+    const closeFirst = vi.fn();
+    const closeSecond = vi.fn();
+    render(
+      <>
+        <Closable label="New channel" onClose={closeFirst} />
+        <Closable label="Confirm it’s you" onClose={closeSecond} />
+      </>,
+    );
+    await waitFor(() => expect(dialogs()).toHaveLength(2));
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(document.activeElement).toBe(document.body);
+
+    pressEscape();
+    expect(closeSecond).toHaveBeenCalledTimes(1);
+    expect(closeFirst).not.toHaveBeenCalled();
+
+    pressEscape();
+    expect(closeFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves an Escape from inside it to what is inside it', async () => {
+    // The layer answers only a key from outside the popup. One from a field in it goes
+    // the whole way down — a field with an Escape of its own still hears it — and Base
+    // UI closes the dialog from there.
+    const fieldHeard = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <Dialog label="Rename" onClose={onClose}>
+        <div className="dialog">
+          <input aria-label="Name" onKeyDown={(event) => event.key === 'Escape' && fieldHeard()} />
+        </div>
+      </Dialog>,
+    );
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Name')));
+
+    pressEscape();
+    expect(fieldHeard).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('mounts a new dialog when it is reopened before the old one has gone', () => {
     // The old one has been answered and will not close again; the new one must focus and
     // fetch exactly as a first opening would.

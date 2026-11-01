@@ -33,10 +33,10 @@
  * the same moment and unmounts it later, once Base UI has played its exit.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { lazyOverlay } from './lazyOverlay.tsx';
 import { DialogHostContext, useDialogHost, type DialogHost } from '../lib/dialogHost.ts';
-import { useEscapeLayer, type EarlyAnswer } from '../lib/useEscape.ts';
+import { useEscapeLayer, type StandIn } from '../lib/useEscape.ts';
 import { FALLBACK_MS } from '../lib/usePresence.ts';
 
 /** Base UI's root, portal, backdrop and popup, from the overlay chunk. */
@@ -154,22 +154,27 @@ export function DialogPresence<T>({
  * the key itself — nothing beneath hears it — and the shell closes the dialog once the
  * chunk lands and the contents have said what closing means, since `onClose` is theirs and
  * only the chunk draws them. It is drawn for the length of its exit, the one sign of an
- * Escape that came early. From the moment it is drawn, Base UI's own listener answers and
- * the layer only holds the top. Either way it comes off the stack as soon as the dialog
- * has been answered or starts to leave, so the next Escape reaches whatever is underneath.
+ * Escape that came early. From the moment it is drawn, Base UI's own listener answers a key
+ * from inside the popup and the layer only holds the top; a key from anywhere else — focus
+ * on the body, or on a toast — the layer still answers the same way, since Base UI's
+ * listener in every dialog open would hear it. Either way it comes off the stack as soon as
+ * the dialog has been answered or starts to leave, so the next Escape reaches whatever is
+ * underneath.
  */
 function Opening({ open, onExited, children }: { open: boolean; onExited: () => void; children: ReactNode }) {
   const [escaped, setEscaped] = useState(false);
-  const drawn = useRef(false);
-  const onDrawn = useCallback(() => {
-    drawn.current = true;
+  // The popup, once the shell says it is drawn.
+  const drawn = useRef<RefObject<HTMLElement | null> | null>(null);
+  const onDrawn = useCallback((popup: RefObject<HTMLElement | null>) => {
+    drawn.current = popup;
   }, []);
   // One object for the opening's whole life: a new one would re-register the layer on top.
-  const [early] = useState<EarlyAnswer>(() => ({
-    drawn: () => drawn.current,
+  const [standIn] = useState<StandIn>(() => ({
+    drawn: () => drawn.current !== null,
+    holds: (target) => target instanceof Node && (drawn.current?.current?.contains(target) ?? false),
     close: () => setEscaped(true),
   }));
-  useEscapeLayer(open && !escaped, early);
+  useEscapeLayer(open && !escaped, standIn);
 
   return (
     <DialogShell open={open} escaped={escaped} onDrawn={onDrawn} onExited={onExited}>

@@ -232,9 +232,12 @@ attribute. What it decided, and why:
   listens for `vite:preloadError` — which Vite 8's preload helper dispatches on `window`
   when a dynamic import rejects, as the built output shows — and says once per page, in a
   toast, that Blob was updated while the page was open and wants a reload. It does not
-  prevent the default, so the import still rejects into `lazyOverlay`'s catch; it covers
-  every lazy chunk, the consoles' and the calls' too; and it says nothing while the browser
-  reports itself offline, where the network is the likelier story.
+  prevent the default, so the import still rejects into `lazyOverlay`'s catch. The toast is
+  seen where the app is still standing — the overlays, the calls engine, the terminal's
+  xterm; a view that is a plain `React.lazy` (the consoles, help, the call surfaces) falls
+  to App's error boundary instead, which replaces the toasts with its own Reload. And it
+  says nothing while the browser reports itself offline, where the network is the likelier
+  story.
   `scripts/bundle-budget.mjs` fails the build when a first-load chunk carries
   `OVERLAY_SDK` — `data-base-ui-inert`, `--available-height` or `referenceHidden`, strings
   the browser reads and minification keeps — and when no chunk carries any of them,
@@ -261,7 +264,11 @@ attribute. What it decided, and why:
   stops every Escape from inside it, which is what keeps Safari's composition-ending Escape
   — sent after `compositionend` with `isComposing: false`, and ignored by Base UI — from
   reaching the shell's listener on `window`, where it closed the thread or marked the
-  channel read.
+  channel read. A key from outside the popup — focus left on the body when the field it
+  was in went away, or on a toast — the layer answers as it answers an early one: nothing
+  inside the top popup was there to stop it, and Base UI's listener on `document` in every
+  open dialog heard it, so "Confirm it’s you" asked over New channel closed both (found by
+  the production smoke, in Chromium and Firefox).
   Focus goes back to the opener as the exit begins, not after it. `DialogPresence` was not
   retired, as the Alternatives above expected: it now holds a dialog through Base UI's exit
   (`onOpenChangeComplete`, with `FALLBACK_MS`, 400 ms, as the backstop rather than the
@@ -366,7 +373,7 @@ attribute. What it decided, and why:
   spent it. It measured 239.6 to 239.8 KB under Vite 6 as the phase closed, with
   `BUDGET_KB` at 241. After `main`'s move to Vite 8 was merged in, the same code measured
   231.6 KB, and 231.8 with the stale-build notice and the dialog's first-load Escape layer;
-  `BUDGET_KB` is 233, 28 KB under the 260 KB ceiling: the measure rounded up, plus 1 KB,
+  `BUDGET_KB` is 233, 27 KB under the 260 KB ceiling: the measure rounded up, plus 1 KB,
   because the entry chunk embeds the recent commit subjects for "What's new", so the same
   code weighs a few hundred bytes more or less from one commit to the next, and a budget
   with no room would fail a docs commit.

@@ -248,6 +248,13 @@ and tests apply.
    - EmojiPicker's pointer-mode focus-out close;
    - the `@property --popover-*` rules;
    - PopoverImpl's cancel-every-close.
+
+   One thing to change rather than delete: a dialog's place on the Escape stack decides
+   "from inside it" by DOM containment in the popup (`Opening`'s `holds`). Today's menus
+   and popovers portal into an anchor inside the popup, so that holds. shadcn's
+   `DropdownMenuContent` and `PopoverContent` portal with no container — beside the popup,
+   in the dialog's portal node — so once a menu inside a dialog is a real one, `holds`
+   widens to that portal node, or an Escape in the menu closes the dialog instead.
 6. **Everything else.** Auth and OAuth consent, home, search, channel directory, work
    channels and artifacts, decisions, agents and the terminal's chrome, calls (lazy chunk
    stays lazy), help, feedback, what's new.

@@ -23,8 +23,10 @@
  * reaches whatever is underneath. That place is taken by the first-load half
  * (`DialogPresence`), as the dialog opens, because the dialog can be open before this chunk
  * has arrived; the shell says when it is drawn (`onDrawn`), and until then the place
- * answers the key itself. An Escape that came that early arrives here as `escaped`, and the
- * shell closes the dialog the moment the contents have said what closing means.
+ * answers the key itself. It answers too for a key that comes from outside the popup —
+ * focus on the body, or on a toast — which Base UI's listener in every dialog open would
+ * hear, and close them all. Either Escape arrives here as `escaped`, and the shell closes
+ * the dialog the moment the contents have said what closing means.
  *
  * Focus going home. Base UI hands focus back when the exit has finished; Blob hands it
  * back as the exit begins, so a key pressed in those 150ms lands on the page rather than in
@@ -81,10 +83,14 @@ export interface DialogImplProps {
   /** False while it leaves: Base UI plays the exit, then `onExited` is called. */
   open: boolean;
   onExited?: (() => void) | undefined;
-  /** Escape was pressed for this dialog before the chunk had drawn it. */
+  /** Escape was pressed for this dialog where Base UI could not answer it: before the
+   *  chunk had drawn it, or from outside the popup. */
   escaped?: boolean | undefined;
-  /** Called once the shell is drawn and Base UI is listening for Escape. */
-  onDrawn?: (() => void) | undefined;
+  /** Called once the shell is drawn and Base UI is listening for Escape, with the ref the
+   *  popup will be in — a render or two later, since Base UI draws a portal's contents
+   *  after the portal. A key from inside it is Base UI's to answer; any other, the
+   *  layer's. */
+  onDrawn?: ((popup: RefObject<HTMLElement | null>) => void) | undefined;
   children: ReactNode;
 }
 
@@ -129,13 +135,14 @@ export function DialogImpl({ open, onExited, escaped = false, onDrawn, children 
   }, [open]);
 
   // Drawn, and Base UI is listening: its root adds the listener in an effect of its own,
-  // and a child's effects run before this one. From here Escape is Base UI's to answer.
+  // and a child's effects run before this one. From here an Escape from inside the popup
+  // is Base UI's to answer; until the popup is in the ref, none can come from there.
   useEffect(() => {
-    onDrawn?.();
+    onDrawn?.(popup);
   }, [onDrawn]);
 
-  // An Escape that came before the chunk did, held for the dialog by `DialogPresence`:
-  // answered as soon as the contents have registered what closing means.
+  // An Escape Base UI could not answer, held for the dialog by `DialogPresence`: answered
+  // as soon as the contents have registered what closing means.
   useLayoutEffect(() => {
     if (escaped && config) close();
   }, [escaped, config, close]);

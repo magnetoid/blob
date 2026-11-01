@@ -13,7 +13,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { useEscape, useEscapeLayer } from './useEscape.ts';
+import { useEscape, useEscapeLayer, type StandIn } from './useEscape.ts';
 
 afterEach(cleanup);
 
@@ -214,6 +214,36 @@ describe('an overlay that answers Escape itself', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(underneath).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers for it when the key comes from outside it', () => {
+    // Focus on the page's body, or on a toast: nothing inside the overlay is there to stop
+    // the key, so its own listener on `document` would act on it — and so would every
+    // other dialog's that was opened apart from it.
+    const own = ownListener();
+    const inside = document.createElement('button');
+    document.body.appendChild(inside);
+    const close = vi.fn();
+    const standIn: StandIn = { drawn: () => true, holds: (target) => target === inside, close };
+    function Drawn() {
+      useEscapeLayer(true, standIn);
+      return null;
+    }
+    try {
+      render(<Drawn />);
+
+      const fromBody = fireEvent.keyDown(document.body, { key: 'Escape' });
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(own.answered).not.toHaveBeenCalled();
+      expect(fromBody).toBe(false);
+
+      fireEvent.keyDown(inside, { key: 'Escape' });
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(own.answered).toHaveBeenCalledTimes(1);
+    } finally {
+      own.remove();
+      inside.remove();
+    }
   });
 
   it('lets nobody act on an Escape that only ends a composition', () => {

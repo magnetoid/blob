@@ -579,7 +579,10 @@ Eight rules the file will not tell you on its own:
   composition-ending one too, which arrives saying `isComposing: false` and which Base UI
   ignores. That layer is first-load code, taken by `DialogPresence` as the dialog opens:
   until the chunk has drawn the shell it answers an Escape itself, so the shell's listener
-  never hears it, and the dialog closes as soon as the chunk lands.
+  never hears it, and the dialog closes as soon as the chunk lands. It answers too for an
+  Escape from outside the popup — focus on the body, or on a toast — because Base UI's
+  listener is on `document` in every dialog, and only the top popup stopping the key keeps
+  the rest from hearing it: "Confirm it’s you" over New channel closed both.
 * **Motion in the message list is keyed to arriving, never to mounting.** The list is
   virtualised, so a row mounts on every scroll and every channel switch, and anything
   that animates on mount replays on all of them. A message's entrance plays only while
