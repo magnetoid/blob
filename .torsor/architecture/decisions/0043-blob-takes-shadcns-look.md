@@ -201,35 +201,44 @@ shadcn's colour names.**
 ## Phase 2: primitives (2026-11-01)
 
 Phase 2 replaced what `components/` draws — Dialog, ConfirmDialog, Confirmation, Menu,
-Toasts, EmptyState, ListSkeleton, Avatar, PersonCard, ShortcutHelp and the emoji picker's
-shell — and put Icon on Lucide, with every public name and prop unchanged and no caller
-edited but one attribute. What it decided, and why:
+Toasts, EmptyState, ListSkeleton, Avatar, PersonCard and the emoji picker's shell — and
+put Icon on Lucide, with every public name and prop unchanged and no caller edited but one
+attribute. What it decided, and why:
 
 - **Overlays load after first paint, behind one lazy boundary.** shadcn's dialog, alert
   dialog, dropdown menu and popover stand on Base UI's overlay code and floating-ui.
-  Imported statically, Base UI's menu alone took the first load from 219.1 to 278.7 KB, its
-  popover to 259.7 and its dialog to 243.4, and the chunk holding all four generated
-  modules was 72.6 KB gzipped. Holding only what the four `*Impl`s use, it is 45.2 KB —
-  smaller too because the Base UI internals and `cn` it shares with the avatar now come
-  with the first load. The user chose to keep it off the first load (option A,
-  2026-10-30). `components/overlays/index.ts` is the barrel the chunk is built from and
+  Imported statically under Vite 6, Base UI's menu alone took the first load from 219.1 to
+  278.7 KB, its popover to 259.7 and its dialog to 243.4, and the chunk holding all four
+  generated modules was 72.6 KB gzipped. Holding only what the four `*Impl`s use, it was
+  45.2 KB under Vite 6 — smaller too because the Base UI internals and `cn` it shares with
+  the avatar now come with the first load — and is 41.8 KB by `scripts/bundle-budget.mjs`'s
+  method after the Vite 8 merge (41.9 with the fixes that closed the phase). The user chose
+  to keep it off the first load (option A, 2026-10-30). `components/overlays/index.ts` is
+  the barrel the chunk is built from and
   `lib/overlays.ts` the only module that imports it — dynamically, once, forgetting a
-  failure so the next caller tries again. `preloadOverlays` fetches it from the app's first effect when the
-  page is idle (a 4 s deadline; a timer in Safari), except on the unsubscribe and OAuth
-  consent pages, which open no overlay. `components/lazyOverlay.tsx` makes a component of
-  one export: nothing until the chunk is here, and once it is, the overlay in the same
-  render — a dialog's body must be in the document before its caller's effects run. Each
-  first-load half mounts its lazy half on open and drops it after the exit, so a chunk that
-  failed to load draws nothing, logs once, and is asked for again on the next opening. The
-  failure is caught where the import is awaited, not by a boundary round the overlay, so a
-  render error in a dialog body or a menu item still reaches the app's `ErrorBoundary` and
-  its report. A retry helps a transient failure, in an engine that fetches a failed module
-  again; after a deploy mid-session the old chunk answers 404 every time and only a reload
-  helps (no `vite:preloadError` handler yet). `scripts/bundle-budget.mjs` fails the build
-  when a first-load chunk carries `OVERLAY_SDK` — `data-base-ui-inert`,
-  `--available-height` or `referenceHidden`, strings the browser reads and minification
-  keeps — and when no chunk carries any of them, because the guard would then have gone
-  blind.
+  failure so the next caller tries again. `preloadOverlays` asks for it once `App` has
+  mounted and the browser is idle (`requestIdleCallback` with a 4 s timeout; a timer where
+  there is none), and not at all on the unsubscribe or OAuth consent page, which open no
+  overlay. `components/lazyOverlay.tsx` makes a component of one export: nothing until the
+  chunk is here, and once it is, the overlay in the same render — a dialog's body must be
+  in the document before its caller's effects run. Each first-load half mounts its lazy
+  half on open and drops it after the exit, so a chunk that failed to load draws nothing
+  and logs, and is asked for again on every render of a wrapper still mounted and on the
+  next opening. The failure is caught where the import is awaited, not by a boundary round
+  the overlay, so a render error in a dialog body or a menu item still reaches the app's
+  `ErrorBoundary` and its report. A retry helps a transient failure, in an engine that
+  fetches a failed module again; after a deploy mid-session the old chunk answers 404
+  every time and only a reload helps. So `lib/staleBuild.ts`, installed in `main.tsx`,
+  listens for `vite:preloadError` — which Vite 8's preload helper dispatches on `window`
+  when a dynamic import rejects, as the built output shows — and says once per page, in a
+  toast, that Blob was updated while the page was open and wants a reload. It does not
+  prevent the default, so the import still rejects into `lazyOverlay`'s catch; it covers
+  every lazy chunk, the consoles' and the calls' too; and it says nothing while the browser
+  reports itself offline, where the network is the likelier story.
+  `scripts/bundle-budget.mjs` fails the build when a first-load chunk carries
+  `OVERLAY_SDK` — `data-base-ui-inert`, `--available-height` or `referenceHidden`, strings
+  the browser reads and minification keeps — and when no chunk carries any of them,
+  because the guard would then have gone blind.
 - **Dialogs are Base UI's.** `components/overlays/DialogImpl.tsx` is the shell: shadcn's
   `Dialog` root and portal, Base UI's backdrop and popup at `--z-modal`, moving on the
   legacy `overlay-in`/`overlay-out`, which travel only by the motion tokens. Base UI draws
@@ -243,14 +252,21 @@ edited but one attribute. What it decided, and why:
   `role="alertdialog"`, focus on the question rather than the answer — so one shell serves
   both and a confirm leaves like any dialog. A dialog holds the top of `lib/useEscape`'s
   stack with a layer that closes nothing (`useEscapeLayer`) and lets Base UI's own listener
-  close it, so a panel opened before it never hears the key; its popup stops every Escape
-  from inside it, which is what keeps Safari's composition-ending Escape — sent after
-  `compositionend` with `isComposing: false`, and ignored by Base UI — from reaching the
-  shell's listener on `window`, where it closed the thread or marked the channel read.
+  close it, so a panel opened before it never hears the key. The layer is the first load's:
+  `DialogPresence` takes it as the dialog opens, because a dialog opened before the chunk
+  lands is open but not drawn, and an Escape pressed then went past it to the shell. Until
+  the shell reports itself drawn the layer answers the key itself — stopped, default
+  prevented — and the shell, once the chunk lands, closes the dialog as soon as the
+  contents have registered their close; such a dialog is seen only for its exit. Its popup
+  stops every Escape from inside it, which is what keeps Safari's composition-ending Escape
+  — sent after `compositionend` with `isComposing: false`, and ignored by Base UI — from
+  reaching the shell's listener on `window`, where it closed the thread or marked the
+  channel read.
   Focus goes back to the opener as the exit begins, not after it. `DialogPresence` was not
   retired, as the Alternatives above expected: it now holds a dialog through Base UI's exit
-  (`onOpenChangeComplete`, with `FALLBACK_MS` as the floor), and `usePresence` still holds
-  everything that is not Base UI's. Known trades: toasts draw above dialogs, because
+  (`onOpenChangeComplete`, with `FALLBACK_MS`, 400 ms, as the backstop rather than the
+  floor) and takes its place on the Escape stack, and `usePresence` still holds everything
+  that is not Base UI's. Known trades: toasts draw above dialogs, because
   `--z-modal` (90) is below `--z-toast` (110) on the ladder where the native top layer put
   a modal above everything — a toast and its × take clicks over a dialog, and close
   neither kind, because Base UI closes a modal only on a press on its own backdrop; and
@@ -275,13 +291,13 @@ edited but one attribute. What it decided, and why:
   callers' CSS keys on the panel being inside them (`:focus-within`, `:has()`), `contains`
   has to find it there and Tab order is the page's order; `components/overlays/inPlace.ts`,
   with the placement each caller's stylesheet asks for in `--menu-*` or `--popover-*`
-  (registered not to inherit, by `@property` rules that sit in the `legacy` layer: Chromium
-  honours them there, Firefox and Safari are unchecked, and their failure would only be to
-  inherit) and `takeFocus`, which moves focus in with `preventScroll`
-  (Base UI's own initial focus scrolled the shell 115px when the composer's picker opened,
-  a frame before the panel was placed) and only from where the panel was opened or from
-  nowhere; and `components/menuItems.ts`, the one selector the arrows walk and focus starts
-  on. The focus guards Base UI draws round a portal are hidden — the one after the last item
+  (registered not to inherit, by `@property` rules that sit in the `legacy` layer, which
+  Chromium, Firefox and WebKit all honour there — see the browser pass below) and
+  `takeFocus`, which moves focus in with `preventScroll` (Base UI's own initial focus
+  scrolled the shell 115px when the composer's picker opened, a frame before the panel was
+  placed) and only from where the panel was opened or from nowhere; and
+  `components/menuItems.ts`, the one selector the arrows walk and focus starts on. The
+  focus guards Base UI draws round a portal are hidden — the one after the last item
   swallowed Tab, handing focus to a trigger of Base UI's own that these panels do not have —
   and a canary in `Menu.test.tsx` and `Popover.test.tsx` fails if Base UI's attribute stops
   matching. Because Base UI takes a portalled panel's contents out of the tab order once
@@ -292,7 +308,20 @@ edited but one attribute. What it decided, and why:
   section menu and ChannelMenu to `DropdownMenuTrigger` and `DropdownMenuItem`, phase 5
   MessageMenu, and SchedulePicker becomes a Popover; then the root's `disabled`, the
   cancel-all, the anchor span, the guard hiding and its canary, the `--menu-*` properties
-  and `components/Menu.tsx` go.
+  and `components/Menu.tsx` go. Phase 5 also moves PersonCard and both emoji pickers to
+  `PopoverTrigger`, and with them go `components/Popover.tsx`, `lib/useDismissal.ts`,
+  `components/PanelAnchor.tsx`, the picker's pointer-mode focus-out close, the
+  `@property --popover-*` rules and `PopoverImpl`'s cancel-every-close.
+- **Checked in three engines.** On 2026-11-01, against the dev server and before the Vite 8
+  merge, a Playwright 1.64.1 pass signed in as the seed's demo owner ran nine checks in
+  each engine — among them a menu's focus and Tab, the schedule menu's placement and
+  fields, Escape through a confirm opened from a menu item, the person card's Escape and
+  focus return, a toast clicked over a dialog, and the emoji picker's click, tap and Tab —
+  and passed Chromium 9/9, Firefox 9/9 and WebKit 8/9. The one miss predates this phase: a mouse click does
+  not focus a button in WebKit, so the opener a menu or dialog captures as it opens is the
+  message row or `<body>`, and focus goes back there rather than to the trigger; a keyboard
+  open goes back correctly, and `main`'s Menu has the same opener logic. Base UI's own
+  triggers fix it by construction in phases 4 and 5.
 - **Legacy islands.** Legacy markup drawn inside a shadcn part — a dialog's body, the emoji
   picker's search and grid, an empty state's body and action — is wrapped in
   `[data-legacy]`. The preflight repair in `styles/app/base.css` applies inside an island
@@ -320,24 +349,27 @@ edited but one attribute. What it decided, and why:
 - **`cn` in build mode.** shadcn's parts merge classes with `cn`, which the avatar, the
   skeleton and the empty state bring onto the first load. `cn/vite` compiles merge tables
   for the class groups this client's sources use, and costs 2.2 KB less there than the
-  package's whole tables (239.6 KB against 241.8). The plugin writes `src/lib/cn-tables.ts`
-  whenever a fresh scan differs, as every build, dev server and vitest run starts, so a
-  stale copy never reaches the app or the tests; it is committed because the type checker
-  reads it on a fresh checkout, eslint skips it, and CI's `check` job fails when the build
-  it has just run rewrote it — left stale, it would land in the next person's unrelated
-  commit. A Vite alias sends the CLI files' bare `import { cn } from "cn"` to
+  package's whole tables (239.6 KB against 241.8, measured under Vite 6). The plugin writes
+  `src/lib/cn-tables.ts` whenever a fresh scan differs, as every build, dev server and
+  vitest run starts, so a stale copy never reaches the app or the tests; it is committed
+  because the type checker reads it on a fresh checkout, eslint skips it, and CI's `check`
+  job fails when the build it has just run rewrote it — left stale, it would land in the
+  next person's unrelated commit. A Vite alias sends the CLI files' bare `import { cn } from "cn"` to
   `lib/utils.ts`, so they use the same bound function.
-- **The budget.** The first load was 219.2 KB at phase 1, against a `BUDGET_KB` of 220. The
-  overlay boundary, the dismissal contract and anchor and the restyled toasts and notes
-  brought it to 220.8; the first-load primitives added about 18.7 more — `cn` 8.9, Lucide's
-  39 glyphs (SettingsIcon has no caller) and its runtime 4.6, the Base UI code the avatar
-  shares 3.2 and the avatar itself 1.1, the four components 2.3, the three `ui/` files 0.7,
-  `class-variance-authority` 0.4, each gzipped alone. So the overlays the ceiling was
-  raised for never reached the first load, and the primitives spent it. It measured 239.6
-  to 239.8 KB on the same code as the phase closed, and `BUDGET_KB` is 241: the measure
-  rounded up, plus 1 KB, because the entry chunk embeds the recent commit subjects for
-  "What's new", so the same code weighs a few hundred bytes more or less from one commit to
-  the next, and a budget with no room would fail a docs commit.
+- **The budget.** Measured under Vite 6, the first load was 219.2 KB at phase 1, against a
+  `BUDGET_KB` of 220. The overlay boundary, the dismissal contract and anchor and the
+  restyled toasts and notes brought it to 220.8; the first-load primitives added about 18.7
+  more — `cn` 8.9, Lucide's 39 glyphs (SettingsIcon has no caller) and its runtime 4.6, the
+  Base UI code the avatar shares 3.2 and the avatar itself 1.1, the four components 2.3,
+  the three `ui/` files 0.7, `class-variance-authority` 0.4, each gzipped alone. So the
+  overlays the ceiling was raised for never reached the first load, and the primitives
+  spent it. It measured 239.6 to 239.8 KB under Vite 6 as the phase closed, with
+  `BUDGET_KB` at 241. After `main`'s move to Vite 8 was merged in, the same code measured
+  231.6 KB, and 231.8 with the stale-build notice and the dialog's first-load Escape layer;
+  `BUDGET_KB` is 233, 28 KB under the 260 KB ceiling: the measure rounded up, plus 1 KB,
+  because the entry chunk embeds the recent commit subjects for "What's new", so the same
+  code weighs a few hundred bytes more or less from one commit to the next, and a budget
+  with no room would fail a docs commit.
 - **One caller edited.** MessageRow's author button says `aria-haspopup="dialog"`, where it
   said `"menu"`: this phase made the person card a named dialog, and left alone the
   attribute would have been wrong.

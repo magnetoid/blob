@@ -108,7 +108,9 @@ session and `TRUNCATE`s before every test; the event loop is session-scoped beca
 engine and Redis clients are bound to the loop that created them.
 
 **A merge to `main` ships to production.** `.github/workflows/ci.yml` runs four jobs —
-`check` (the gate plus `alembic check`), `image` (build the Dockerfile, write its SBOM and
+`check` (the gate plus `alembic check`; it also builds the client, runs
+`scripts/bundle-budget.mjs` and fails if the build rewrote the committed
+`apps/web/src/lib/cn-tables.ts`), `image` (build the Dockerfile, write its SBOM and
 fail on a fixable critical with pinned Syft/Grype binaries, boot `docker-compose.prod.yml`
 plus `e2e/compose.ci.yml`, hit `/healthz` and `/readyz`, then `pnpm --filter @blob/e2e e2e`:
 the client as two people against that server, and axe on seventeen pages), `supply-chain`
@@ -531,7 +533,11 @@ Eight rules the file will not tell you on its own:
   only module that imports it (dynamically, preloaded once the page is idle, but not on the
   unsubscribe or consent page), and a first-load component reaches an export through
   `lazyOverlay((m) => m.DialogImpl)`, mounted on open and dropped after the exit, so a chunk
-  that failed to load is fetched again on the next opening. `scripts/bundle-budget.mjs`
+  that failed to load is asked for again on the next opening — though an engine that caches
+  the failed module may refuse it until a reload, and a chunk a deploy has replaced answers
+  404 however often it is asked. For both, `lib/staleBuild.ts` answers Vite's
+  `vite:preloadError` with one toast per page telling the person to reload, and leaves the
+  default alone so the import still fails into `lazyOverlay`. `scripts/bundle-budget.mjs`
   fails the build if Base UI's overlay code reaches a first-load chunk, so first-load code
   never imports `ui/dialog`, `ui/alert-dialog`, `ui/dropdown-menu` or `ui/popover`. Menus
   and popovers are phase-2 scaffolding, not shadcn's DropdownMenu and Popover yet: their
@@ -571,7 +577,9 @@ Eight rules the file will not tell you on its own:
   nothing (`useEscapeLayer`), so Base UI's listener closes it and nothing opened before it
   hears that key, and its popup stops every Escape from inside it — Safari's
   composition-ending one too, which arrives saying `isComposing: false` and which Base UI
-  ignores.
+  ignores. That layer is first-load code, taken by `DialogPresence` as the dialog opens:
+  until the chunk has drawn the shell it answers an Escape itself, so the shell's listener
+  never hears it, and the dialog closes as soon as the chunk lands.
 * **Motion in the message list is keyed to arriving, never to mounting.** The list is
   virtualised, so a row mounts on every scroll and every channel switch, and anything
   that animates on mount replays on all of them. A message's entrance plays only while

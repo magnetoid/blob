@@ -230,14 +230,24 @@ and tests apply.
 5. **The conversation.** Message list, composer, threads, reactions, attachments, the
    right-hand panel, code blocks, agent run cards, unread and typing notices. Motion rules
    re-verified here. MessageMenu moves to `DropdownMenu`. SchedulePicker becomes a
-   Popover, because a select and a date field are not a menu under ARIA. This phase is
-   done only when the last `components/Menu.tsx` caller is gone. Then delete the
-   phase-2 scaffolding:
+   Popover, because a select and a date field are not a menu under ARIA. PersonCard and
+   both emoji pickers — the composer's and a message's Add reaction — move to
+   `PopoverTrigger`. This phase is done only when no caller of `components/Menu.tsx` or
+   `components/Popover.tsx` is left and the pickers open from their own triggers. Then
+   delete the phase-2 scaffolding. The menus':
    - `Menu.tsx`;
    - the root's `disabled` and the cancel-every-close handler;
    - the anchor span;
    - the `[data-base-ui-focus-guard]` hiding and its canary test;
    - the `--menu-*` placement properties.
+
+   The popovers':
+   - `Popover.tsx`;
+   - `lib/useDismissal.ts`;
+   - `PanelAnchor.tsx`;
+   - EmojiPicker's pointer-mode focus-out close;
+   - the `@property --popover-*` rules;
+   - PopoverImpl's cancel-every-close.
 6. **Everything else.** Auth and OAuth consent, home, search, channel directory, work
    channels and artifacts, decisions, agents and the terminal's chrome, calls (lazy chunk
    stays lazy), help, feedback, what's new.
