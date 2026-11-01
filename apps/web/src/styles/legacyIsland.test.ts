@@ -140,4 +140,22 @@ describe('reduced motion for overlays', () => {
     expect(shell).toMatch(/animate-\[overlay-in_/);
     expect(shell).toMatch(/animate-\[overlay-out_/);
   });
+
+  it('moves the menus and popovers drawn in place by the same keyframes, and nothing of shadcn’s', () => {
+    // The menu panel and the popover — the person card, the emoji picker — arrive and leave
+    // on `overlay-in`/`overlay-out` too (`components/overlays/inPlace.ts`, which both use),
+    // so under reduced motion they fade and do not move. Not shadcn's `slide-in-from-*` and
+    // `zoom-in-95`, which the rule above stills only through the variables.
+    const motion = readFileSync(join(STYLES, '../components/overlays/inPlace.ts'), 'utf8');
+    expect(motion).toMatch(/animate-\[overlay-in_/);
+    expect(motion).toMatch(/data-ending-style:animate-\[overlay-out_/);
+    for (const impl of ['MenuImpl.tsx', 'PopoverImpl.tsx']) {
+      const source = readFileSync(join(STYLES, '../components/overlays', impl), 'utf8');
+      expect(source, impl).toMatch(/from '\.\/inPlace\.ts'/);
+      expect(source, impl).not.toMatch(/slide-in-from|zoom-in-/);
+    }
+    // The picker's old entrance in the legacy sheet is gone: the popover plays it now, and
+    // two would play at once.
+    expect(selectors(css('app/overlay-motion.css')).join('\n')).not.toMatch(/\.emoji-picker\b/);
+  });
 });

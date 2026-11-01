@@ -154,9 +154,20 @@ describe('styles/index.css', () => {
    * Directories and files Tailwind may scan, relative to `src/`. A phase that converts a
    * path adds it here in the same commit as its `@source` — the point of the list is that
    * adding one is deliberate. `components/Menu.tsx` is one file, not `components/`, which
-   * still holds legacy markup.
+   * still holds legacy markup; so are the five phase 2 converted beside it. `EmojiPicker`'s
+   * grid is still legacy markup, in a `data-legacy` island, and none of its class names is
+   * one of Tailwind's.
    */
-  const CONVERTED = ['components/ui', 'components/overlays', 'components/Menu.tsx'];
+  const CONVERTED = [
+    'components/ui',
+    'components/overlays',
+    'components/Menu.tsx',
+    'components/PanelAnchor.tsx',
+    'components/PersonCard.tsx',
+    'components/EmojiPicker.tsx',
+    'components/Toasts.tsx',
+    'components/Confirmation.tsx',
+  ];
 
   it('scans only converted paths', () => {
     const css = indexCss();

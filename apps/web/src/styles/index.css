@@ -21,6 +21,11 @@
 @source "../components/ui";
 @source "../components/overlays";
 @source "../components/Menu.tsx";
+@source "../components/PanelAnchor.tsx";
+@source "../components/PersonCard.tsx";
+@source "../components/EmojiPicker.tsx";
+@source "../components/Toasts.tsx";
+@source "../components/Confirmation.tsx";
 @import "./theme.css";
 @import "./tokens.css" layer(legacy);
 @import "./app.css" layer(legacy);

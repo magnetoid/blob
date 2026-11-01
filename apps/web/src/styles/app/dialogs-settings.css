@@ -197,7 +197,6 @@
 .emoji-cell:active,
 .emoji-tone:active,
 .attachment-chip-remove:active,
-.toast-dismiss:active,
 .unread-jump-dismiss:active,
 .catchup-strip-dismiss:active,
 .ephemeral-dismiss:active {
@@ -229,7 +228,6 @@ button.member-row,
 .new-message-person,
 .shortcut-help-more,
 .help-ref-link,
-.toast-dismiss,
 .unread-jump-dismiss,
 .catchup-strip-dismiss {
   transition:

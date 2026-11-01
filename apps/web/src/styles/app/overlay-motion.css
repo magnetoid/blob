@@ -1,12 +1,17 @@
 /* ─── overlay motion ─────────────────────────────────────────────────────────
-   Menus, toasts, the thread panel, the two conversation notices, the typing line and
-   the dialogs enter and leave. Each but the dialogs and the menus is held in the document
-   through its exit by usePresence. Those two are shadcn's now, and Base UI holds them: the
-   dialog shell in `components/overlays/DialogImpl.tsx` and the menu panel in
-   `components/overlays/MenuImpl.tsx` play `overlay-in` (and the backdrop `fade-in`) below
-   as they arrive and `overlay-out` (`fade-out`) while Base UI marks them
-   `data-ending-style`, and Base UI unmounts them when those have finished. They are the
-   same keyframes on the same tokens as before, so both move as they did.
+   Menus, popovers, toasts, the thread panel, the two conversation notices, the typing line
+   and the dialogs enter and leave. Each but the dialogs, the menus and the popovers is held
+   in the document through its exit by usePresence. Those three are shadcn's now, and Base
+   UI holds them: the dialog shell in `components/overlays/DialogImpl.tsx`, and the menu
+   panel and the popover — the person card, the emoji picker — drawn in place by
+   `MenuImpl.tsx` and `PopoverImpl.tsx` (`components/overlays/inPlace.ts`). They play
+   `overlay-in` (and the backdrop `fade-in`) below as they arrive and `overlay-out`
+   (`fade-out`) while Base UI marks them `data-ending-style`, and Base UI unmounts them when
+   those have finished. They are the same keyframes on the same tokens as before, so all of
+   them move as they did. The emoji picker still has no exit: its callers unmount it.
+
+   The toasts and the "Link copied" note take theirs from their own utilities too
+   (`components/Toasts.tsx`, `Confirmation.tsx`), on the keyframes below.
 
    The lightbox is left enter-only — it is mounted the plain way, with no DialogPresence
    to hold it — and the palette is the exception that gets nothing (`--dialog-enter: 0s`
@@ -78,7 +83,8 @@
   }
 }
 
-/* Played by every toast, which enters the bottom of the screen and so arrives from below. */
+/* Played by every toast (`components/Toasts.tsx`), which enters the bottom of the screen
+   and so arrives from below. */
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -113,9 +119,10 @@
   }
 }
 
-/* Played by .attachment-chip when a file is attached. No `to`: the chip settles on
-   whatever its own `data-status` says it should be, which for an upload in flight is
-   dimmed rather than opaque. */
+/* Played by .attachment-chip when a file is attached, and by the "Link copied" note
+   (`components/Confirmation.tsx`) as it arrives. No `to`: the chip settles on whatever its
+   own `data-status` says it should be, which for an upload in flight is dimmed rather than
+   opaque. */
 @keyframes chip-in {
   from {
     opacity: 0;
@@ -128,7 +135,6 @@
    its own classes and grows from wherever Base UI hangs it. */
 .user-menu-panel,
 .autocomplete,
-.emoji-picker,
 .pinned-panel {
   transform-origin: top center;
   animation: overlay-in var(--dur-open) var(--blob-ease-out);
@@ -149,20 +155,6 @@
 
 .user-menu-panel {
   transform-origin: top right;
-}
-
-/* Rises in, and leaves by the same exit the menus take — Toasts.tsx holds it mounted
-   for that with usePresence, because the store forgets a dismissed toast at once. The
-   closed rule repeats `.toast` rather than leaning on the shared `[data-state="closed"]`
-   above: `.toast`'s own `pointer-events: auto` further down would otherwise outrank it
-   and leave a leaving toast catching clicks. */
-.toast {
-  animation: toast-in var(--dur-open) var(--blob-ease-out);
-}
-
-.toast[data-state='closed'] {
-  animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
-  pointer-events: none;
 }
 
 /* The right-hand panel: a thread, or a terminal in the agent a DM is with. Only the
@@ -192,16 +184,6 @@
 
 .unread-jump-bar[data-state='closed'],
 .catchup-strip[data-state='closed'] {
-  animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
-}
-
-/* "Link copied": a word of confirmation (`components/Confirmation.tsx`), in the way an
-   attachment chip arrives and out the way a menu leaves. Same trap again. */
-.confirmation {
-  animation: chip-in var(--dur-fast) var(--blob-ease-out);
-}
-
-.confirmation[data-state='closed'] {
   animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
 }
 

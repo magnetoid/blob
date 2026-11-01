@@ -18,34 +18,30 @@
  * inside the schedule menu's repeat select and time field, which need them. And Escape and
  * a click outside have to work before this chunk has arrived — a menu clicked open in the
  * first second after load is open with nothing of Base UI drawn yet — so dismissal lives in
- * the first-load `components/Menu.tsx`, and only that contract closes a menu.
+ * first-load code (`lib/useDismissal.ts`, which `Menu` and `Popover` share), and only that
+ * contract closes a menu.
  *
  * That is scaffolding, with an exit. It comes down as the callers move to
  * `DropdownMenuTrigger` and `DropdownMenuItem` — TopBar's account menu, the section menu
  * and ChannelMenu in phase 4, MessageMenu in phase 5 — and SchedulePicker becomes a
  * Popover. What goes then: `disabled` and the cancel-all below, the anchor span `Menu`
- * draws the panel into, the focus guards it hides there, and the dismissal-and-arrows
- * contract in `Menu.tsx`.
+ * draws the panel into and the focus guards hidden there (`PanelAnchor`), the arrows in
+ * `Menu.tsx`, and — once the popovers have gone the same way — the dismissal contract in
+ * `lib/useDismissal.ts`.
  *
- * Where it is drawn. Into the anchor `Menu` leaves where the old panel sat, not at the end
- * of `<body>`: the callers' CSS keys on the panel being inside them — the message toolbar
- * stays up on `:focus-within` its row, a transformed message row is lifted by
- * `:has(.menu)`, the section kebab stays visible on `:focus-within` its heading — and Tab
- * from a trigger reaches the panel next, as it always has. A menu opened inside a dialog
- * is inside the dialog, so it draws over the dialog's contents with no step of its own
- * on the stacking ladder; the panel takes `--z-menu` within whatever it is drawn in, as the
- * old one did. It is clipped by the same scroll areas the old one was, and the positioner's
- * collision boundary is those same areas, so it turns over and caps itself inside them.
+ * Where it is drawn. Into the anchor `Menu` leaves where the old panel sat
+ * (`components/PanelAnchor.tsx` says why), not at the end of `<body>`; the panel takes
+ * `--z-menu` within whatever it is drawn in, as the old one did. It is clipped by the same
+ * scroll areas the old one was, and the positioner's collision boundary is those same
+ * areas, so it turns over and caps itself inside them.
  *
  * Where it hangs. The caller's stylesheet says, as it did with `top` and `right`:
- * `--menu-side` (`bottom` or `top`), `--menu-align` (`start` or `end`) and `--menu-gap`
- * (a length in px) on the panel's class, read once as the panel is drawn and before
- * anything is painted — the positioner keeps the panel transparent until it has placed it.
+ * `--menu-side`, `--menu-align` and `--menu-gap` on the panel's class (`./inPlace.ts`,
+ * which `PopoverImpl` reads the same way).
  */
 
 import {
   useCallback,
-  useState,
   type ComponentProps,
   type ComponentType,
   type ReactNode,
@@ -53,6 +49,7 @@ import {
 } from 'react';
 import { Menu as MenuPrimitive } from '@base-ui/react/menu';
 import { DropdownMenu } from '../ui/dropdown-menu.tsx';
+import { anchorBox, IN_PLACE_MOTION, mayTakeFocus, usePlacement } from './inPlace.ts';
 
 /**
  * Base UI's menu popup, with the `initialFocus` it reads but does not declare. In 1.9 the
@@ -64,52 +61,16 @@ const MenuPopup = MenuPrimitive.Popup as ComponentType<
   ComponentProps<typeof MenuPrimitive.Popup> & { initialFocus?: () => boolean }
 >;
 
-type Side = 'top' | 'bottom';
-type Align = 'start' | 'end';
-
-interface Placement {
-  side: Side;
-  align: Align;
-  gap: number;
-}
-
-/** Below the trigger, from its left edge, 4px clear: the old `.menu`'s `top: calc(100% + 4px); left: 0`. */
-const BELOW: Placement = { side: 'bottom', align: 'start', gap: 4 };
-
-/** What the panel's own stylesheet asks for, falling back to `BELOW` for anything it does not say. */
-function placementOf(panel: HTMLElement): Placement {
-  const style = getComputedStyle(panel);
-  const side = style.getPropertyValue('--menu-side').trim();
-  const align = style.getPropertyValue('--menu-align').trim();
-  const gap = Number.parseFloat(style.getPropertyValue('--menu-gap'));
-  return {
-    side: side === 'top' ? 'top' : 'bottom',
-    align: align === 'end' ? 'end' : 'start',
-    gap: Number.isFinite(gap) ? gap : BELOW.gap,
-  };
-}
-
-/** What the panel hangs from: the box the old panel was positioned in, which is the
- *  caller's own wrapper round its trigger — the anchor itself is a zero-size point. */
-function anchorBox(anchor: HTMLElement | null): Element | null {
-  return anchor?.offsetParent ?? anchor?.parentElement ?? null;
-}
-
 /**
  * The panel itself. Blob's classes here are only where and how it moves; how it looks is the
  * caller's class, legacy CSS, which these outrank by layer. `static` takes back the old
- * panels' own `position`/`top`/`right` — the positioner places it now — `--available-height`
- * caps it with a scroll, never below the 120px the old fitting kept, and it arrives and
- * leaves on the legacy `overlay-in`/`overlay-out`, which travel and scale only by the
- * motion tokens, so under reduced motion it fades and does not move. It grows from the side
- * it hangs from, which Base UI works out (`--transform-origin`).
+ * panels' own `position`/`top`/`right` — the positioner places it now — and
+ * `--available-height` caps it with a scroll, never below the 120px the old fitting kept.
+ * It arrives and leaves as every panel drawn in place does (`IN_PLACE_MOTION`).
  */
 const PANEL = [
   'static max-h-[max(120px,var(--available-height))] overflow-y-auto outline-none',
-  'origin-(--transform-origin)',
-  'animate-[overlay-in_var(--dur-open)_var(--blob-ease-out)]',
-  'data-ending-style:pointer-events-none',
-  'data-ending-style:animate-[overlay-out_var(--dur-exit)_var(--blob-ease-in)_forwards]',
+  IN_PLACE_MOTION,
 ].join(' ');
 
 export interface MenuImplProps {
@@ -126,23 +87,10 @@ export interface MenuImplProps {
 }
 
 export function MenuImpl({ open, anchor, opener, className, onExited, children }: MenuImplProps) {
-  const [placement, setPlacement] = useState<Placement>(BELOW);
-
-  const readPlacement = useCallback((panel: HTMLDivElement | null) => {
-    if (!panel) return;
-    const next = placementOf(panel);
-    setPlacement((current) =>
-      current.side === next.side && current.align === next.align && current.gap === next.gap
-        ? current
-        : next,
-    );
-  }, []);
+  const [placement, readPlacement] = usePlacement('menu');
 
   // `true` is Base UI's own choice, the first item; `false` leaves focus where it is.
-  const takesFocus = useCallback(() => {
-    const active = document.activeElement;
-    return active === null || active === document.body || active === opener.current;
-  }, [opener]);
+  const takesFocus = useCallback(() => mayTakeFocus(opener), [opener]);
 
   return (
     <DropdownMenu

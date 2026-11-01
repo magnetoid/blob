@@ -11,36 +11,37 @@
   object-fit: contain;
 }
 
+/* The callers' wrapper round the picker, which their dismissal asks `contains` of. The
+   picker is drawn inside it (components/PanelAnchor.tsx) and hangs from it. */
 .emoji-picker-anchor {
   position: relative;
   display: inline-flex;
 }
 
+/* The panel is shadcn's popover (components/overlays/PopoverImpl.tsx): it wears the
+   popover's surface and is placed by Base UI's positioner — below "Add reaction", from its
+   right edge, 6px clear — and turned over where there is no room. What is the picker's
+   own is its size and the column it lays its parts out in, capped to the room there is. */
 .emoji-picker {
-  position: absolute;
-  z-index: var(--z-popover);
-  top: calc(100% + 6px);
-  right: 0;
+  --popover-side: bottom;
+  --popover-align: end;
+  --popover-gap: 6px;
   display: flex;
   flex-direction: column;
   width: 312px;
-  max-height: 332px;
+  max-height: min(332px, var(--available-height, 332px));
   padding: 8px;
-  border-radius: var(--blob-radius-md);
-  background: var(--surface-2);
-  box-shadow: var(--elev-2);
 }
 
-/* In the composer the panel hangs above the box rather than below a trigger. */
+/* In the composer the panel hangs above the box rather than below a trigger: the anchor
+   gives up its own box, so the picker hangs from the composer's, from its left edge. */
 .emoji-picker-anchor[data-composer='true'] {
   position: static;
 }
 
 .emoji-picker-anchor[data-composer='true'] .emoji-picker {
-  top: auto;
-  bottom: calc(100% + 6px);
-  left: 0;
-  right: auto;
+  --popover-side: top;
+  --popover-align: start;
 }
 
 .emoji-search {

@@ -40,6 +40,23 @@ describe('the toast stack', () => {
     expect(region.textContent).toBe('');
   });
 
+  it('renders with the shadcn toast surface', () => {
+    // shadcn's look — a card with a border, a shadow and a radius — by the slot it is keyed
+    // on, on each toast and not on the region: the region is Blob's, and stays first-load
+    // so it is in the document before the first announcement.
+    render(<Toasts />);
+    act(() => {
+      useToasts.getState().push('error', 'that did not work');
+      useToasts.getState().push('info', 'saved');
+    });
+
+    const toasts = screen.getByRole('status').querySelectorAll('[data-slot="toast"]');
+    expect(toasts).toHaveLength(2);
+    expect(screen.getByRole('status').hasAttribute('data-slot')).toBe(false);
+    // Which kind it is, for the edge that tells a failure from a notice.
+    expect([...toasts].map((toast) => toast.getAttribute('data-kind'))).toEqual(['error', 'info']);
+  });
+
   it('puts a new toast into that same region rather than a new one', () => {
     // The property that makes it audible: the element does not change identity, so the
     // message is a *change* to a region that was already being watched.
