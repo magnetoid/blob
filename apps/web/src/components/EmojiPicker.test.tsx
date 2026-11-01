@@ -231,6 +231,32 @@ describe('the picker’s shell', () => {
     window.removeEventListener('keydown', shell);
   });
 
+  it('closes on one Escape from a skin tone in the composer — the composer’s, through the stack', () => {
+    // Off the search field the picker has no Escape of its own, and Base UI declines the
+    // close its popup asks for: the composer's layer on `lib/useEscape`'s stack is the only
+    // thing that closes it, and the key stops there.
+    useStore.setState({
+      currentUser: { id: 'u1', kind: 'human', displayName: 'Ana', role: 'owner', prefs: { enterToSend: true } },
+      users: { u1: { id: 'u1', kind: 'human', displayName: 'Ana', deactivated: false } },
+      channels: { c1: { id: 'c1', kind: 'public', name: 'general', memberIds: ['u1'], membership: {} } },
+      commands: [],
+      drafts: {},
+      customEmoji: [],
+    } as never);
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+    render(<Composer channelId="c1" placeholder="Message #general" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Emoji' }));
+    const tone = screen.getByRole('button', { name: 'Medium' });
+    tone.focus();
+    fireEvent.keyDown(tone, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog', { name: 'Insert an emoji' })).toBeNull();
+    expect(shell).not.toHaveBeenCalled();
+    window.removeEventListener('keydown', shell);
+  });
+
   it('brings no Escape or outside click of its own: closing is its caller’s', () => {
     // One Escape closes one layer. A picker that also listened would close itself as well
     // as whatever its caller closes, or answer a key its caller had passed on.
@@ -304,9 +330,54 @@ describe('the picker when focus moves', () => {
 
     expect(onClose).not.toHaveBeenCalled();
 
-    // A key afterwards is a key again: Shift+Tab back to the trigger closes it.
-    screen.getByLabelText('Search emoji').focus();
+    // A key afterwards is a key again: Shift+Tab back to the trigger — its keydown, then
+    // the focus it moves — closes it.
+    const search = screen.getByLabelText('Search emoji');
+    search.focus();
+    fireEvent.keyDown(search, { key: 'Tab', shiftKey: true });
     trigger.focus();
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves a tap on its own trigger to its caller too, though a tap moves focus after the finger lifts', () => {
+    // Chrome's order for a tap: pointerdown, pointerup, and only then the mousedown it makes
+    // up for the tap, which is what focuses the button — then the click. Whether a pointer is
+    // still down says nothing by then; that the last thing used was a pointer does.
+    const onClose = vi.fn();
+    function Caller() {
+      const [open, setOpen] = useState(true);
+      return (
+        <div className="emoji-picker-anchor">
+          <button type="button" onClick={() => setOpen((v) => !v)}>
+            Add reaction
+          </button>
+          {open && (
+            <EmojiPicker
+              label="React with an emoji"
+              onClose={() => {
+                onClose();
+                setOpen(false);
+              }}
+              onPick={vi.fn()}
+            />
+          )}
+        </div>
+      );
+    }
+    render(<Caller />);
+    screen.getByLabelText('Search emoji').focus();
+    const trigger = screen.getByRole('button', { name: 'Add reaction' });
+
+    fireEvent.pointerDown(trigger, { pointerType: 'touch' });
+    fireEvent.pointerUp(trigger, { pointerType: 'touch' });
+    trigger.focus();
+
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(trigger);
+
+    // The caller's toggle closed it, and nothing opened it again.
+    expect(screen.queryByRole('dialog', { name: 'React with an emoji' })).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

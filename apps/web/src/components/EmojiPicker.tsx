@@ -28,10 +28,14 @@
  * moment focus leaves it, and gives it back only to focus coming in through the guards it
  * draws round the panel — hidden here, because the panel is drawn in place (`PanelAnchor`).
  * A picker left open behind focus that had Tabbed on could not be reached again by Tab or
- * Shift+Tab. So it closes then, by the rule the menus use (`focusMovedOut`). Not while a
- * pointer is down: pressing a button focuses it before its click, and the press that moves
- * focus out is the caller's to judge by `contains` — on its own trigger, the caller's toggle
- * closes the picker, where closing on the focus would have had the toggle open it again.
+ * Shift+Tab. So it closes then, by the rule the menus use (`focusMovedOut`) — but only for
+ * the keyboard. Once a pointer has been pressed, focus moving out is that press's doing until
+ * the next key, and a press is the caller's to judge by `contains`: on its own trigger, the
+ * caller's toggle closes the picker, where closing on the focus would have had the toggle
+ * open it again. Not "while a pointer is down": a tap moves focus after the finger has lifted
+ * (Chrome sends pointerup, then the mousedown it makes up for the tap, which is what focuses
+ * the button). Every move the keyboard makes comes after a keydown, so the next key always
+ * hands the close back to the keyboard, and no lost pointerup can keep it from it.
  *
  * Scaffolding, with an exit: the callers move to `PopoverTrigger` in phase 5, and the
  * anchor, the in-place drawing and the callers' own dismissal go then.
@@ -125,31 +129,26 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }, []);
 
-  // Closed when the keyboard moves focus out of it (the docblock says why). A pointer down
-  // means what focus does next is a press's, and a press is the caller's to judge; a key
-  // means the next move is the keyboard's again, even if a pointer was let go of elsewhere.
-  const pressingRef = useRef(false);
+  // Closed when the keyboard moves focus out of it (the docblock says why). Which of the two
+  // was used last: a pointer from its press until the next key, the keyboard from that key on.
+  const byPointerRef = useRef(false);
   useEffect(() => {
     const anchor = anchorRef.current;
-    const press = () => {
-      pressingRef.current = true;
+    const pointer = () => {
+      byPointerRef.current = true;
     };
-    const release = () => {
-      pressingRef.current = false;
+    const keyboard = () => {
+      byPointerRef.current = false;
     };
     const onFocusOut = (event: FocusEvent) => {
-      if (!pressingRef.current && focusMovedOut(event, anchor)) onClose();
+      if (!byPointerRef.current && focusMovedOut(event, anchor)) onClose();
     };
-    window.addEventListener("pointerdown", press, true);
-    window.addEventListener("pointerup", release, true);
-    window.addEventListener("pointercancel", release, true);
-    window.addEventListener("keydown", release, true);
+    window.addEventListener("pointerdown", pointer, true);
+    window.addEventListener("keydown", keyboard, true);
     anchor?.addEventListener("focusout", onFocusOut);
     return () => {
-      window.removeEventListener("pointerdown", press, true);
-      window.removeEventListener("pointerup", release, true);
-      window.removeEventListener("pointercancel", release, true);
-      window.removeEventListener("keydown", release, true);
+      window.removeEventListener("pointerdown", pointer, true);
+      window.removeEventListener("keydown", keyboard, true);
       anchor?.removeEventListener("focusout", onFocusOut);
     };
   }, [onClose]);
