@@ -6,12 +6,25 @@ import { navigate } from '../lib/router.ts';
 
 afterEach(cleanup);
 
+/** The parts shadcn's Empty names, in the order they are drawn. */
+const parts = (container: HTMLElement) =>
+  Array.from(container.querySelector('.empty-state')!.children).map(
+    (el) => (el as HTMLElement).dataset.slot ?? el.tagName,
+  );
+
 describe('EmptyState', () => {
+  it("is shadcn's Empty", () => {
+    const { container } = render(<EmptyState title="Nothing here" />);
+    const root = container.querySelector<HTMLElement>('.empty-state')!;
+    expect(root.dataset.slot).toBe('empty');
+  });
+
   it('renders the title alone when that is all there is', () => {
     const { container } = render(<EmptyState title="Nothing here" />);
-    expect(screen.getByText('Nothing here').className).toBe('empty-state-title');
-    expect(container.querySelector('.empty-state-body')).toBeNull();
-    expect(container.querySelector('.empty-state-mark')).toBeNull();
+    expect(screen.getByText('Nothing here').closest('[data-slot]')?.getAttribute('data-slot')).toBe(
+      'empty-title',
+    );
+    expect(parts(container)).toEqual(['empty-title']);
   });
 
   it('keeps the mark out of the accessibility tree and the action after the body', () => {
@@ -20,11 +33,39 @@ describe('EmptyState', () => {
         Say hello.
       </EmptyState>,
     );
-    const mark = container.querySelector('.empty-state-mark');
+    const mark = container.querySelector('[data-slot="empty-icon"]');
     expect(mark?.getAttribute('aria-hidden')).toBe('true');
-    const order = Array.from(container.querySelector('.empty-state')!.children).map((el) => el.className || el.tagName);
-    expect(order).toEqual(['empty-state-mark', 'empty-state-title', 'empty-state-body', 'BUTTON']);
+    expect(parts(container)).toEqual(['empty-icon', 'empty-title', 'empty-description', 'empty-content']);
+    expect(screen.getByRole('button', { name: 'Go' }).closest('[data-slot]')?.getAttribute('data-slot')).toBe(
+      'empty-content',
+    );
     expect(container.querySelector('.empty-state')?.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('draws nothing for an action that is not there', () => {
+    // `permalinkFailure && <button …>` is how Workspace passes one: false is no action, and
+    // an empty row under the body would still take its margin.
+    const { container } = render(<EmptyState title="Finding that message…" action={false} />);
+    expect(parts(container)).toEqual(['empty-title']);
+  });
+
+  it("hands a caller's own markup back to the legacy stylesheet", () => {
+    // Inside a shadcn component preflight's reset holds, and the repair in base.css stops
+    // at `[data-slot]`. The body's `<code>` and the action's `.btn` are the callers' legacy
+    // markup, so they sit in `data-legacy` islands, as a dialog's body does.
+    const { container } = render(
+      <EmptyState title="Search the whole history" action={<button className="btn">Retry</button>}>
+        Narrow results with <code>from:</code>.
+      </EmptyState>,
+    );
+    expect(container.querySelector('code')!.closest('[data-legacy]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Retry' }).closest('[data-legacy]')).not.toBeNull();
+  });
+
+  it("keeps a caller's class beside its own", () => {
+    const { container } = render(<EmptyState title="Nothing" className="call-empty" />);
+    const root = container.querySelector<HTMLElement>('.empty-state')!;
+    expect(root.classList.contains('call-empty')).toBe(true);
   });
 });
 

@@ -388,6 +388,18 @@
   animation: skeleton-breathe 1.4s ease-in-out infinite;
 }
 
+/* The breathing a widget does while it loads. It was the list skeleton's too, until that
+   became shadcn's Skeleton (components/ListSkeleton.tsx), which pulses on its own. */
+@keyframes skeleton-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .dashboard-widget-head {
   display: flex;
   flex-wrap: wrap;

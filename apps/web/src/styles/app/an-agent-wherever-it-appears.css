@@ -3,16 +3,8 @@
 /* A bot is a real users row (ADR 0005), which is what makes mentions, search and DMs
    work with no frontend change — and is exactly why it needs marking here. It posts
    through the same path a person does and would otherwise land in the list looking
-   like one. Both marks are reserved iris and neither is themeable. */
-.avatar[data-kind='bot'] {
-  background: conic-gradient(
-    from 200deg,
-    var(--iris-strong),
-    var(--iris-soft),
-    var(--iris)
-  );
-  color: #fff;
-}
+   like one. Both marks are reserved iris and neither is themeable; the avatar's is drawn
+   by the avatar itself (components/Avatar.tsx). */
 
 /* An agent working right now, in the sidebar.
  *

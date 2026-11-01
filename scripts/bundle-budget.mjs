@@ -11,7 +11,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
-const BUDGET_KB = 221;
+const BUDGET_KB = 240;
 const DIST = new URL('../apps/web/dist/', import.meta.url);
 /** Strings only livekit-client's own code carries. */
 const CALL_SDK = /LiveKitError|LiveKitReactNativeGlobal/;

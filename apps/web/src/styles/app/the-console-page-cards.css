@@ -312,24 +312,6 @@
   text-wrap: pretty;
 }
 
-/* The shared empty state, when it is a card's: the notice's place and padding, a title
-   in the card's type rather than a page's. */
-.console-card > .empty-state {
-  max-width: 520px;
-  margin: var(--space-4) auto 0;
-  padding: var(--space-6) var(--space-4);
-}
-
-.console-card > .empty-state .empty-state-title {
-  font-size: var(--text-title);
-}
-
-.console-card > .empty-state .empty-state-body {
-  margin-top: var(--space-1);
-  font-size: var(--text-row);
-  color: var(--text-4);
-}
-
 /* Search, filters and counts at the top of a list. */
 .console-toolbar {
   display: flex;

@@ -1,7 +1,15 @@
-/** Initial avatar with optional presence dot. */
+/**
+ * A person's or an agent's avatar, with an optional presence dot.
+ *
+ * shadcn's avatar (`ui/avatar`), which is Base UI's, wearing Meadow: a rounded square in a
+ * tone chosen from the name, one letter, a photo over it when there is one. The class
+ * names `avatar` and `dm-avatar` style nothing here; they are what the contextual legacy
+ * rules — faces overlapped in a header, a collapsed sidebar, an inactive console row —
+ * still select.
+ */
 
 import type { PresenceState, User, UserKind } from "@blob/shared";
-import { revealIfCached, revealOnLoad } from "../lib/imageReveal.ts";
+import { Avatar as AvatarRoot, AvatarFallback, AvatarImage } from "./ui/avatar.tsx";
 
 /**
  * One letter, as Meadow's rules sheet draws a person: "flat initial avatar in clay or
@@ -30,6 +38,57 @@ function tone(name: string): "clay" | "sage" {
   return (hash & 1) === 1 ? "clay" : "sage";
 }
 
+/**
+ * The box: 30px, 20px in a row (`sm`), 36px leading a message (`lg`). A rounded square,
+ * never a circle — circles are reserved for status dots, so a round thing next to a name
+ * can only ever mean presence. That is also why shadcn's ring goes: it is an `::after`
+ * drawn round, and it would sit as a circle on a square.
+ */
+const ROOT = [
+  "avatar size-[30px] items-center justify-center overflow-hidden rounded-[10px] font-bold leading-none after:hidden",
+  "data-[size=sm]:size-5 data-[size=sm]:rounded-[7px]",
+  "data-[size=lg]:size-9",
+].join(" ");
+
+/**
+ * Sage is the default and clay the other human tone (clay on clay-text is 6.5:1 in light,
+ * 7.6:1 in dark). An agent is iris, whatever its name would have picked: a bot is a real
+ * users row (ADR 0005) that posts through the same path a person does, and would land in
+ * the list looking like one. Reserved, and not themeable.
+ */
+const TONES = {
+  sage: "bg-(--avatar-bg) text-(--blob-accent)",
+  clay: "bg-(--clay) text-(--clay-text)",
+  agent: "bg-[conic-gradient(from_200deg,var(--iris-strong),var(--iris-soft),var(--iris))] text-white",
+} as const;
+
+/**
+ * The letter, in the box's colour rather than shadcn's muted chip — one letter now, so it
+ * can be read: two at 30px were 10.5px.
+ */
+const INITIALS = [
+  "avatar-initials rounded-none bg-transparent text-inherit text-[13px] leading-none",
+  "group-data-[size=sm]/avatar:text-[10px] group-data-[size=lg]/avatar:text-[15px]",
+].join(" ");
+
+/**
+ * The photo sits over the letter and fades in once it has loaded; the letter leaves as it
+ * does, so a photo with transparency never shows it through. A photo that never loads
+ * leaves the letter, where it used to leave an empty square.
+ *
+ * `keepMounted` is what keeps the message list still. Base UI's default mounts the image
+ * only once it has loaded, so even a photo the browser already holds would arrive through
+ * `data-starting-style` and fade in — on every scroll, since the list remounts its rows.
+ * Kept mounted, the image reads its own `complete` in the commit that mounts it, a cached
+ * one is marked loaded before the first paint and skips the starting frame, and the letter
+ * is gone by then too. Only a photo that had to be fetched fades.
+ */
+const PHOTO = [
+  "avatar-photo absolute inset-0 rounded-[inherit]",
+  "transition-opacity duration-(--dur-open) ease-(--blob-ease-out)",
+  "data-loading:opacity-0 data-error:opacity-0 data-starting-style:opacity-0",
+].join(" ");
+
 interface Props {
   /**
    * `kind` is optional because most callers hold a partial user — a reaction's author,
@@ -44,38 +103,38 @@ interface Props {
 
 export function Avatar({ user, size = "md" }: Props) {
   const name = user?.displayName ?? "?";
+  const named = tone(name);
   return (
-    <span
-      className="avatar"
+    <AvatarRoot
+      className={`${ROOT} ${TONES[user?.kind === "bot" ? "agent" : named]}`}
+      // Blob's three size names, on the attribute shadcn's own sizes read: it is set after
+      // the part's, and the classes above restate all three.
       data-size={size}
       data-kind={user?.kind}
-      // An agent is drawn in iris whatever this says (`.avatar[data-kind='bot']`).
-      data-tone={tone(name)}
+      data-tone={named}
       title={name}
     >
-      {user?.avatarUrl ? (
-        // The photo over the initials rather than instead of them: they are what shows
-        // while it loads, and what stays if it never does — a broken photo used to leave
-        // an empty square. Keyed by the address, so a new photo fades in as a new image.
-        <>
-          <img
-            key={user.avatarUrl}
-            src={user.avatarUrl}
-            alt=""
-            ref={revealIfCached}
-            onLoad={revealOnLoad}
-          />
-          <span className="avatar-initials" aria-hidden="true">
-            {initial(name)}
-          </span>
-        </>
-      ) : (
-        initial(name)
+      {user?.avatarUrl && (
+        // Keyed by the address, so a new photo starts from loading rather than inheriting
+        // the old one's status.
+        <AvatarImage
+          key={user.avatarUrl}
+          src={user.avatarUrl}
+          alt=""
+          keepMounted
+          className={PHOTO}
+        />
       )}
-    </span>
+      {/* Decoration while a photo is there or coming: the name is the avatar's title. */}
+      <AvatarFallback className={INITIALS} aria-hidden={user?.avatarUrl ? true : undefined}>
+        {initial(name)}
+      </AvatarFallback>
+    </AvatarRoot>
   );
 }
 
+/** The sidebar's avatar, with whether the person is here pinned to its corner. The dot is
+ *  legacy markup it shares with the account menu (`.presence-dot`). */
 export function AvatarWithPresence({
   user,
   state,
@@ -84,7 +143,7 @@ export function AvatarWithPresence({
   state: PresenceState;
 }) {
   return (
-    <span className="dm-avatar">
+    <span className="dm-avatar relative size-5 flex-none">
       <Avatar user={user} size="sm" />
       <span className="presence-dot" data-state={state} />
     </span>

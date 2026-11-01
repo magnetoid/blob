@@ -15,8 +15,11 @@
  *   marked `true` and fades in over `--dur-open`.
  *
  * `revealOnError` is for pictures whose failure should still be seen — the browser's
- * broken image and its alt text say which file did not load. An avatar does without it:
- * its initials are underneath, and a failed photo leaves them showing.
+ * broken image and its alt text say which file did not load.
+ *
+ * An avatar uses none of this: its photo is Base UI's, which reads `complete` in the same
+ * commit and keeps its own status, and a failed one leaves the initials showing
+ * (components/Avatar.tsx).
  */
 
 import type { SyntheticEvent } from 'react';

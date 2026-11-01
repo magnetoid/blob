@@ -26,6 +26,9 @@
 @source "../components/EmojiPicker.tsx";
 @source "../components/Toasts.tsx";
 @source "../components/Confirmation.tsx";
+@source "../components/Avatar.tsx";
+@source "../components/EmptyState.tsx";
+@source "../components/ListSkeleton.tsx";
 @import "./theme.css";
 @import "./tokens.css" layer(legacy);
 @import "./app.css" layer(legacy);
