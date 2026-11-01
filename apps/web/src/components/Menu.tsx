@@ -14,13 +14,19 @@
  * workspace name, a channel title) and what closes one is not. The panel keeps the
  * caller's own class so each menu's existing CSS continues to key on its own name.
  *
- * The panel is shadcn's DropdownMenu, which is Base UI's Menu, and lives in the overlay
- * chunk (`components/overlays/MenuImpl.tsx`): it places the panel, turns it over and caps
- * it where there is no room, plays its exit and moves focus to its first item. This file is
- * what the first load carries — the contract above, and a zero-size anchor where the panel
- * used to sit, which the panel is drawn into and hangs from. The contract lives here rather
- * than in the chunk so it holds from the first click: a menu opened before the chunk lands
- * already answers Escape and a click outside, and opens once the chunk is here.
+ * The panel is drawn by Base UI's Menu, through shadcn's `DropdownMenu` root, in the
+ * overlay chunk (`components/overlays/MenuImpl.tsx`): it places the panel, turns it over
+ * and caps it where there is no room, plays its exit and moves focus to its first item. Only
+ * that — the callers' items are their own buttons, not Base UI's, so its own keys and
+ * dismissal are off. This file is what the first load carries — the contract above, and a
+ * zero-size anchor where the panel used to sit, which the panel is drawn into and hangs
+ * from. The contract lives here rather than in the chunk so it holds from the first click:
+ * a menu opened before the chunk lands already answers Escape and a click outside, and
+ * opens once the chunk is here.
+ *
+ * The contract, the anchor and the hidden focus guards below are scaffolding: they go when
+ * the callers move to `DropdownMenuTrigger` and `DropdownMenuItem` (phases 4 and 5;
+ * `MenuImpl.tsx` says which caller goes when).
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
@@ -223,12 +229,20 @@ export function Menu({
   // else in the page. This panel is drawn here, so the page's own order already does that,
   // and the guards are taken out of it: left in, the one after the last item swallowed the
   // Tab that should have moved on, because it hands focus to a trigger of Base UI's own,
-  // and these menus have none.
+  // and these menus have none. The attribute is Base UI's, hardcoded in its
+  // `utils/FocusGuard` and renamed once before; `Menu.test.tsx` fails if the class here
+  // stops matching what Base UI draws.
   return (
     <span className="contents [&_[data-base-ui-focus-guard]]:hidden!">
       <span ref={anchorRef} className="absolute" />
       {(open || phase.leaving) && (
-        <MenuPanel open={open} anchor={anchorRef} className={className} onExited={exited}>
+        <MenuPanel
+          open={open}
+          anchor={anchorRef}
+          opener={openerRef}
+          className={className}
+          onExited={exited}
+        >
           {children}
         </MenuPanel>
       )}

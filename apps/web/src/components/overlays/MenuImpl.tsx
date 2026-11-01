@@ -1,23 +1,31 @@
 /**
- * The menu's panel: shadcn's DropdownMenu, which is Base UI's Menu, drawn round whatever
- * the caller put in it.
+ * The menu's panel, drawn by Base UI's Menu (through shadcn's `DropdownMenu` root) round
+ * whatever the caller put in it. For now that is Base UI's positioning and little else —
+ * not yet shadcn's DropdownMenu as shadcn means it, with Base UI's triggers and items.
  *
- * Base UI does what `components/Menu.tsx` used to do by hand, and better: it places the
- * panel against what opened it and keeps it there as the page scrolls and resizes, turns
- * it over to the other side when there is no room where it belongs, caps it to the room
- * there is (`--available-height` — the old `lib/menuFit.ts` measured that once per
- * opening, against the nearest box that clipped), holds it through its exit, and moves
- * focus to its first item. Three things stay Blob's.
+ * What Base UI does here: it places the panel against the box it hangs from and keeps it
+ * there as the page scrolls and resizes, turns it over to the other side when there is no
+ * room where it belongs, caps it to the room there is (`--available-height` — the old
+ * `lib/menuFit.ts` measured that once per opening, against the nearest box that clipped),
+ * holds it through its exit, and moves focus to its first item as it opens — from where
+ * the menu was opened, never from somewhere the person has moved on to since.
  *
- * What the panel answers. The callers write their own items — `<button role="menuitem">`,
- * a heading, a select, a time field — rather than Base UI's `Menu.Item`s, and they own
- * their triggers. Base UI's own interaction (its dismissal, list navigation and typeahead)
- * only knows its own items and triggers, and would get the rest wrong: its dismissal
- * closes on `pointerdown`, before the caller's trigger sees the click it toggles on, and
- * its list navigation spends every arrow key, the select's and the time field's too. So
- * the root is `disabled` — Base UI does not interact — and the house contract in
- * `components/Menu.tsx` answers the keys and clicks, as it did; any close Base UI asks for
- * (focus leaving, say) is declined, because only that contract closes a menu.
+ * What it does not do, and why. Its interaction — dismissal, list navigation, typeahead —
+ * is switched off (`disabled`), and every close it asks for is declined, for two reasons.
+ * The callers' items are their own `<button role="menuitem">`s beside a heading, a select
+ * and a time field, not registered `Menu.Item`s, so Base UI's list navigation and
+ * typeahead would never walk them; and its `useListNavigation` would stop the arrow keys
+ * inside the schedule menu's repeat select and time field, which need them. And Escape and
+ * a click outside have to work before this chunk has arrived — a menu clicked open in the
+ * first second after load is open with nothing of Base UI drawn yet — so dismissal lives in
+ * the first-load `components/Menu.tsx`, and only that contract closes a menu.
+ *
+ * That is scaffolding, with an exit. It comes down as the callers move to
+ * `DropdownMenuTrigger` and `DropdownMenuItem` — TopBar's account menu, the section menu
+ * and ChannelMenu in phase 4, MessageMenu in phase 5 — and SchedulePicker becomes a
+ * Popover. What goes then: `disabled` and the cancel-all below, the anchor span `Menu`
+ * draws the panel into, the focus guards it hides there, and the dismissal-and-arrows
+ * contract in `Menu.tsx`.
  *
  * Where it is drawn. Into the anchor `Menu` leaves where the old panel sat, not at the end
  * of `<body>`: the callers' CSS keys on the panel being inside them — the message toolbar
@@ -35,9 +43,26 @@
  * anything is painted — the positioner keeps the panel transparent until it has placed it.
  */
 
-import { useCallback, useState, type ReactNode, type RefObject } from 'react';
+import {
+  useCallback,
+  useState,
+  type ComponentProps,
+  type ComponentType,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { Menu as MenuPrimitive } from '@base-ui/react/menu';
 import { DropdownMenu } from '../ui/dropdown-menu.tsx';
+
+/**
+ * Base UI's menu popup, with the `initialFocus` it reads but does not declare. In 1.9 the
+ * popup hands it to its focus manager exactly as Popover's and Dialog's popups do — `true`
+ * for the first item, `false` to leave focus be — but leaves it out of `MenuPopupProps`.
+ * `Menu.chunk.test.tsx` fails if a release stops reading it.
+ */
+const MenuPopup = MenuPrimitive.Popup as ComponentType<
+  ComponentProps<typeof MenuPrimitive.Popup> & { initialFocus?: () => boolean }
+>;
 
 type Side = 'top' | 'bottom';
 type Align = 'start' | 'end';
@@ -92,13 +117,15 @@ export interface MenuImplProps {
   open: boolean;
   /** The span `Menu` draws where the old panel sat. The panel is drawn inside it. */
   anchor: RefObject<HTMLSpanElement | null>;
+  /** What had focus when the menu opened — `Menu`'s, which is where focus goes home to. */
+  opener: RefObject<HTMLElement | null>;
   /** Goes on the panel, where each caller's CSS expects it. */
   className?: string | undefined;
   onExited?: (() => void) | undefined;
   children: ReactNode;
 }
 
-export function MenuImpl({ open, anchor, className, onExited, children }: MenuImplProps) {
+export function MenuImpl({ open, anchor, opener, className, onExited, children }: MenuImplProps) {
   const [placement, setPlacement] = useState<Placement>(BELOW);
 
   const readPlacement = useCallback((panel: HTMLDivElement | null) => {
@@ -111,10 +138,18 @@ export function MenuImpl({ open, anchor, className, onExited, children }: MenuIm
     );
   }, []);
 
+  // `true` is Base UI's own choice, the first item; `false` leaves focus where it is.
+  const takesFocus = useCallback(() => {
+    const active = document.activeElement;
+    return active === null || active === document.body || active === opener.current;
+  }, [opener]);
+
   return (
     <DropdownMenu
       open={open}
       modal={false}
+      // Scaffolding until the callers use Base UI's triggers and items (see above): Base UI
+      // does not interact, and only `Menu`'s contract closes a menu.
       disabled
       onOpenChange={(_next, details) => details.cancel()}
       onOpenChangeComplete={(isOpen) => {
@@ -129,16 +164,20 @@ export function MenuImpl({ open, anchor, className, onExited, children }: MenuIm
           sideOffset={placement.gap}
           className="z-(--z-menu) outline-none"
         >
-          <MenuPrimitive.Popup
+          <MenuPopup
             ref={readPlacement}
             className={className ? `${PANEL} ${className}` : PANEL}
+            // Into the panel only from where the menu was opened, or from nowhere. A menu
+            // opened before the chunk arrived is drawn late, and by then the person may have
+            // Tabbed on: taking focus back from there would undo a move they made.
+            initialFocus={takesFocus}
             // Focus goes home from `Menu`, and only when it was left in the panel.
             finalFocus={false}
             // Still drawn while it leaves, and nothing in it can be clicked or focused.
             inert={!open}
           >
             {children}
-          </MenuPrimitive.Popup>
+          </MenuPopup>
         </MenuPrimitive.Positioner>
       </MenuPrimitive.Portal>
     </DropdownMenu>

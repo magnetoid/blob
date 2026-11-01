@@ -232,6 +232,37 @@ describe('a menu’s panel', () => {
     expect(menu()?.hasAttribute('data-closed')).toBe(true);
     await waitFor(() => expect(menu()).toBeNull());
   });
+
+  it('hides the focus guards Base UI draws round it, by the attribute they carry', () => {
+    // The canary for a Base UI upgrade. Base UI puts a focusable span either side of a
+    // portal to carry Tab from a trigger to a panel drawn elsewhere; this panel is drawn
+    // in place, and a guard left showing after its last item swallows the Tab that should
+    // move on. `Menu` hides them with a Tailwind class naming the attribute Base UI stamps
+    // on them — hardcoded in its `utils/FocusGuard`, and renamed once already, from
+    // floating-ui's prefix to Base UI's. happy-dom applies no Tailwind, so what is checked
+    // is the tie: the guards, found by what they are rather than by that attribute, must
+    // all match the selector inside the class. A rename upstream fails here, not as Tab
+    // stranded on an invisible span at the end of every menu.
+    const { container } = render(
+      <Menu open onClose={vi.fn()} className="menu">
+        <button role="menuitem" type="button">
+          First
+        </button>
+      </Menu>,
+    );
+    const wrapper = container.firstElementChild as HTMLElement;
+
+    const hiding = [...wrapper.classList].find((name) => name.endsWith(':hidden!'));
+    expect(hiding).toBe('[&_[data-base-ui-focus-guard]]:hidden!');
+    const selector = /^\[&_(.+)\]:hidden!$/.exec(hiding ?? '')?.[1] ?? '';
+
+    // A guard: a span the keyboard reaches and a screen reader is told to skip.
+    const guards = [
+      ...wrapper.querySelectorAll<HTMLElement>('span[tabindex="0"][aria-hidden="true"]'),
+    ];
+    expect(guards.length).toBeGreaterThan(0);
+    for (const guard of guards) expect(guard.matches(selector)).toBe(true);
+  });
 });
 
 describe('a menu’s dismissal', () => {

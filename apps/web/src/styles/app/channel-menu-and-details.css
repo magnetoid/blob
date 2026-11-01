@@ -7,6 +7,28 @@
    clear, unless a panel's class says otherwise in `--menu-side` (bottom or top),
    `--menu-align` (start or end) and `--menu-gap` — and turns it over to the other side
    where the box that clips it has no room, as the ••• on the newest message needs. */
+
+/* Each panel's own, and not handed down: registered so they do not inherit, a panel nested
+   in something that sets them takes the defaults below rather than its container's
+   placement. The initial values are the defaults MenuImpl falls back to. */
+@property --menu-side {
+  syntax: 'bottom | top';
+  inherits: false;
+  initial-value: bottom;
+}
+
+@property --menu-align {
+  syntax: 'start | end';
+  inherits: false;
+  initial-value: start;
+}
+
+@property --menu-gap {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 4px;
+}
+
 .menu {
   min-width: 232px;
   padding: 5px;
