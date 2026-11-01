@@ -156,13 +156,21 @@ describe('an avatar', () => {
     // showing the letter, since happy-dom fires none.
     withImagesComplete(64, () => {
       const { container } = render(<Avatar user={PHOTO} />);
-      const image = imageOf(container);
-      expect({
-        initials: fallbackOf(container) !== null,
-        image: image !== null,
-        fading: image?.hasAttribute('data-starting-style') ?? false,
-        loading: image?.hasAttribute('data-loading') ?? false,
-      }).toEqual({ initials: false, image: true, fading: false, loading: false });
+      const seen = () => {
+        const image = imageOf(container);
+        return {
+          initials: fallbackOf(container) !== null,
+          image: image !== null,
+          fading: image?.hasAttribute('data-starting-style') ?? false,
+          loading: image?.hasAttribute('data-loading') ?? false,
+        };
+      };
+      expect(seen()).toEqual({ initials: false, image: true, fading: false, loading: false });
+
+      // The browser still fires `load` on a cached image, a task later. It must find the
+      // photo already shown and start nothing: no second entrance, and no letter back.
+      fireEvent.load(imageOf(container)!);
+      expect(seen()).toEqual({ initials: false, image: true, fading: false, loading: false });
     });
   });
 });

@@ -11,7 +11,12 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
-const BUDGET_KB = 240;
+// The measured first load rounded up, plus 1 KB. The entry chunk carries the last commits'
+// subjects for "What's new" (vite.config.ts), so the same code weighs a few hundred bytes
+// more or less from one commit to the next — 239.6 KB, then 239.7, for one tree — and a
+// budget with no room would fail a docs commit, a merge ref or a squash for nothing the
+// app does. Lower it with the app, keeping the 1 KB.
+const BUDGET_KB = 241;
 const DIST = new URL('../apps/web/dist/', import.meta.url);
 /** Strings only livekit-client's own code carries. */
 const CALL_SDK = /LiveKitError|LiveKitReactNativeGlobal/;

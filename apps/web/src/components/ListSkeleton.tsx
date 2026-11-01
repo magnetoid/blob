@@ -35,18 +35,18 @@ const STILL = 'motion-reduce:animate-none';
  */
 const LIST = [
   'message-skeleton flex flex-col gap-[18px]',
-  '[.message-list>&]:px-5 [.message-list>&]:py-6',
-  '[.search-results>&]:p-3.5',
-  '[.pinned-panel>&]:gap-3.5 [.pinned-panel>&]:p-2',
+  '[.message-list>&]:px-[20px] [.message-list>&]:py-[24px]',
+  '[.search-results>&]:p-[14px]',
+  '[.pinned-panel>&]:gap-[14px] [.pinned-panel>&]:p-[8px]',
 ].join(' ');
 
 /** Still, as it always was: a block of colour pulsing beside every row was the loudest
  *  thing on the screen. */
 const AVATAR =
-  'message-skeleton-avatar size-9 shrink-0 animate-none data-[size=sm]:size-5 data-[size=sm]:rounded-[7px]';
+  'message-skeleton-avatar size-[36px] shrink-0 animate-none data-[size=sm]:size-[20px] data-[size=sm]:rounded-[7px]';
 
 /** A name, then a line of a message. */
-const NAME = `message-skeleton-line h-2.5 w-[120px] max-w-[60%] rounded-sm ${STILL}`;
+const NAME = `message-skeleton-line h-[10px] w-[120px] max-w-[60%] rounded-sm ${STILL}`;
 
 /**
  * The message line's length varies by row, so five rows read as five different messages
@@ -54,7 +54,7 @@ const NAME = `message-skeleton-line h-2.5 w-[120px] max-w-[60%] rounded-sm ${STI
  * pulse as one block and read as a single flashing shape rather than as content arriving.
  */
 const MESSAGE = ['w-[72%]', 'w-[55%]', 'w-[84%]', 'w-[40%]', 'w-[66%]'].map(
-  (width) => `message-skeleton-line h-2.5 ${width} rounded-sm ${STILL} [animation-delay:120ms]`,
+  (width) => `message-skeleton-line h-[10px] ${width} rounded-sm ${STILL} [animation-delay:120ms]`,
 );
 
 /** Files that have not arrived, in the grid they will arrive in — faded out downward, so
@@ -93,7 +93,7 @@ export function ListSkeleton({
     <div className={LIST} aria-busy="true">
       <Announcement />
       {Array.from({ length: Math.min(rows, ROWS) }, (_, index) => (
-        <div key={index} className="message-skeleton-row flex items-start gap-2.5" aria-hidden="true">
+        <div key={index} className="message-skeleton-row flex items-start gap-[10px]" aria-hidden="true">
           {avatar !== "none" && <Skeleton className={AVATAR} data-size={avatar} />}
           <div className="message-skeleton-lines flex flex-1 flex-col gap-[7px] pt-[3px]">
             <Skeleton className={NAME} />

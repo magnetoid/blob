@@ -93,11 +93,15 @@ export default defineConfig({
      * `cn` in its build mode: merge tables compiled for the class groups this client's
      * sources actually use, rather than the package's whole tables, which put about 2 KB
      * more on the first load once the avatar, the skeleton and the empty state brought
-     * `cn` there. It writes `src/lib/cn-tables.ts` as each build and dev server starts,
-     * and again in dev when a save uses a group the tables dropped; that file is
-     * committed, like a lockfile, so the type checker has it on a fresh checkout. A class
-     * name built at runtime (`'p-' + size`) is invisible to the scan, as it is to
-     * Tailwind's.
+     * `cn` there. It rewrites `src/lib/cn-tables.ts` whenever a fresh scan differs, as
+     * every build, dev server and vitest run starts (vitest's server runs `buildStart`
+     * too), and again in dev when a save uses a group the tables dropped. So a stale copy
+     * never reaches the app or the tests; only the type checker reads the committed one
+     * as it is, which is why it is committed, like a lockfile, for a fresh checkout. What
+     * a stale copy does do is turn up as a change in the next person's tree, in whatever
+     * they commit next, so CI fails a commit whose copy a build rewrites (`ci.yml`, after
+     * the budget) and eslint skips the file. A class name built at runtime (`'p-' + size`)
+     * is invisible to the scan, as it is to Tailwind's.
      */
     cn({ content: ['src/**/*.{ts,tsx}'], out: 'src/lib/cn-tables.ts' }),
   ],

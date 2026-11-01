@@ -46,8 +46,8 @@ function tone(name: string): "clay" | "sage" {
  */
 const ROOT = [
   "avatar size-[30px] items-center justify-center overflow-hidden rounded-[10px] font-bold leading-none after:hidden",
-  "data-[size=sm]:size-5 data-[size=sm]:rounded-[7px]",
-  "data-[size=lg]:size-9",
+  "data-[size=sm]:size-[20px] data-[size=sm]:rounded-[7px]",
+  "data-[size=lg]:size-[36px]",
 ].join(" ");
 
 /**
@@ -143,7 +143,7 @@ export function AvatarWithPresence({
   state: PresenceState;
 }) {
   return (
-    <span className="dm-avatar relative size-5 flex-none">
+    <span className="dm-avatar relative size-[20px] flex-none">
       <Avatar user={user} size="sm" />
       <span className="presence-dot" data-state={state} />
     </span>

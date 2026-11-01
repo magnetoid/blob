@@ -25,8 +25,8 @@ import { Empty, EmptyContent, EmptyDescription, EmptyMedia, EmptyTitle } from '.
  * caller's context changes it).
  */
 const ROOT = [
-  'empty-state mx-auto my-[60px] max-w-[520px] flex-none gap-0 px-6 py-0',
-  '[.console-card>&]:mt-4 [.console-card>&]:mb-0 [.console-card>&]:px-4 [.console-card>&]:py-6',
+  'empty-state mx-auto my-[60px] max-w-[520px] flex-none gap-0 px-[24px] py-0',
+  '[.console-card>&]:mt-[16px] [.console-card>&]:mb-0 [.console-card>&]:px-[16px] [.console-card>&]:py-[24px]',
 ].join(' ');
 
 /**
@@ -47,19 +47,19 @@ const ARRIVE =
 
 /** A badge in the accent wash, the glyph at the title's size. */
 const MARK =
-  'empty-state-mark mb-[18px] size-11 rounded-(--blob-radius-lg) bg-(--blob-accent-wash-soft) text-(length:--blob-text-lg) font-semibold text-(--blob-accent)';
+  'empty-state-mark mb-[18px] size-[44px] rounded-(--blob-radius-lg) bg-(--blob-accent-wash-soft) text-(length:--blob-text-lg) font-semibold text-(--blob-accent)';
 
 const TITLE =
   'empty-state-title text-(length:--blob-text-lg) font-semibold tracking-[-0.015em] [.console-card>.empty-state_&]:text-(length:--text-title)';
 
 const BODY = [
-  'empty-state-body mt-2 text-(length:--blob-text-base) leading-[1.6] text-pretty text-(--text-3)',
-  '[.console-card>.empty-state_&]:mt-1 [.console-card>.empty-state_&]:text-(length:--text-row) [.console-card>.empty-state_&]:text-(--text-4)',
+  'empty-state-body mt-[8px] text-(length:--blob-text-base) leading-[1.6] text-pretty text-(--text-3)',
+  '[.console-card>.empty-state_&]:mt-[4px] [.console-card>.empty-state_&]:text-(length:--text-row) [.console-card>.empty-state_&]:text-(--text-4)',
 ].join(' ');
 
 /** Whatever follows the body — a retry, a way back — sits one step below it, a button or
  *  two side by side. */
-const ACTION = 'empty-state-action mt-3 flex-row flex-wrap justify-center gap-2';
+const ACTION = 'empty-state-action mt-[12px] flex-row flex-wrap justify-center gap-[8px]';
 
 const present = (node: ReactNode) => node !== undefined && node !== null && node !== false;
 

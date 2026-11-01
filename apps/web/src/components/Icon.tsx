@@ -116,10 +116,9 @@ export const MembersIcon = (p: IconProps) => <Glyph glyph={LucideUsers} {...p} /
 
 export const ReplyIcon = (p: IconProps) => <Glyph glyph={LucideReply} {...p} />;
 
-/** Three dots, solid: a stroked ring at this size reads as a smudge. */
-export const MoreIcon = (p: IconProps) => (
-  <Glyph glyph={LucideEllipsis} fill="currentColor" {...p} />
-);
+/** Three dots, as Lucide draws them: r 1, which the stroke alone closes into a solid dot.
+ *  A fill on top added nothing to their size. */
+export const MoreIcon = (p: IconProps) => <Glyph glyph={LucideEllipsis} {...p} />;
 
 export const SendIcon = (p: IconProps) => (
   <Glyph glyph={LucideSendHorizontal} boost={0.1} {...p} />

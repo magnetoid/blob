@@ -97,6 +97,19 @@ jobs:
           NODE_ENV: production
         run: pnpm build && node scripts/bundle-budget.mjs
 
+      # `cn`'s merge tables are generated from the client's sources by every build, dev
+      # server and vitest run, and committed so the type checker has them on a fresh
+      # checkout (apps/web/vite.config.ts). The build above has just regenerated them. A
+      # difference means this commit carries a stale copy, which the next person's
+      # `pnpm dev` or `pnpm check` would quietly rewrite into whatever they commit next.
+      # A test cannot be this guard: vitest rewrites the file before any test runs.
+      - name: The committed cn tables are the ones a build writes
+        run: |
+          if ! git diff --exit-code -- apps/web/src/lib/cn-tables.ts; then
+            echo "::error file=apps/web/src/lib/cn-tables.ts::apps/web/src/lib/cn-tables.ts is stale: a build rewrote it (the diff is above). Run \`pnpm build\` and commit apps/web/src/lib/cn-tables.ts."
+            exit 1
+          fi
+
       # The models must describe the live schema exactly, or the next autogenerate
       # proposes dropping the generated column and the partial indexes. This check was
       # failing unnoticed for two milestones before it was wired up here.

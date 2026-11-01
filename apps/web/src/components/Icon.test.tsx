@@ -81,11 +81,17 @@ describe('the icon set', () => {
   });
 
   it('fills the controls that are solid shapes in every player', () => {
-    for (const Icon of [Icons.PlayIcon, Icons.PauseIcon, Icons.MoreIcon]) {
+    for (const Icon of [Icons.PlayIcon, Icons.PauseIcon]) {
       expect(draw(Icon).getAttribute('fill')).toBe('currentColor');
       cleanup();
     }
     expect(draw(Icons.HomeIcon).getAttribute('fill')).toBe('none');
+  });
+
+  it("draws More's dots as Lucide does, from the stroke alone", () => {
+    // Lucide's dots are r 1, and the stroke already closes them. A fill on top added
+    // nothing to their size and was one more thing to keep in step with Lucide.
+    expect(draw(Icons.MoreIcon).getAttribute('fill')).toBe('none');
   });
 
   it('is decoration unless the caller says otherwise', () => {
