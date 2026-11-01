@@ -29,27 +29,6 @@
   initial-value: 4px;
 }
 
-/* The popovers' three, the same way (components/overlays/PopoverImpl.tsx; the emoji
-   picker sets them). Registered separately so a popover drawn inside a menu's panel, or a
-   menu inside a popover, never takes the other's placement. */
-@property --popover-side {
-  syntax: 'bottom | top';
-  inherits: false;
-  initial-value: bottom;
-}
-
-@property --popover-align {
-  syntax: 'start | end';
-  inherits: false;
-  initial-value: start;
-}
-
-@property --popover-gap {
-  syntax: '<length>';
-  inherits: false;
-  initial-value: 4px;
-}
-
 .menu {
   min-width: 232px;
   padding: 5px;

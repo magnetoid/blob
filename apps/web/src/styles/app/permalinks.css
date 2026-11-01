@@ -1,12 +1,8 @@
 /* ─── permalinks ──────────────────────────────────────────────────────────── */
+/* Where the "Copied" note sits in its row. How it looks is shadcn's muted note
+   (components/Confirmation.tsx). */
 .copied-note {
   align-self: center;
-  padding: 2px 7px;
-  border-radius: var(--blob-radius-sm);
-  background: var(--surface-hover);
-  color: var(--text-4);
-  font-size: var(--text-label-size);
-  white-space: nowrap;
 }
 
 .copy-fallback {

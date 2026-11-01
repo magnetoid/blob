@@ -27,16 +27,13 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { lazyOverlay } from './lazyOverlay.tsx';
+import { MENU_ITEM } from './menuItems.ts';
 import { PanelAnchor } from './PanelAnchor.tsx';
-import { useDismissal, useHeldThroughExit } from '../lib/useDismissal.ts';
+import { useDismissal } from '../lib/useDismissal.ts';
+import { useHeldThroughExit } from '../lib/useHeldThroughExit.ts';
 
 /** Base UI's root, portal, positioner and popup, from the overlay chunk. */
 const MenuPanel = lazyOverlay((m) => m.MenuImpl);
-
-/** Every focusable menu item, in DOM order. Disabled ones cannot take focus, so
- *  offering them to the arrows would strand the roving focus on the way past. */
-const ITEM_SELECTOR =
-  '[role="menuitem"]:not(:disabled), [role="menuitemradio"]:not(:disabled)';
 
 interface Props {
   open: boolean;
@@ -61,6 +58,8 @@ export function Menu({
   const opener = useDismissal(anchorRef, { open, suspended: suspendDismiss, onClose });
   const [drawn, exited] = useHeldThroughExit(open);
 
+  // Keyed on `open`, not on whether the panel is still drawn: a menu on its way out must
+  // stop steering focus the moment it is asked to close.
   useEffect(() => {
     if (!open || suspendDismiss) return undefined;
     // Capture phase, so the keys arrive whatever the panel is drawn inside: a dialog
@@ -102,7 +101,7 @@ export function Menu({
         return;
       }
       const items = Array.from(
-        panel.querySelectorAll<HTMLElement>(ITEM_SELECTOR),
+        panel.querySelectorAll<HTMLElement>(MENU_ITEM),
       );
       if (items.length === 0) return;
       event.preventDefault();
@@ -123,8 +122,6 @@ export function Menu({
     return () => window.removeEventListener('keydown', onKey, true);
   }, [open, suspendDismiss, opener]);
 
-  // Keyed on `open`, not on whether the panel is still drawn: a menu on its way out must
-  // stop steering focus the moment it is asked to close.
   return (
     <PanelAnchor anchor={anchorRef}>
       {drawn && (

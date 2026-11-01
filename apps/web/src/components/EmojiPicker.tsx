@@ -16,18 +16,28 @@
  * The search, the grid, the keys and the tones inside it are the picker's own legacy
  * markup, in a `data-legacy` island so legacy CSS still reaches it inside shadcn's popup.
  *
- * Closing is not the picker's. Its callers keep the open state, the anchor round it, Escape
- * through `lib/useEscape` and the click outside, decided by `contains` on that anchor — so
- * the panel is drawn in place, inside the anchor, where `contains` finds it, and the picker
+ * Closing is its callers'. They keep the open state, the anchor round it, Escape through
+ * `lib/useEscape` and the click outside, decided by `contains` on that anchor — so the
+ * panel is drawn in place, inside the anchor, where `contains` finds it, and the picker
  * brings no second Escape or outside click of its own (one Escape closes one layer). It is
  * open for as long as it is mounted and goes when its caller unmounts it, with no exit,
- * as before.
+ * as before. The one close it asks for itself, through the caller's `onClose`, is focus
+ * moving out of it by the keyboard — see below.
+ *
+ * Why that one. Base UI's popover takes everything in its panel out of the tab order the
+ * moment focus leaves it, and gives it back only to focus coming in through the guards it
+ * draws round the panel — hidden here, because the panel is drawn in place (`PanelAnchor`).
+ * A picker left open behind focus that had Tabbed on could not be reached again by Tab or
+ * Shift+Tab. So it closes then, by the rule the menus use (`focusMovedOut`). Not while a
+ * pointer is down: pressing a button focuses it before its click, and the press that moves
+ * focus out is the caller's to judge by `contains` — on its own trigger, the caller's toggle
+ * closes the picker, where closing on the focus would have had the toggle open it again.
  *
  * Scaffolding, with an exit: the callers move to `PopoverTrigger` in phase 5, and the
  * anchor, the in-place drawing and the callers' own dismissal go then.
  */
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   EMOJI_CATEGORIES,
   SKIN_TONES,
@@ -42,6 +52,7 @@ import {
   type SkinToneId,
 } from "../lib/emoji.ts";
 import { useStore } from "../lib/store.ts";
+import { focusMovedOut } from "../lib/useDismissal.ts";
 import { lazyOverlay } from "./lazyOverlay.tsx";
 import { PanelAnchor } from "./PanelAnchor.tsx";
 
@@ -113,6 +124,35 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
     openerRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }, []);
+
+  // Closed when the keyboard moves focus out of it (the docblock says why). A pointer down
+  // means what focus does next is a press's, and a press is the caller's to judge; a key
+  // means the next move is the keyboard's again, even if a pointer was let go of elsewhere.
+  const pressingRef = useRef(false);
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    const press = () => {
+      pressingRef.current = true;
+    };
+    const release = () => {
+      pressingRef.current = false;
+    };
+    const onFocusOut = (event: FocusEvent) => {
+      if (!pressingRef.current && focusMovedOut(event, anchor)) onClose();
+    };
+    window.addEventListener("pointerdown", press, true);
+    window.addEventListener("pointerup", release, true);
+    window.addEventListener("pointercancel", release, true);
+    window.addEventListener("keydown", release, true);
+    anchor?.addEventListener("focusout", onFocusOut);
+    return () => {
+      window.removeEventListener("pointerdown", press, true);
+      window.removeEventListener("pointerup", release, true);
+      window.removeEventListener("pointercancel", release, true);
+      window.removeEventListener("keydown", release, true);
+      anchor?.removeEventListener("focusout", onFocusOut);
+    };
+  }, [onClose]);
 
   const results = useMemo(
     () => (query.trim() ? searchEmoji(query, customEmoji) : []),

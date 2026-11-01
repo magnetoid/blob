@@ -9,17 +9,18 @@
  * room where it belongs, and holds it through its exit. Its popup is a dialog, named by the
  * caller. Focus goes into it as it opens — from where it was opened, never from somewhere
  * the person has moved on to since — at the moment Base UI asks, but moved here, without
- * scrolling (`takesFocus` says why).
+ * scrolling (`takeFocus` in `./inPlace.ts` says why).
  *
  * What it does not do, and why. Every close Base UI asks for — Escape, a press outside,
  * focus leaving — is declined. Its triggers are the callers' own buttons, not
  * `Popover.Trigger`s, and Escape and a click outside have to work before this chunk has
  * arrived: a card clicked open in the first second after load is open with nothing of
  * Base UI drawn yet. So the person card closes by `lib/useDismissal.ts`, the contract it
- * shares with the menus, and the emoji picker by what its callers already do — and only
- * those close a popover. (Popover's root has no `disabled` to switch its interaction off,
- * as the menu's has; declining every change is the same thing from the outside, and a key
- * that reaches it has already passed `lib/useEscape`'s stack.)
+ * shares with the menus, and the emoji picker by what its callers already do and by focus
+ * moving out of it (`EmojiPicker.tsx` says why) — and only those close a popover.
+ * (Popover's root has no `disabled` to switch its interaction off, as the menu's has;
+ * declining every change is the same thing from the outside, and a key that reaches it has
+ * already passed `lib/useEscape`'s stack.)
  *
  * That is scaffolding, with an exit: it comes down as the callers move to `PopoverTrigger`
  * (phase 5) — the author's name for the person card, "Add reaction" and the composer's
@@ -41,7 +42,7 @@
 import { useCallback, useRef, type ReactNode, type RefObject } from 'react';
 import { Popover as PopoverPrimitive } from '@base-ui/react/popover';
 import { Popover } from '../ui/popover.tsx';
-import { anchorBox, IN_PLACE_MOTION, mayTakeFocus, usePlacement } from './inPlace.ts';
+import { anchorBox, IN_PLACE_MOTION, takeFocus, usePlacement } from './inPlace.ts';
 
 /**
  * shadcn's popover surface — the card, its ring, its shadow, its radius — and how it moves.
@@ -94,28 +95,15 @@ export function PopoverImpl({
   onExited,
   children,
 }: PopoverImplProps) {
-  const [placement, readPlacement] = usePlacement('popover');
-  const panel = useRef<HTMLDivElement | null>(null);
-  const drawn = useCallback(
-    (element: HTMLDivElement | null) => {
-      panel.current = element;
-      readPlacement(element);
-    },
-    [readPlacement],
-  );
+  const panel = useRef<HTMLElement | null>(null);
+  const [placement, readPlacement] = usePlacement('popover', panel);
 
-  // Focus is moved here, and Base UI is told there is nothing left for it to do (`false`).
-  // Base UI moves it a frame after open and, to anything but the popup itself, without
-  // `preventScroll` — and a frame after open the panel can still be where it was put before
-  // its placement was read: below the trigger, which for the picker above the composer is
-  // off the bottom of the page. The browser scrolled whatever clips the page to bring it
-  // into view, and the shell stayed moved. The positioner brings the panel into view; focus
-  // never scrolls to it.
-  const takesFocus = useCallback(() => {
-    if (!mayTakeFocus(opener)) return false;
-    focusTarget(initialFocus, panel.current)?.focus({ preventScroll: true });
-    return false;
-  }, [opener, initialFocus]);
+  // Moved by `takeFocus`, without scrolling, and Base UI told to move nothing itself
+  // (`./inPlace.ts` says why).
+  const takesFocus = useCallback(
+    () => takeFocus(opener, focusTarget(initialFocus, panel.current)),
+    [opener, initialFocus],
+  );
 
   return (
     <Popover
@@ -136,7 +124,7 @@ export function PopoverImpl({
           className="z-(--z-popover) outline-none"
         >
           <PopoverPrimitive.Popup
-            ref={drawn}
+            ref={readPlacement}
             data-slot="popover-content"
             aria-label={label}
             className={className ? `${SURFACE} ${className}` : SURFACE}

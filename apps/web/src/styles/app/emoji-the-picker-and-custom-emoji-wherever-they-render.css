@@ -11,6 +11,31 @@
   object-fit: contain;
 }
 
+/* Where a popover hangs (components/overlays/PopoverImpl.tsx reads these off its panel):
+   the side of its trigger, which edge it lines up with, and how far clear. Here because
+   this is the one stylesheet that sets them; the person card takes the initial values,
+   below its name from the left edge, 4px clear. Each panel's own, and not handed down —
+   registered so they do not inherit — and apart from the menus' `--menu-*`
+   (channel-menu-and-details.css), so a popover drawn inside a menu's panel, or a menu
+   inside a popover, never takes the other's placement. */
+@property --popover-side {
+  syntax: 'bottom | top';
+  inherits: false;
+  initial-value: bottom;
+}
+
+@property --popover-align {
+  syntax: 'start | end';
+  inherits: false;
+  initial-value: start;
+}
+
+@property --popover-gap {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 4px;
+}
+
 /* The callers' wrapper round the picker, which their dismissal asks `contains` of. The
    picker is drawn inside it (components/PanelAnchor.tsx) and hangs from it. */
 .emoji-picker-anchor {

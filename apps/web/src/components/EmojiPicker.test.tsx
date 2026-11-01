@@ -202,6 +202,35 @@ describe('the picker’s shell', () => {
     expect(outside).toHaveBeenCalledTimes(1);
   });
 
+  it('closes on one Escape in its search field in the composer, and the shell does not hear it', async () => {
+    useStore.setState({
+      currentUser: { id: 'u1', kind: 'human', displayName: 'Ana', role: 'owner', prefs: { enterToSend: true } },
+      users: { u1: { id: 'u1', kind: 'human', displayName: 'Ana', deactivated: false } },
+      channels: { c1: { id: 'c1', kind: 'public', name: 'general', memberIds: ['u1'], membership: {} } },
+      commands: [],
+      drafts: {},
+      customEmoji: [],
+    } as never);
+    // The shell's own listener, where `Workspace` puts it: closing the thread panel on
+    // Escape, marking everything read on Shift+Escape.
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+    render(<Composer channelId="c1" placeholder="Message #general" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Emoji' }));
+    const search = screen.getByLabelText('Search emoji');
+    search.focus();
+    fireEvent.keyDown(search, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog', { name: 'Insert an emoji' })).toBeNull();
+    expect(shell).not.toHaveBeenCalled();
+
+    // And the next Escape, with nothing open, is the shell's again.
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(shell).toHaveBeenCalledTimes(1);
+    window.removeEventListener('keydown', shell);
+  });
+
   it('brings no Escape or outside click of its own: closing is its caller’s', () => {
     // One Escape closes one layer. A picker that also listened would close itself as well
     // as whatever its caller closes, or answer a key its caller had passed on.
@@ -212,5 +241,72 @@ describe('the picker’s shell', () => {
     fireEvent.click(document.body);
 
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('the picker when focus moves', () => {
+  // Base UI's popover takes everything in its panel out of the tab order the moment focus
+  // leaves it, and hands it back only to a focus coming in through the guards it draws round
+  // the panel — which are hidden, because the panel is drawn in place (`PanelAnchor`). A
+  // picker left open behind focus that had moved on could not be reached again by Tab or
+  // Shift+Tab. So it closes then, by its caller's `onClose`, the way a menu does.
+
+  /** "Add reaction" and the picker in their anchor, as `MessageRow` draws them, and the
+   *  control after them in the toolbar. */
+  function Toolbar({ onClose }: { onClose: () => void }) {
+    return (
+      <>
+        <div className="emoji-picker-anchor">
+          <button type="button">Add reaction</button>
+          <EmojiPicker label="React with an emoji" onClose={onClose} onPick={vi.fn()} />
+        </div>
+        <button type="button">Reply in thread</button>
+      </>
+    );
+  }
+
+  it('closes when focus moves out of it — Tab past its last skin tone', () => {
+    const onClose = vi.fn();
+    render(<Toolbar onClose={onClose} />);
+
+    screen.getByLabelText('Search emoji').focus();
+    screen.getByRole('button', { name: 'Dark' }).focus();
+    expect(onClose).not.toHaveBeenCalled();
+
+    screen.getByRole('button', { name: 'Reply in thread' }).focus();
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays open for focus going nowhere, as when the window loses it', () => {
+    const onClose = vi.fn();
+    render(<Toolbar onClose={onClose} />);
+    const search = screen.getByLabelText('Search emoji');
+    search.focus();
+
+    search.blur();
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('leaves a press on its own trigger to its caller, whose toggle closes it', () => {
+    // Pressing a button focuses it before its click arrives. Closing on that focus would
+    // have the caller's toggle open the picker again on the way back up — the trap its
+    // callers already step round by leaving their trigger out of their click outside.
+    const onClose = vi.fn();
+    render(<Toolbar onClose={onClose} />);
+    screen.getByLabelText('Search emoji').focus();
+    const trigger = screen.getByRole('button', { name: 'Add reaction' });
+
+    fireEvent.pointerDown(trigger);
+    trigger.focus();
+    fireEvent.pointerUp(trigger);
+
+    expect(onClose).not.toHaveBeenCalled();
+
+    // A key afterwards is a key again: Shift+Tab back to the trigger closes it.
+    screen.getByLabelText('Search emoji').focus();
+    trigger.focus();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

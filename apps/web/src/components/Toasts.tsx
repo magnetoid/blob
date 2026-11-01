@@ -39,9 +39,11 @@ const TOAST = [
 /** The notice itself, at the size shadcn's toast sets it. */
 const TEXT = 'toast-text text-sm leading-snug';
 
-/** Quiet until it is pointed at, and pressed like every other control here. */
+/** Quiet until it is pointed at, and pressed like every other control here — and a 44px
+ *  target under a coarse pointer, as everything sized for a pointer is. */
 const DISMISS = [
   'shrink-0 cursor-pointer rounded-sm px-1 py-0.5 text-lg leading-none text-muted-foreground',
+  'pointer-coarse:min-h-11 pointer-coarse:min-w-11',
   'transition-[color,scale] duration-(--dur-fast) hover:text-foreground active:scale-(--motion-press)',
 ].join(' ');
 

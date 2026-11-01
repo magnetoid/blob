@@ -7,8 +7,9 @@
  * there as the page scrolls and resizes, turns it over to the other side when there is no
  * room where it belongs, caps it to the room there is (`--available-height` — the old
  * `lib/menuFit.ts` measured that once per opening, against the nearest box that clipped),
- * holds it through its exit, and moves focus to its first item as it opens — from where
- * the menu was opened, never from somewhere the person has moved on to since.
+ * and holds it through its exit. And it says when focus goes in as the menu opens: to its
+ * first item, moved by `takeFocus` (`./inPlace.ts`) without scrolling — from where the menu
+ * was opened, never from somewhere the person has moved on to since.
  *
  * What it does not do, and why. Its interaction — dismissal, list navigation, typeahead —
  * is switched off (`disabled`), and every close it asks for is declined, for two reasons.
@@ -42,6 +43,7 @@
 
 import {
   useCallback,
+  useRef,
   type ComponentProps,
   type ComponentType,
   type ReactNode,
@@ -49,13 +51,16 @@ import {
 } from 'react';
 import { Menu as MenuPrimitive } from '@base-ui/react/menu';
 import { DropdownMenu } from '../ui/dropdown-menu.tsx';
-import { anchorBox, IN_PLACE_MOTION, mayTakeFocus, usePlacement } from './inPlace.ts';
+import { MENU_ITEM } from '../menuItems.ts';
+import { anchorBox, IN_PLACE_MOTION, takeFocus, usePlacement } from './inPlace.ts';
 
 /**
  * Base UI's menu popup, with the `initialFocus` it reads but does not declare. In 1.9 the
- * popup hands it to its focus manager exactly as Popover's and Dialog's popups do — `true`
- * for the first item, `false` to leave focus be — but leaves it out of `MenuPopupProps`.
- * `Menu.chunk.test.tsx` fails if a release stops reading it.
+ * popup hands it to its focus manager exactly as Popover's and Dialog's popups do — called
+ * as the menu opens; `false` back leaves focus where it is, which is what `takeFocus`
+ * answers once it has moved focus itself — but leaves it out of `MenuPopupProps`.
+ * `Menu.chunk.test.tsx` and `Menu.focus.test.tsx` fail if a release stops reading it: Base UI
+ * would then take focus back from where the person moved it, and scroll to its first item.
  */
 const MenuPopup = MenuPrimitive.Popup as ComponentType<
   ComponentProps<typeof MenuPrimitive.Popup> & { initialFocus?: () => boolean }
@@ -73,6 +78,11 @@ const PANEL = [
   IN_PLACE_MOTION,
 ].join(' ');
 
+/** The menu's first item that can take focus, or the panel itself when it has none. */
+function firstItem(panel: HTMLElement | null): HTMLElement | null {
+  return panel?.querySelector<HTMLElement>(MENU_ITEM) ?? panel;
+}
+
 export interface MenuImplProps {
   /** False while it leaves: Base UI plays the exit, then `onExited` is called. */
   open: boolean;
@@ -87,10 +97,16 @@ export interface MenuImplProps {
 }
 
 export function MenuImpl({ open, anchor, opener, className, onExited, children }: MenuImplProps) {
-  const [placement, readPlacement] = usePlacement('menu');
+  const panel = useRef<HTMLElement | null>(null);
+  const [placement, readPlacement] = usePlacement('menu', panel);
 
-  // `true` is Base UI's own choice, the first item; `false` leaves focus where it is.
-  const takesFocus = useCallback(() => mayTakeFocus(opener), [opener]);
+  // To its first item that can take focus — the one the arrows in `Menu` start from — or to
+  // the panel when it has none; moved by `takeFocus`, without scrolling, and Base UI told to
+  // move nothing itself (`./inPlace.ts` says why).
+  const takesFocus = useCallback(
+    () => takeFocus(opener, firstItem(panel.current)),
+    [opener],
+  );
 
   return (
     <DropdownMenu

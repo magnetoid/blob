@@ -23,7 +23,8 @@
 import { useRef, type ReactNode } from 'react';
 import { lazyOverlay } from './lazyOverlay.tsx';
 import { PanelAnchor } from './PanelAnchor.tsx';
-import { useDismissal, useHeldThroughExit } from '../lib/useDismissal.ts';
+import { useDismissal } from '../lib/useDismissal.ts';
+import { useHeldThroughExit } from '../lib/useHeldThroughExit.ts';
 
 /** Base UI's root, portal, positioner and popup, from the overlay chunk. */
 const PopoverPanel = lazyOverlay((m) => m.PopoverImpl);
