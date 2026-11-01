@@ -214,14 +214,30 @@ and tests apply.
    ConfirmDialog, Confirmation, Menu, Toasts, EmptyState, ListSkeleton, Avatar,
    PersonCard, ShortcutHelp, EmojiPicker's shell) and Icon → Lucide. The budget is
    re-measured and raised here, with the reason, within the 260 KB ceiling.
+   Menus are the exception, decided with the user on 2026-11-01: since no caller is
+   edited in this phase, their items stay `<button role="menuitem">` rather than
+   `DropdownMenuItem`s, so Base UI's list navigation and typeahead could not walk them.
+   Phase 2 therefore keeps the legacy look and Blob's own keys and dismissal, and Base
+   UI only places, animates and focuses the panel. That is scaffolding, and phases 4
+   and 5 take it out.
 3. **The three consoles** (`features/console`, `admin`, `settings`, `server`), including
    the theme editor. Stays out of the main chunk.
 4. **The shell.** shadcn Sidebar for the channel list (the Meadow inset frame maps onto
    the sidebar's inset variant), the top bar, ⌘K as Command, workspace switcher, Sheet on
-   narrow screens.
+   narrow screens. The top bar's account menu, the sidebar's section menu and ChannelMenu
+   move to `DropdownMenuTrigger` / `DropdownMenuItem`. That gives them shadcn's look and
+   Base UI's keys and dismissal, and fixes the reopen-on-trigger-click bug by construction.
 5. **The conversation.** Message list, composer, threads, reactions, attachments, the
    right-hand panel, code blocks, agent run cards, unread and typing notices. Motion rules
-   re-verified here.
+   re-verified here. MessageMenu moves to `DropdownMenu`. SchedulePicker becomes a
+   Popover, because a select and a date field are not a menu under ARIA. This phase is
+   done only when the last `components/Menu.tsx` caller is gone. Then delete the
+   phase-2 scaffolding:
+   - `Menu.tsx`;
+   - the root's `disabled` and the cancel-every-close handler;
+   - the anchor span;
+   - the `[data-base-ui-focus-guard]` hiding and its canary test;
+   - the `--menu-*` placement properties.
 6. **Everything else.** Auth and OAuth consent, home, search, channel directory, work
    channels and artifacts, decisions, agents and the terminal's chrome, calls (lazy chunk
    stays lazy), help, feedback, what's new.
