@@ -7,6 +7,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { Message } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
 import { PollDialog } from './PollDialog.tsx';
+import '../../test/overlayChunk.ts';
 
 afterEach(() => {
   cleanup();

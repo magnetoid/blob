@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { cn } from 'cn/vite';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -85,11 +86,37 @@ const commitDate = stamp(
 );
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    /**
+     * `cn` in its build mode: merge tables compiled for the class groups this client's
+     * sources actually use, rather than the package's whole tables, which put about 2 KB
+     * more on the first load once the avatar, the skeleton and the empty state brought
+     * `cn` there. It rewrites `src/lib/cn-tables.ts` whenever a fresh scan differs, as
+     * every build, dev server and vitest run starts (vitest's server runs `buildStart`
+     * too), and again in dev when a save uses a group the tables dropped. So a stale copy
+     * never reaches the app or the tests; only the type checker reads the committed one
+     * as it is, which is why it is committed, like a lockfile, for a fresh checkout. What
+     * a stale copy does do is turn up as a change in the next person's tree, in whatever
+     * they commit next, so CI fails a commit whose copy a build rewrites (`ci.yml`, after
+     * the budget) and eslint skips the file. A class name built at runtime (`'p-' + size`)
+     * is invisible to the scan, as it is to Tailwind's.
+     */
+    cn({ content: ['src/**/*.{ts,tsx}'], out: 'src/lib/cn-tables.ts' }),
+  ],
   resolve: {
     // `@/components/ui/*` and `@/lib/utils` — the paths shadcn's CLI writes into the
     // files it adds. `tsconfig.json` carries the same alias for the type checker.
-    alias: { '@': path.resolve(here, 'src') },
+    //
+    // And the bare `cn` — which the CLI's files import directly, not through
+    // `@/lib/utils` — is `lib/utils.ts`, the `cn` bound to the compiled tables above. An
+    // exact match, so `cn/engine` underneath it is still the package. The type checker
+    // keeps reading the package's types, which are the same function's.
+    alias: [
+      { find: /^cn$/, replacement: path.resolve(here, 'src/lib/utils.ts') },
+      { find: '@', replacement: path.resolve(here, 'src') },
+    ],
   },
   /**
    * The build stamps its own identity in. Read once here, in Node, rather than fetched

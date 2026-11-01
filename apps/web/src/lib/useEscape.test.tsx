@@ -13,7 +13,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { useEscape } from './useEscape.ts';
+import { useEscape, useEscapeLayer, type StandIn } from './useEscape.ts';
 
 afterEach(cleanup);
 
@@ -154,5 +154,112 @@ describe('an overlay that is mounted but closed', () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(shell).toHaveBeenCalledTimes(1);
     window.removeEventListener('keydown', shell);
+  });
+});
+
+/**
+ * A Base UI dialog closes on Escape itself, with a listener on `document` that stops the
+ * key once it has answered it. On the stack it is a layer that holds the top — so nothing
+ * opened before it hears the key — and lets the key through to its own listener.
+ */
+describe('an overlay that answers Escape itself', () => {
+  /** Stands in for Base UI's own listener: answers, and stops the key there. */
+  function ownListener() {
+    const answered = vi.fn((event: KeyboardEvent) => event.stopPropagation());
+    document.addEventListener('keydown', answered);
+    return { answered, remove: () => document.removeEventListener('keydown', answered) };
+  }
+
+  function Layer() {
+    useEscapeLayer();
+    return null;
+  }
+
+  it('holds the top of the stack, so nothing under it hears the key', () => {
+    const own = ownListener();
+    const underneath = vi.fn();
+    try {
+      render(<Dialog onClose={underneath} />);
+      render(<Layer />);
+
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+
+      expect(own.answered).toHaveBeenCalledTimes(1);
+      expect(underneath).not.toHaveBeenCalled();
+    } finally {
+      own.remove();
+    }
+  });
+
+  it('leaves the key untouched for its own listener', () => {
+    // Not stopped, not default-prevented: whether to close, and how, is the overlay's.
+    const seen: { defaultPrevented: boolean }[] = [];
+    const own = vi.fn((event: KeyboardEvent) => seen.push({ defaultPrevented: event.defaultPrevented }));
+    document.addEventListener('keydown', own);
+    try {
+      render(<Layer />);
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      expect(own).toHaveBeenCalledTimes(1);
+      expect(seen[0]?.defaultPrevented).toBe(false);
+    } finally {
+      document.removeEventListener('keydown', own);
+    }
+  });
+
+  it('hands the key back to what is underneath once it is gone', () => {
+    const underneath = vi.fn();
+    render(<Dialog onClose={underneath} />);
+    const layer = render(<Layer />);
+    layer.unmount();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(underneath).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers for it when the key comes from outside it', () => {
+    // Focus on the page's body, or on a toast: nothing inside the overlay is there to stop
+    // the key, so its own listener on `document` would act on it — and so would every
+    // other dialog's that was opened apart from it.
+    const own = ownListener();
+    const inside = document.createElement('button');
+    document.body.appendChild(inside);
+    const close = vi.fn();
+    const standIn: StandIn = { drawn: () => true, holds: (target) => target === inside, close };
+    function Drawn() {
+      useEscapeLayer(true, standIn);
+      return null;
+    }
+    try {
+      render(<Drawn />);
+
+      const fromBody = fireEvent.keyDown(document.body, { key: 'Escape' });
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(own.answered).not.toHaveBeenCalled();
+      expect(fromBody).toBe(false);
+
+      fireEvent.keyDown(inside, { key: 'Escape' });
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(own.answered).toHaveBeenCalledTimes(1);
+    } finally {
+      own.remove();
+      inside.remove();
+    }
+  });
+
+  it('lets nobody act on an Escape that only ends a composition', () => {
+    // Base UI leaves that key alone — it belongs to the input method — so nothing would
+    // stop it reaching the shell, which would close the thread or mark the channel read.
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+    const underneath = vi.fn();
+    try {
+      render(<Dialog onClose={underneath} />);
+      render(<Layer />);
+      fireEvent.keyDown(document.body, { key: 'Escape', isComposing: true });
+      expect(shell).not.toHaveBeenCalled();
+      expect(underneath).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', shell);
+    }
   });
 });

@@ -2,6 +2,7 @@
 /** Sign-in & security: one person's devices and record across every workspace (M3 · B1). */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import '../../test/overlayChunk.ts';
 
 const sessions = vi.fn();
 const activity = vi.fn();

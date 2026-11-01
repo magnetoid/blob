@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ShortcutHelp } from './ShortcutHelp.tsx';
 import { SHORTCUTS } from '../lib/shortcuts.ts';
+import '../test/overlayChunk.ts';
 
 afterEach(cleanup);
 

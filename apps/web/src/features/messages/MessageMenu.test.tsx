@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { Message } from '@blob/shared';
 import { MessageMenu } from './MessageMenu.tsx';
 import { useStore } from '../../lib/store.ts';
+import '../../test/overlayChunk.ts';
 
 afterEach(cleanup);
 
@@ -63,15 +64,16 @@ describe('the message ••• menu', () => {
   });
 
   // Closing has two halves now that the panel animates away: it stops being a menu
-  // at once — inert, and marked closed for CSS to run the exit off — and leaves the
-  // DOM when that exit ends. Asserting only the second would pass on a panel that
-  // was still clickable on its way out.
+  // at once — inert, and marked closed (Base UI's `data-closed`) for CSS to run the exit
+  // off — and leaves the DOM when that exit ends. Asserting only the second would pass on
+  // a panel that was still clickable on its way out.
   it('closes on Escape', async () => {
     const { container } = open();
 
     fireEvent.keyDown(window, { key: 'Escape' });
 
-    expect(container.querySelector('.message-menu')?.getAttribute('data-state')).toBe('closed');
+    expect(container.querySelector('.message-menu')?.hasAttribute('data-closed')).toBe(true);
+    expect(container.querySelector('.message-menu')).toHaveProperty('inert', true);
     await waitFor(() => expect(container.querySelector('.message-menu')).toBeNull());
   });
 
@@ -81,7 +83,8 @@ describe('the message ••• menu', () => {
     // Capture phase, on window — the house dismissal contract.
     fireEvent.click(document.body);
 
-    expect(container.querySelector('.message-menu')?.getAttribute('data-state')).toBe('closed');
+    expect(container.querySelector('.message-menu')?.hasAttribute('data-closed')).toBe(true);
+    expect(container.querySelector('.message-menu')).toHaveProperty('inert', true);
     await waitFor(() => expect(container.querySelector('.message-menu')).toBeNull());
   });
 

@@ -108,7 +108,9 @@ session and `TRUNCATE`s before every test; the event loop is session-scoped beca
 engine and Redis clients are bound to the loop that created them.
 
 **A merge to `main` ships to production.** `.github/workflows/ci.yml` runs four jobs —
-`check` (the gate plus `alembic check`), `image` (build the Dockerfile, write its SBOM and
+`check` (the gate plus `alembic check`; it also builds the client, runs
+`scripts/bundle-budget.mjs` and fails if the build rewrote the committed
+`apps/web/src/lib/cn-tables.ts`), `image` (build the Dockerfile, write its SBOM and
 fail on a fixable critical with pinned Syft/Grype binaries, boot `docker-compose.prod.yml`
 plus `e2e/compose.ci.yml`, hit `/healthz` and `/readyz`, then `pnpm --filter @blob/e2e e2e`:
 the client as two people against that server, and axe on seventeen pages), `supply-chain`
@@ -461,7 +463,10 @@ survive: `/admin/health` and the rest resolve to `/server/…`, and `/admin/hudd
 **The design layer.** The client wears shadcn's preset b0 — Base UI, Lucide, Inter, radius
 `0.625rem`, neutral — and is mid-move: ADR 0043 and
 `docs/superpowers/specs/2026-10-29-shadcn-whole-app-design.md` carry the seven phases,
-of which only the first is built — it changed how every screen looks and no component.
+of which the first two are built: phase 1 changed how every screen looks and no component;
+phase 2 rebuilt the shared primitives in `components/` — dialogs, menus, popovers, toasts,
+notes, avatars, empty states, skeletons, icons — on shadcn, Base UI and Lucide behind the
+same names and props, and moved the overlays off the first load (ADR 0043's addendum).
 `styles/index.css` is the one CSS entry, and its layer order is the design:
 `@layer theme, base, legacy, components, utilities`. shadcn's variables are unlayered in
 `styles/theme.css`; `styles/tokens.css` and `styles/app.css` (and `app/`) are Blob's own,
@@ -471,15 +476,17 @@ legacy *colour* names (`--bg`, `--text`, `--surface`, `--hairline`, `--danger` �
 `var()` bridges onto shadcn's variables until phase 7, which is how an unconverted screen
 wears b0; they follow `--background` into dark by themselves, so the dark blocks name only
 what shadcn has no word for (presence, unread, the backdrop, elevation). Tailwind runs
-with `source(none)` and scans only the `@source` paths that have been converted
-(`components/ui` so far): add a path when its components are rewritten, never before, or
-every class-like string in the legacy markup becomes a utility. A name Tailwind or shadcn
-also owns is theirs — Blob's colliding tokens are `--blob-*` (`--blob-text-*`,
-`--blob-radius-xs..lg`, `--blob-ease-in|out`, `--blob-font-mono`, the whole
-`--blob-accent*` family), `tokenNames.test.ts` fails on a new collision or on a rule under
-`styles/app/` reading a shadcn variable, and preflight is handed back to the legacy CSS by
-the `revert` block that opens `app/base.css` (skipped inside `[data-slot]`). Dark is Blob's
-three states, not shadcn's `.dark` class: `theme.css` writes the palette under both
+with `source(none)` and scans only the `@source` paths that have been converted — a
+directory or a single file each, listed in `styles/index.css` and held to the allow-list in
+`styles/tokenNames.test.ts`: add a path when its components are rewritten, never before
+and never a directory that still holds legacy markup, or every class-like string in it
+becomes a utility. A name Tailwind or shadcn also owns is theirs — Blob's colliding tokens
+are `--blob-*` (`--blob-text-*`, `--blob-radius-xs..lg`, `--blob-ease-in|out`,
+`--blob-font-mono`, the whole `--blob-accent*` family), `tokenNames.test.ts` fails on a
+new collision or on a rule under `styles/app/` reading a shadcn variable, and preflight is
+handed back to the legacy CSS by the `revert` block that opens `app/base.css` (skipped
+inside `[data-slot]`, except in a legacy island, below). Dark is Blob's three states, not
+shadcn's `.dark` class: `theme.css` writes the palette under both
 `prefers-color-scheme` (unless `data-theme='light'`) and `[data-theme='dark']`, and
 `@custom-variant dark` answers to the same two; nothing may key on `.dark`. Blob's own
 structure tokens are elevation (`--elev-1..3`), radius (`--blob-radius-xs..lg` and
@@ -490,7 +497,7 @@ AA: `--muted-foreground` is 0.54 where b0 has 0.556 (b0's own is 4.34:1 on its `
 and `--destructive` is `oklch(0.54 0.22 27.3)` where b0 has `0.577 0.245 27.325` (b0's is
 4.13:1 on the 8% tint of itself that Blob's pills and badges sit on): `theme.test.ts`
 measures both.
-Five rules the file will not tell you on its own:
+Eight rules the file will not tell you on its own:
 
 * **The themeable colour names are a contract with the server.** They are shadcn's colour
   names (`--background`, `--primary`, `--muted-foreground` …) plus Blob's presence and
@@ -521,31 +528,61 @@ Five rules the file will not tell you on its own:
   the card's edge clips itself (the file panel does). A row on the ground hovers, selects
   and presses with `--ground-*`, mixed against whatever the ground is: the palette's
   washes were tuned on near-white and vanish on the tint.
-* **Overlays enter and leave — menus, toasts, the thread panel, the two conversation
-  notices, the typing line and the dialogs.** Each is held through a 150 ms exit by
-  `lib/usePresence.ts` (`{present, state}`; `animationend` on the node itself, or the
-  exported `FALLBACK_MS`), with `data-state="closed"` and `inert` on the leaving node —
-  the thread panel through `ThreadPanelSlot`, which also keeps the shell's third column
-  until the panel is gone, and only inside a conversation. A notice belongs to the
-  channel it was for: the catch-up strip, the unread jump bar and the typing line are
-  keyed by conversation so a switch never fades out the previous channel's. A dialog
-  leaves through `DialogPresence` (`components/Dialog.tsx`), which still mounts it on the
-  render that opens it, so its focus trap, autofocus and (CatchUpPanel) request fire
-  exactly when `{open && <X/>}` fired them. That was the reason dialogs used to be
-  enter-only — rendering them *always* would fire all of it at start-up — and a wrapper
-  that mounts on open and only unmounts late does not render them always. As the exit
-  begins, `letGo` closes the `<dialog>` and puts it straight back in the top layer as a
-  manual popover in the same task, so no frame is drawn outside it and no `overlay`
-  property is needed: focus is back on the opener at once and the page takes keys and
-  clicks while the dialog fades over it, `inert` and off the Escape stack. That is also
-  why `useEscape` default-prevents the Escape it answers: the browser's own close request
-  runs after the handlers and goes to whichever dialog is modal *by then* — the one
-  underneath, once the top one has let go — so one Escape closed two. Where there
-  are no popovers it stays modal through the exit instead — the page inert and focus
-  on `<body>` for those 150 ms, handed back on unmount — which is the trade the swap
-  exists to avoid. Reopened mid-exit, it mounts a fresh dialog. The lightbox stays
-  enter-only and the palette gets no motion at all; the console's confirmations and its
-  install dialog leave like every other dialog.
+* **Dialogs, menus and popovers are Base UI's, and never on the first load.** They come
+  from one lazy chunk: `components/overlays/index.ts` is its barrel, `lib/overlays.ts` the
+  only module that imports it (dynamically, preloaded once the page is idle, but not on the
+  unsubscribe or consent page), and a first-load component reaches an export through
+  `lazyOverlay((m) => m.DialogImpl)`, mounted on open and dropped after the exit, so a chunk
+  that failed to load is asked for again on the next opening — though an engine that caches
+  the failed module may refuse it until a reload, and a chunk a deploy has replaced answers
+  404 however often it is asked. For both, `lib/staleBuild.ts` answers Vite's
+  `vite:preloadError` with one toast per page telling the person to reload, and leaves the
+  default alone so the import still fails into `lazyOverlay`. `scripts/bundle-budget.mjs`
+  fails the build if Base UI's overlay code reaches a first-load chunk, so first-load code
+  never imports `ui/dialog`, `ui/alert-dialog`, `ui/dropdown-menu` or `ui/popover`. Menus
+  and popovers are phase-2 scaffolding, not shadcn's DropdownMenu and Popover yet: their
+  callers own the triggers and the `<button role="menuitem">` items, so the panels keep
+  the legacy look and Blob's own dismissal (`lib/useDismissal.ts`, first-load, so a menu
+  clicked open before the chunk lands already answers Escape and a click outside) and
+  arrow keys, are drawn in place inside `PanelAnchor`'s span with Base UI's focus guards
+  hidden, and Base UI only places, animates and focuses them (`overlays/inPlace.ts`). The
+  spec's phases 4 and 5 say which callers move to its triggers and items, and what is
+  deleted then.
+* **Overlays enter and leave — dialogs, menus, popovers, toasts, the thread panel, the
+  conversation notices, the typing line and inline notes.** Base UI's own play their exit
+  on `data-ending-style` and report its end (`onOpenChangeComplete`); `Menu` and `Popover`
+  hold their lazy half for it with `lib/useHeldThroughExit.ts`. Everything else is held
+  through a 150 ms exit by `lib/usePresence.ts` (`{present, state}`; `animationend` on the
+  node itself, or the exported `FALLBACK_MS`), with `data-state="closed"` and `inert` on the
+  leaving node (a toast instead loses its ×, because `inert` would take its words out of
+  the live region) — the thread panel through `ThreadPanelSlot`, which also keeps the
+  shell's third column until the panel is gone, and only inside a conversation. A notice
+  belongs to the channel it was for: the catch-up strip, the unread jump bar and the typing
+  line are keyed by conversation so a switch never fades out the previous channel's. A
+  dialog leaves through `DialogPresence` (`components/Dialog.tsx`), which renders nothing
+  until it opens, so its autofocus and (CatchUpPanel) request fire exactly when
+  `{open && <X/>}` fired them. It mounts Base UI's shell *above* the component that
+  renders `<Dialog>`, because Base UI draws a portal's contents a render or two late and
+  the forms here focus their first field in a mount effect; the contents tell the shell
+  what they are through `lib/dialogHost.ts`. As the exit begins the popup is `inert`, the
+  backdrop lets clicks through and focus is back on the opener — if it was still in the
+  dialog or on `<body>`; the shell goes when Base UI reports the exit's end, or after
+  `FALLBACK_MS`. Reopened mid-exit, it mounts a fresh dialog. A plain `{open && <Dialog/>}`
+  makes its own shell, has no exit, and draws its body a render late, so a mount effect
+  there finds nothing to focus and Base UI focuses the first tabbable a frame later — the
+  command palette's case. The lightbox and the palette are mounted that way, and the
+  palette has no entrance either; the console's confirmations and its install dialog leave
+  like every other dialog. Escape: `useEscape`'s stack still answers for Blob's own layers,
+  stopping and default-preventing the key; a dialog holds the top with a layer that closes
+  nothing (`useEscapeLayer`), so Base UI's listener closes it and nothing opened before it
+  hears that key, and its popup stops every Escape from inside it — Safari's
+  composition-ending one too, which arrives saying `isComposing: false` and which Base UI
+  ignores. That layer is first-load code, taken by `DialogPresence` as the dialog opens:
+  until the chunk has drawn the shell it answers an Escape itself, so the shell's listener
+  never hears it, and the dialog closes as soon as the chunk lands. It answers too for an
+  Escape from outside the popup — focus on the body, or on a toast — because Base UI's
+  listener is on `document` in every dialog, and only the top popup stopping the key keeps
+  the rest from hearing it: "Confirm it’s you" over New channel closed both.
 * **Motion in the message list is keyed to arriving, never to mounting.** The list is
   virtualised, so a row mounts on every scroll and every channel switch, and anything
   that animates on mount replays on all of them. A message's entrance plays only while
@@ -557,10 +594,26 @@ Five rules the file will not tell you on its own:
   an empty state arrives only on the view the app opened onto, before anything on it is
   pressed or typed (`lib/firstView.ts`), since every empty state after that was switched
   to — another view, or a tab or filter inside one — and a switch stays instant.
+* **Legacy markup inside a shadcn part is an island.** The preflight repair skips
+  everything under a `[data-slot]`, so a caller's form in a dialog, the emoji picker's
+  grid in its popover or an empty state's action would lose the margins, button chrome and
+  inline icons it was written against. Wrap legacy markup that a converted component draws
+  in `data-legacy` (on a `contents` span where it must cost no box), and the repair reaches
+  it again up to the next `[data-slot]` inside it; wrap nothing already converted. An
+  island inside a component inside an island is not reached. `styles/legacyIsland.test.ts`
+  holds every repair rule in `app/base.css` to both clauses.
+* **`lib/cn-tables.ts` is generated, and committed.** `cn`'s Vite plugin compiles merge
+  tables for the class groups the sources use and rewrites the file whenever a fresh scan
+  differs — as every build, dev server and vitest run starts — so the app and the tests
+  never see a stale copy, but the type checker reads the committed one. Commit it after any
+  build that changed it: CI's `check` job builds and fails on a difference, and left stale
+  it lands in the next person's unrelated diff. Never edit it by hand (eslint skips it).
 
 Reduced motion is a token policy, not a blanket clamp: distances and scale go to zero and
 fades keep their duration. Anything sized for a pointer gets a 44px minimum under
-`@media (pointer: coarse)`. Both live in `app.css` near the top.
+`@media (pointer: coarse)` — `pointer-coarse:min-h-11` on a converted component. The
+policy is the block in `app/base.css` (which also zeroes tw-animate's travel for Base UI's
+overlays), and the general 44px rule is in `app/narrow-viewports.css`.
 
 ### Non-negotiable principles
 - **Open source, and agent-native.** Blob is an open-source AI agentic work-team

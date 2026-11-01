@@ -1,23 +1,7 @@
 /* ─── dialogs & settings ─────────────────────────────────────────────────── */
-/* The host is the native <dialog>; `.dialog` inside it is the visible panel. The host
-   carries nothing visual of its own so that a click whose target is the host is, by
-   construction, a click on the backdrop — `components/Dialog.tsx` closes on exactly that.
-   Centring, the top layer and inertness behind it are the platform's; the backdrop
-   pseudo-element takes the colour the old fixed wrapper had. */
-dialog.dialog-host {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  max-width: calc(100vw - 32px);
-  max-height: calc(100dvh - 32px);
-  overflow: visible;
-}
-
-dialog.dialog-host::backdrop {
-  background: var(--backdrop);
-}
-
+/* The shell is shadcn's dialog (`components/overlays/DialogImpl.tsx`): it places, dims and
+   animates, and draws nothing of its own. `.dialog` inside it — inside the legacy island
+   `components/Dialog.tsx` wraps every body in — is the visible panel. */
 .dialog {
   /* Against the viewport, not the host: the host is shrink-to-fit, so a percentage here
      was a percentage of its own content's width — a long sentence widened the host
@@ -213,7 +197,6 @@ dialog.dialog-host::backdrop {
 .emoji-cell:active,
 .emoji-tone:active,
 .attachment-chip-remove:active,
-.toast-dismiss:active,
 .unread-jump-dismiss:active,
 .catchup-strip-dismiss:active,
 .ephemeral-dismiss:active {
@@ -245,7 +228,6 @@ button.member-row,
 .new-message-person,
 .shortcut-help-more,
 .help-ref-link,
-.toast-dismiss,
 .unread-jump-dismiss,
 .catchup-strip-dismiss {
   transition:

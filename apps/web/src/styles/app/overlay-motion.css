@@ -1,19 +1,22 @@
 /* ─── overlay motion ─────────────────────────────────────────────────────────
-   Menus, toasts, the thread panel, the two conversation notices, the typing line and
-   the dialogs enter and leave. Each is held in the document through its exit by
-   usePresence. The dialogs were enter-only until DialogPresence, for a reason of mount
-   semantics rather than taste: they run real work on mount — a focus trap, an
-   autofocus, and in CatchUpPanel's case a request — and rendering them always so they
-   could animate out would have fired all of that at start-up. The wrapper still mounts
-   a dialog on the render that opens it and only unmounts it late, so none of that moved.
-   As its exit begins it stops being modal but not visible — closed, and back in the top
-   layer as a popover in the same task — so focus goes home and the page takes keys again
-   at once, its backdrop still fades with it, and nothing here needs the `overlay`
-   property. Without popovers it stays modal, and `inert`, until the exit ends.
+   Menus, popovers, toasts, the thread panel, the two conversation notices, the typing line
+   and the dialogs enter and leave. Each but the dialogs, the menus and the popovers is held
+   in the document through its exit by usePresence. Those three are shadcn's now, and Base
+   UI holds them: the dialog shell in `components/overlays/DialogImpl.tsx`, and the menu
+   panel and the popover — the person card, the emoji picker — drawn in place by
+   `MenuImpl.tsx` and `PopoverImpl.tsx` (`components/overlays/inPlace.ts`). They play
+   `overlay-in` (and the backdrop `fade-in`) below as they arrive and `overlay-out`
+   (`fade-out`) while Base UI marks them `data-ending-style`, and Base UI unmounts them when
+   those have finished. They are the same keyframes on the same tokens as before, so all of
+   them move as they did. The emoji picker still has no exit: its callers unmount it.
 
-   The lightbox is left enter-only, and the palette is the exception that gets nothing:
-   it is opened dozens of times a day from the keyboard, and a launcher that makes you
-   wait is a launcher you stop reaching for. */
+   The toasts and the "Link copied" note take theirs from their own utilities too
+   (`components/Toasts.tsx`, `Confirmation.tsx`), on the keyframes below.
+
+   The lightbox is left enter-only — it is mounted the plain way, with no DialogPresence
+   to hold it — and the palette is the exception that gets nothing (`--dialog-enter: 0s`
+   on its host): it is opened dozens of times a day from the keyboard, and a launcher that
+   makes you wait is a launcher you stop reaching for. */
 
 @keyframes overlay-in {
   from {
@@ -80,7 +83,8 @@
   }
 }
 
-/* Played by every toast, which enters the bottom of the screen and so arrives from below. */
+/* Played by every toast (`components/Toasts.tsx`), which enters the bottom of the screen
+   and so arrives from below. */
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -115,9 +119,10 @@
   }
 }
 
-/* Played by .attachment-chip when a file is attached. No `to`: the chip settles on
-   whatever its own `data-status` says it should be, which for an upload in flight is
-   dimmed rather than opaque. */
+/* Played by .attachment-chip when a file is attached, and by the "Link copied" note
+   (`components/Confirmation.tsx`) as it arrives. No `to`: the chip settles on whatever its
+   own `data-status` says it should be, which for an upload in flight is dimmed rather than
+   opaque. */
 @keyframes chip-in {
   from {
     opacity: 0;
@@ -125,10 +130,11 @@
   }
 }
 
-.menu,
+/* The workspace switcher's panel is `.user-menu-panel` and is not the shared Menu, so it
+   still takes its entrance here; the account menu's, which is, takes the same one from
+   its own classes and grows from wherever Base UI hangs it. */
 .user-menu-panel,
 .autocomplete,
-.emoji-picker,
 .pinned-panel {
   transform-origin: top center;
   animation: overlay-in var(--dur-open) var(--blob-ease-out);
@@ -149,61 +155,6 @@
 
 .user-menu-panel {
   transform-origin: top right;
-}
-
-dialog.dialog-host::backdrop {
-  animation: fade-in var(--dur-open) var(--blob-ease-out);
-}
-
-.dialog {
-  animation: overlay-in var(--dur-modal) var(--blob-ease-out);
-}
-
-/* A dialog on its way out. The element itself takes the shared closed rule above — it is
-   the panel's own box, so it shrinks and fades as the panel came in — and its backdrop
-   fades with it. It is no longer modal by now: `letGo` in Dialog.tsx closed it and put
-   it straight back in the top layer as a popover, so the page behind is live again while
-   this plays, and there is still a backdrop to fade. */
-dialog.dialog-host[data-state='closed']::backdrop {
-  animation: fade-out var(--dur-exit) var(--blob-ease-in) forwards;
-}
-
-/* For the instant between closing it and showing it again, a dialog is `display: none`,
-   and an element that is not displayed loses its animations — the exit would restart, or
-   be cut. The popover attribute is set only while that swap is under way or done, so it
-   is exactly what keeps the dialog drawn. Where it sits does not move: a popover and a
-   modal are both fixed to the viewport and centred by the same margins. */
-dialog.dialog-host[data-state='closed'][popover] {
-  display: block;
-}
-
-/* The lightbox is a dialog too, and the one whose picture still cut in: its panel is
-   `.lightbox` rather than `.dialog`, so it took none of the entrance above. Its backdrop
-   never cut — `components/Dialog.tsx` renders `dialog-host` and `lightbox-host` on the
-   same element, so the rule above already fades it over --dur-open. It is restated here
-   on --dur-modal only so the picture and the dark behind it move on one token rather
-   than on two that are identical today. Enter only: it is mounted the plain way, with
-   no `DialogPresence` to hold it, so its close stays a cut. */
-dialog.lightbox-host::backdrop {
-  animation: fade-in var(--dur-modal) var(--blob-ease-out);
-}
-
-.lightbox {
-  animation: overlay-in var(--dur-modal) var(--blob-ease-out);
-}
-
-/* Rises in, and leaves by the same exit the menus take — Toasts.tsx holds it mounted
-   for that with usePresence, because the store forgets a dismissed toast at once. The
-   closed rule repeats `.toast` rather than leaning on the shared `[data-state="closed"]`
-   above: `.toast`'s own `pointer-events: auto` further down would otherwise outrank it
-   and leave a leaving toast catching clicks. */
-.toast {
-  animation: toast-in var(--dur-open) var(--blob-ease-out);
-}
-
-.toast[data-state='closed'] {
-  animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
-  pointer-events: none;
 }
 
 /* The right-hand panel: a thread, or a terminal in the agent a DM is with. Only the
@@ -233,16 +184,6 @@ dialog.lightbox-host::backdrop {
 
 .unread-jump-bar[data-state='closed'],
 .catchup-strip[data-state='closed'] {
-  animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
-}
-
-/* "Link copied": a word of confirmation (`components/Confirmation.tsx`), in the way an
-   attachment chip arrives and out the way a menu leaves. Same trap again. */
-.confirmation {
-  animation: chip-in var(--dur-fast) var(--blob-ease-out);
-}
-
-.confirmation[data-state='closed'] {
   animation: overlay-out var(--dur-exit) var(--blob-ease-in) forwards;
 }
 

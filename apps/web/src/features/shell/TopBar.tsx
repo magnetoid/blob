@@ -276,9 +276,9 @@ function AccountMenu({ onFeedback }: { onFeedback: () => void }) {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => {
-          // The panel's capture-phase outside-click dismissal runs before this
-          // handler, so a click here while open has already closed the menu —
-          // only opening is left to do. A plain toggle would reopen it.
+          // A click here while the menu is open closes it and never reaches this
+          // handler: the menu's own dismissal stops it (`lib/useDismissal.ts`). So
+          // only opening is left to do.
           if (!open) setOpen(true);
         }}
         title={currentUser.displayName}

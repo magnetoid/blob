@@ -154,7 +154,13 @@
   white-space: nowrap;
 }
 
+/* The account menu's panel, which the shared Menu places from the custom properties
+   (components/overlays/MenuImpl.tsx): below the avatar, 6px clear, from its right edge.
+   The workspace switcher draws a panel of its own with this class, and that one is still
+   placed by the four declarations after them. */
 .user-menu-panel {
+  --menu-align: end;
+  --menu-gap: 6px;
   position: absolute;
   z-index: var(--z-menu);
   top: calc(100% + 6px);

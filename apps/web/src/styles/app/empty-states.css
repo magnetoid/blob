@@ -1,63 +1,6 @@
-/* ─── empty states ───────────────────────────────────────────────────────── */
-.empty-state {
-  max-width: 520px;
-  margin: 60px auto;
-  padding: 0 24px;
-  text-align: center;
-}
-
-/* Only on the view the app opened onto, before anything on it has been touched
-   (`lib/firstView`): the first thing on the screen is worth a beat. Every view after
-   that is one somebody switched to — Threads, Later, Activity, Scheduled, Tasks, Files, a
-   console section, or a tab or a filter inside one — and switching stays instant, so an
-   empty state there simply appears. */
-.empty-state[data-arriving='true'] {
-  animation: arrive var(--dur-open) var(--blob-ease-out);
-}
-
-/* And never in a conversation, a search or the channel browser, even on that first view:
-   the first is a channel switch away from playing on every switch, and the other two
-   flip between results and nothing as a filter is typed or toggled. The search is told
-   apart by its head — `.search-results` alone is also the list in Saved, Activity,
-   Threads and Tasks. */
-.message-list .empty-state,
-.search-head ~ .search-results .empty-state,
-.browse-body .empty-state {
-  animation: none;
-}
-
-.empty-state-mark {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  margin: 0 auto 18px;
-  border-radius: var(--blob-radius-lg);
-  background: var(--blob-accent-wash-soft);
-  color: var(--blob-accent);
-  font-size: var(--blob-text-lg);
-  font-weight: 600;
-}
-
-.empty-state-title {
-  font-size: var(--blob-text-lg);
-  font-weight: 600;
-  letter-spacing: -0.015em;
-}
-
-.empty-state-body {
-  margin-top: 8px;
-  font-size: var(--blob-text-base);
-  line-height: 1.6;
-  color: var(--text-3);
-  text-wrap: pretty;
-}
-
-/* Whatever follows the body — a retry, a way back — sits one step below it. */
-.empty-state > .btn {
-  margin-top: 12px;
-}
-
+/* ─── a connection's and a message's notices ──────────────────────────────
+   The empty state that used to open this file is shadcn's Empty now, at Meadow's measure
+   (components/EmptyState.tsx); what is left are the notices that sat beside it. */
 .connection-banner {
   display: flex;
   align-items: center;

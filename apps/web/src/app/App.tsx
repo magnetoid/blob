@@ -7,6 +7,7 @@ import { flushDrafts } from '../lib/drafts.ts';
 import { flushDraftSyncs } from '../lib/draftSync.ts';
 import { installClientErrorReporting } from '../lib/clientErrors.ts';
 import { applyTheme, pickTheme, themeChoices } from '../lib/theme.ts';
+import { preloadOverlays } from '../lib/overlays.ts';
 import { AuthScreen } from '../features/auth/AuthScreen.tsx';
 import { resetTokenFromUrl, unsubscribeTokenFromUrl } from '../features/auth/tokens.ts';
 import { UnsubscribeScreen } from '../features/mail/UnsubscribeScreen.tsx';
@@ -94,6 +95,16 @@ export function App() {
     if (phase !== 'signed-in') return undefined;
     return installClientErrorReporting();
   }, [phase]);
+
+  // The overlay chunk (dialogs, menus, popovers: Base UI's overlay code) is not in the
+  // first load. Start fetching it once the page has painted and the browser is idle, so
+  // the first menu of the session is usually there before anyone reaches for it. The two
+  // pages that open no overlay at all — the unsubscribe link and an assistant's consent
+  // question — do not pay for it.
+  const opensOverlays = unsubscribeToken === null && !consenting;
+  useEffect(() => {
+    if (opensOverlays) preloadOverlays();
+  }, [opensOverlays]);
 
   // Write anything the composer scheduled before the tab goes away. `pagehide` rather
   // than `beforeunload`: it is the one that fires on iOS and when a page goes into the

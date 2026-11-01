@@ -14,9 +14,21 @@
  * `html`, the selectors below are all `:where()`, so zero).
  *
  * Anything inside a shadcn component is left alone. Its markup was written *against*
- * preflight and stamps `data-slot` on every part, so `:where(:not([data-slot],
- * [data-slot] *))` is "the CSS that predates Tailwind". Delete a rule here when the last
- * element it serves has been converted, and this block with the last of them.
+ * preflight and stamps `data-slot` on every part, so `:not([data-slot], [data-slot] *)`
+ * is "the CSS that predates Tailwind". Except a legacy island: legacy markup drawn inside
+ * a shadcn component — a feature's form inside the shadcn dialog that `components/Dialog`
+ * draws round it — is wrapped in `[data-legacy]`, and is legacy CSS's again, up to any
+ * shadcn component nested inside the island. So every rule below reaches
+ *
+ *   :not([data-slot], [data-slot] *)                           outside every component,
+ *   [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)  or inside an island and
+ *                                                                 no component within it.
+ *
+ * The second is approximate in one direction: an island inside a component inside an
+ * island is not reached, since a selector cannot ask which ancestor is nearest. Nothing
+ * draws that today. `styles/legacyIsland.test.ts` holds every rule to both clauses.
+ * Delete a rule here when the last element it serves has been converted, and this block
+ * with the last of them.
  *
  * One reset cannot be handed back: preflight's `[hidden] { display: none !important }`.
  * An `!important` declaration in an earlier layer beats the same in a later one, so an
@@ -29,34 +41,34 @@ html {
   -webkit-tap-highlight-color: revert;
 }
 
-:where(:not([data-slot], [data-slot] *)) {
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   margin: revert;
   padding: revert;
   border: revert;
   outline-color: revert;
 }
 
-:where(h1, h2, h3, h4, h5, h6):where(:not([data-slot], [data-slot] *)) {
+:where(h1, h2, h3, h4, h5, h6):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   font-size: revert;
   font-weight: revert;
 }
 
-:where(b, strong):where(:not([data-slot], [data-slot] *)) {
+:where(b, strong):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   font-weight: revert;
 }
 
-:where(code, kbd, samp, pre):where(:not([data-slot], [data-slot] *)) {
+:where(code, kbd, samp, pre):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   font-family: revert;
   font-feature-settings: revert;
   font-variation-settings: revert;
   font-size: revert;
 }
 
-:where(small):where(:not([data-slot], [data-slot] *)) {
+:where(small):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   font-size: revert;
 }
 
-:where(sub, sup):where(:not([data-slot], [data-slot] *)) {
+:where(sub, sup):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   font-size: revert;
   line-height: revert;
   position: revert;
@@ -65,35 +77,35 @@ html {
   bottom: revert;
 }
 
-:where(table):where(:not([data-slot], [data-slot] *)) {
+:where(table):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   text-indent: revert;
   border-collapse: revert;
 }
 
-:where(hr):where(:not([data-slot], [data-slot] *)) {
+:where(hr):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   height: revert;
   color: revert;
 }
 
-:where(ol, ul, menu):where(:not([data-slot], [data-slot] *)) {
+:where(ol, ul, menu):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   list-style: revert;
 }
 
-:where(progress):where(:not([data-slot], [data-slot] *)) {
+:where(progress):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   vertical-align: revert;
 }
 
-:where(img, svg, video, canvas, audio, iframe, embed, object):where(:not([data-slot], [data-slot] *)) {
+:where(img, svg, video, canvas, audio, iframe, embed, object):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   display: revert;
   vertical-align: revert;
 }
 
-:where(img, video):where(:not([data-slot], [data-slot] *)) {
+:where(img, video):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   max-width: revert;
   height: revert;
 }
 
-:where(button, input, select, optgroup, textarea):where(:not([data-slot], [data-slot] *)) {
+:where(button, input, select, optgroup, textarea):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   font: revert;
   font-feature-settings: revert;
   font-variation-settings: revert;
@@ -103,20 +115,20 @@ html {
   background-color: revert;
 }
 
-:where(button, input:is([type="button"], [type="reset"], [type="submit"])):where(:not([data-slot], [data-slot] *)) {
+:where(button, input:is([type="button"], [type="reset"], [type="submit"])):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   appearance: revert;
 }
 
-:where(textarea):where(:not([data-slot], [data-slot] *)) {
+:where(textarea):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   resize: revert;
 }
 
-:where(:not([data-slot], [data-slot] *))::placeholder {
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::placeholder {
   color: revert;
   opacity: revert;
 }
 
-:where(:not([data-slot], [data-slot] *))::file-selector-button {
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::file-selector-button {
   font: revert;
   letter-spacing: revert;
   color: revert;
@@ -130,50 +142,50 @@ html {
 
 /* Blink and WebKit's own parts of a date, search or number field. Firefox does not have
    them, so they stay separate rules: one unknown selector would drop a whole list. */
-:where(:not([data-slot], [data-slot] *))::-webkit-search-decoration {
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-search-decoration {
   -webkit-appearance: revert;
 }
 
-:where(:not([data-slot], [data-slot] *))::-webkit-date-and-time-value {
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-date-and-time-value {
   min-height: revert;
   text-align: revert;
 }
 
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit {
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit {
   display: revert;
 }
 
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit,
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-year-field,
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-month-field,
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-day-field,
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-hour-field,
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-minute-field,
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-second-field,
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-millisecond-field,
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-meridiem-field {
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit,
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit-year-field,
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit-month-field,
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit-day-field,
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit-hour-field,
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit-minute-field,
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit-second-field,
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit-millisecond-field,
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit-meridiem-field {
   padding-block: revert;
 }
 
-:where(:not([data-slot], [data-slot] *))::-webkit-datetime-edit-fields-wrapper {
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-datetime-edit-fields-wrapper {
   padding: revert;
 }
 
-:where(:not([data-slot], [data-slot] *))::-webkit-calendar-picker-indicator {
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-calendar-picker-indicator {
   line-height: revert;
 }
 
-:where(:not([data-slot], [data-slot] *))::-webkit-inner-spin-button,
-:where(:not([data-slot], [data-slot] *))::-webkit-outer-spin-button {
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-inner-spin-button,
+:where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *))::-webkit-outer-spin-button {
   height: revert;
 }
 
 /* Firefox: its own focus ring and its red glow on an invalid field. */
-:where(:-moz-focusring:not([data-slot], [data-slot] *)) {
+:where(:-moz-focusring):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   outline: revert;
 }
 
-:where(:-moz-ui-invalid:not([data-slot], [data-slot] *)) {
+:where(:-moz-ui-invalid):where(:not([data-slot], [data-slot] *), [data-legacy] :not([data-slot], [data-legacy] [data-slot] *)) {
   box-shadow: revert;
 }
 
@@ -330,6 +342,23 @@ button {
   *::after {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
+  }
+
+  /* shadcn's overlays move by tw-animate-css's `zoom-in-95` and `slide-in-from-*`, on the
+     frames Base UI marks as an overlay arriving and leaving (and the open and closed
+     states its keyframes are keyed on). Those keyframes travel, scale and turn by these
+     variables only, so zeroing them is the same policy as the tokens above: the fade
+     stays, the movement goes. `!important` because the utilities that set them are in a
+     later layer. Blob's own dialog shell moves by the tokens and needs none of this. */
+  :where([data-starting-style], [data-ending-style], [data-open], [data-closed]) {
+    --tw-enter-scale: 1 !important;
+    --tw-exit-scale: 1 !important;
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    --tw-enter-rotate: 0 !important;
+    --tw-exit-rotate: 0 !important;
   }
 
   .admin-chart-bar,

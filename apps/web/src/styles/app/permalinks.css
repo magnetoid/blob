@@ -1,4 +1,7 @@
 /* ─── permalinks ──────────────────────────────────────────────────────────── */
+/* For the bare <span class="copied-note"> AgentConfig's "Saved" still draws; it goes when
+   AgentConfig converts in phase 3. A Confirmation wears shadcn's muted note, whose
+   utilities outrank this by layer. */
 .copied-note {
   align-self: center;
   padding: 2px 7px;

@@ -1,4 +1,9 @@
-/** Line icons, traced from the design artifact. Stroke-based, 24-box.
+/** Line icons: Lucide's glyphs, at Blob's sizes and weights.
+ *
+ * The names are the app's and the drawing is Lucide's — the set shadcn ships with, so an
+ * icon in a shadcn component and one in a legacy row are the same family. Each export is
+ * a thin wrapper that a caller uses exactly as before; only the paths changed hands. Named
+ * imports, so the build keeps the forty glyphs used here and none of Lucide's others.
  *
  * Four sizes, named by role rather than by number. There were seven — 13, 14, 15, 16,
  * 17, 18 and 19 — and five stroke weights between 1.7 and 2.2, chosen a call site at a
@@ -8,9 +13,59 @@
  * Stroke goes with size on purpose: a 1.7 hairline that reads correctly at 20px goes
  * thin and grey at 14, so the small end carries a touch more weight to hold the same
  * apparent colour. That is one decision here rather than a guess at each call site.
+ * Lucide draws at 2 in its 24-box; these are in the same units, so a little lighter than
+ * Lucide's default, which is the weight the app was designed at.
+ *
+ * Where Lucide's nearest glyph is a different picture of the same thing, the meaning won:
+ * a huddle is headphones, as Slack draws it, where a speaker was traced; Send is a paper
+ * plane, not a bare arrow; a poll is a bar chart with one answer ahead; leaving a call is
+ * the handset struck through.
  */
 
 import type { SVGProps } from 'react';
+import {
+  LucideArrowDown,
+  LucideAtSign,
+  LucideChartBar,
+  LucideCheck,
+  LucideChevronDown,
+  LucideChevronLeft,
+  LucideClock,
+  LucideCopy,
+  LucideDownload,
+  LucideEllipsis,
+  LucideFile,
+  LucideFlag,
+  LucideHeadphones,
+  LucideHouse,
+  LucideLifeBuoy,
+  LucideLock,
+  LucideMaximize2,
+  LucideMenu,
+  LucideMessageCircle,
+  LucideMic,
+  LucideMicOff,
+  LucideMinimize2,
+  LucidePaperclip,
+  LucidePause,
+  LucidePencilLine,
+  LucidePhoneOff,
+  LucidePin,
+  LucidePlay,
+  LucidePlus,
+  LucideReply,
+  LucideScreenShare,
+  LucideSearch,
+  LucideSendHorizontal,
+  LucideSettings,
+  LucideSmile,
+  LucideSparkle,
+  LucideUsers,
+  LucideVideo,
+  LucideVideoOff,
+  LucideX,
+  type LucideIcon,
+} from 'lucide-react';
 
 type IconSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -30,326 +85,120 @@ type IconProps = Omit<SVGProps<SVGSVGElement>, 'size'> & { size?: IconSize };
  * weighted. An offset rather than an absolute, so a corrected icon still gets lighter as
  * it gets larger instead of staying stuck at one weight across the whole scale — which
  * is what four hard-coded strokeWidths were doing. */
-type Corrected = IconProps & { boost?: number };
+type Corrected = IconProps & { glyph: LucideIcon; boost?: number };
 
-function Svg({ size = 'md', boost = 0, children, ...rest }: Corrected) {
+/** Decoration by default, as every icon here always was: `aria-hidden` comes first and
+ *  whatever the caller passes — a label, `aria-hidden={false}`, a class — lands after it. */
+function Glyph({ glyph: Lucide, size = 'md', boost = 0, ...rest }: Corrected) {
   const { px, stroke } = SIZES[size];
   // Rounded because 1.8 + 0.1 is 1.9000000000000001 in binary, and that lands in the
   // DOM verbatim.
   const width = Number((stroke + boost).toFixed(2));
-  return (
-    <svg
-      width={px}
-      height={px}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={width}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...rest}
-    >
-      {children}
-    </svg>
-  );
+  return <Lucide size={px} strokeWidth={width} aria-hidden="true" {...rest} />;
 }
 
-export const HomeIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 11.5L12 4l8 7.5" />
-    <path d="M6.5 10.5V20h11V10.5" />
-  </Svg>
-);
+export const HomeIcon = (p: IconProps) => <Glyph glyph={LucideHouse} {...p} />;
 
-export const MessagesIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 8.7 3.9 8.38 8.38 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5z" />
-  </Svg>
-);
+export const MessagesIcon = (p: IconProps) => <Glyph glyph={LucideMessageCircle} {...p} />;
 
-export const ChevronDownIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M6 9.5l6 6 6-6" />
-  </Svg>
-);
+export const ChevronDownIcon = (p: IconProps) => <Glyph glyph={LucideChevronDown} {...p} />;
 
-export const SearchIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="11" cy="11" r="7" />
-    <path d="M20 20l-3.5-3.5" />
-  </Svg>
-);
+export const SearchIcon = (p: IconProps) => <Glyph glyph={LucideSearch} {...p} />;
 
-export const HuddleIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M15 6.5a4.5 4.5 0 0 1 0 11" />
-    <path d="M4 9.5h3l4.5-3.5v12L7 14.5H4z" />
-  </Svg>
-);
+/** Headphones, the mark Slack gives a huddle. */
+export const HuddleIcon = (p: IconProps) => <Glyph glyph={LucideHeadphones} {...p} />;
 
-export const SettingsIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.87 1.2V21a2 2 0 1 1-4 0v-.11A1.7 1.7 0 0 0 7 19.3l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4h.11A1.7 1.7 0 0 0 4.7 7L4.64 7a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 10 4.6V4a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 17 5.7l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 11H21a2 2 0 1 1 0 4h-.11z" />
-  </Svg>
-);
+export const SettingsIcon = (p: IconProps) => <Glyph glyph={LucideSettings} {...p} />;
 
-export const PlusIcon = (p: IconProps) => (
-  <Svg boost={0.2} {...p}>
-    <path d="M12 5v14M5 12h14" />
-  </Svg>
-);
+export const PlusIcon = (p: IconProps) => <Glyph glyph={LucidePlus} boost={0.2} {...p} />;
 
-export const MembersIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19" />
-    <circle cx="10" cy="8" r="3.2" />
-    <path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4" />
-    <path d="M15.4 5.2a3.2 3.2 0 0 1 0 5.6" />
-  </Svg>
-);
+export const MembersIcon = (p: IconProps) => <Glyph glyph={LucideUsers} {...p} />;
 
-export const ReplyIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M9 14l-4-4 4-4" />
-    <path d="M5 10h9a5 5 0 0 1 5 5v3" />
-  </Svg>
-);
+export const ReplyIcon = (p: IconProps) => <Glyph glyph={LucideReply} {...p} />;
 
-export const MoreIcon = (p: IconProps) => (
-  <Svg fill="currentColor" stroke="none" {...p}>
-    <circle cx="6" cy="12" r="1.5" />
-    <circle cx="12" cy="12" r="1.5" />
-    <circle cx="18" cy="12" r="1.5" />
-  </Svg>
-);
+/** Three dots, as Lucide draws them: r 1, which the stroke alone closes into a solid dot.
+ *  A fill on top added nothing to their size. */
+export const MoreIcon = (p: IconProps) => <Glyph glyph={LucideEllipsis} {...p} />;
 
 export const SendIcon = (p: IconProps) => (
-  <Svg boost={0.1} {...p}>
-    <path d="M4 12h15" />
-    <path d="M13 6l6 6-6 6" />
-  </Svg>
+  <Glyph glyph={LucideSendHorizontal} boost={0.1} {...p} />
 );
 
-export const AttachIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M21.4 11.05l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8" />
-  </Svg>
-);
+export const AttachIcon = (p: IconProps) => <Glyph glyph={LucidePaperclip} {...p} />;
 
-export const EmojiIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M8.5 14.5a4.5 4.5 0 0 0 7 0" />
-    <circle cx="9" cy="9.5" r="0.6" fill="currentColor" />
-    <circle cx="15" cy="9.5" r="0.6" fill="currentColor" />
-  </Svg>
-);
+export const EmojiIcon = (p: IconProps) => <Glyph glyph={LucideSmile} {...p} />;
 
-/** A poll (ADR 0041): three answers, one of them ahead. */
-export const PollIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3.5" y="4.5" width="10" height="3.5" rx="1.75" />
-    <rect x="3.5" y="10.25" width="16" height="3.5" rx="1.75" />
-    <rect x="3.5" y="16" width="7" height="3.5" rx="1.75" />
-  </Svg>
-);
+/** A poll (ADR 0041): answers as bars, one of them ahead. */
+export const PollIcon = (p: IconProps) => <Glyph glyph={LucideChartBar} {...p} />;
 
-export const MentionIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="4" />
-    <path d="M16 8v5a3 3 0 0 0 5 2 9 9 0 1 0-3.2 5.3" />
-  </Svg>
-);
+export const MentionIcon = (p: IconProps) => <Glyph glyph={LucideAtSign} {...p} />;
 
-export const FileIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M14 3v5h5" />
-    <path d="M19 21H5V3h9l5 5v13z" />
-  </Svg>
-);
+export const FileIcon = (p: IconProps) => <Glyph glyph={LucideFile} {...p} />;
 
-export const DownloadIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 4v11" />
-    <path d="M7.5 10.5L12 15l4.5-4.5" />
-    <path d="M5 20h14" />
-  </Svg>
-);
+export const DownloadIcon = (p: IconProps) => <Glyph glyph={LucideDownload} {...p} />;
 
 /** A pencil on a line: something written and not yet sent (Drafts). */
-export const DraftIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z" />
-    <path d="M14.5 7.5l2 2" />
-  </Svg>
-);
+export const DraftIcon = (p: IconProps) => <Glyph glyph={LucidePencilLine} {...p} />;
 
-export const ClockIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 7v5l3 2" />
-  </Svg>
-);
+export const ClockIcon = (p: IconProps) => <Glyph glyph={LucideClock} {...p} />;
 
-export const PinIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 17v5" />
-    <path d="M9 2h6l-1 8 3 3v2H7v-2l3-3-1-8z" />
-  </Svg>
-);
+export const PinIcon = (p: IconProps) => <Glyph glyph={LucidePin} {...p} />;
 
 /** A planted flag: something the conversation settled (the decision log). */
-export const DecisionIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M5 21V4" />
-    <path d="M5 4h11l-2 4 2 4H5" />
-  </Svg>
-);
+export const DecisionIcon = (p: IconProps) => <Glyph glyph={LucideFlag} {...p} />;
 
-export const CloseIcon = (p: IconProps) => (
-  <Svg boost={0.4} {...p}>
-    <path d="M6 6l12 12M18 6L6 18" />
-  </Svg>
-);
+export const CloseIcon = (p: IconProps) => <Glyph glyph={LucideX} boost={0.4} {...p} />;
 
-export const ChevronLeftIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M14.5 6l-6 6 6 6" />
-  </Svg>
-);
+export const ChevronLeftIcon = (p: IconProps) => <Glyph glyph={LucideChevronLeft} {...p} />;
 
-export const MenuIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 7h16M4 12h16M4 17h16" />
-  </Svg>
-);
+export const MenuIcon = (p: IconProps) => <Glyph glyph={LucideMenu} {...p} />;
 
-/** A lifebuoy: report a problem, ask for something. Not a "?" — that reads as
- *  documentation, and this opens a form somebody on the other end answers. */
 /** A four-pointed spark: the mark on everything the workspace summarised for you.
  *
- * Drawn rather than the "\u2726" character, because that glyph's weight and baseline differ
+ * A glyph rather than the "✦" character, because that one's weight and baseline differ
  * across platforms and it is set here inside a 22px tile where either shows. Not an
  * agent mark — this is the *workspace* offering a recap, so it wears the accent, and
  * anything an agent itself produced wears iris instead.
  */
-export const SparkIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 3.5c0 4.5 4 8.5 8.5 8.5-4.5 0-8.5 4-8.5 8.5 0-4.5-4-8.5-8.5-8.5 4.5 0 8.5-4 8.5-8.5z" />
-  </Svg>
-);
+export const SparkIcon = (p: IconProps) => <Glyph glyph={LucideSparkle} {...p} />;
 
-export const FeedbackIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="9" />
-    <circle cx="12" cy="12" r="3.6" />
-    <path d="M5.7 5.7l3.8 3.8M14.5 14.5l3.8 3.8M18.3 5.7l-3.8 3.8M9.5 14.5l-3.8 3.8" />
-  </Svg>
-);
+/** A lifebuoy: report a problem, ask for something. Not a "?" — that reads as
+ *  documentation, and this opens a form somebody on the other end answers. */
+export const FeedbackIcon = (p: IconProps) => <Glyph glyph={LucideLifeBuoy} {...p} />;
 
-export const VideoIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="2.5" y="6" width="13" height="12" rx="2" />
-    <path d="M15.5 10.5l5.2-3a.6.6 0 0 1 .9.5v8a.6.6 0 0 1-.9.5l-5.2-3" />
-  </Svg>
-);
+export const VideoIcon = (p: IconProps) => <Glyph glyph={LucideVideo} {...p} />;
 
-export const VideoOffIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M10.7 6h2.8a2 2 0 0 1 2 2v2.5l5.2-3a.6.6 0 0 1 .9.5v8" />
-    <path d="M15.5 16a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h1.5" />
-    <path d="M3 3l18 18" />
-  </Svg>
-);
+export const VideoOffIcon = (p: IconProps) => <Glyph glyph={LucideVideoOff} {...p} />;
 
-export const MicIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="9" y="3" width="6" height="11" rx="3" />
-    <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
-    <path d="M12 17.5V21" />
-  </Svg>
-);
+export const MicIcon = (p: IconProps) => <Glyph glyph={LucideMic} {...p} />;
 
 /** Play and pause: filled, because a voice message's control is a solid shape in every
- *  player people already know. */
-export const PlayIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M8.5 5.6v12.8a.8.8 0 0 0 1.2.7l10-6.4a.8.8 0 0 0 0-1.4l-10-6.4a.8.8 0 0 0-1.2.7z" fill="currentColor" stroke="none" />
-  </Svg>
-);
+ *  player people already know. The stroke stays, so the corners stay round. */
+export const PlayIcon = (p: IconProps) => <Glyph glyph={LucidePlay} fill="currentColor" {...p} />;
 
 export const PauseIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none" />
-    <rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none" />
-  </Svg>
+  <Glyph glyph={LucidePause} fill="currentColor" {...p} />
 );
 
-export const MicOffIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M15 10V6a3 3 0 0 0-5.7-1.3" />
-    <path d="M9 9v2a3 3 0 0 0 4.9 2.3" />
-    <path d="M5.5 11a6.5 6.5 0 0 0 10.6 5" />
-    <path d="M18.4 12.6a6.5 6.5 0 0 0 .1-1.6" />
-    <path d="M12 17.5V21" />
-    <path d="M3 3l18 18" />
-  </Svg>
-);
+export const MicOffIcon = (p: IconProps) => <Glyph glyph={LucideMicOff} {...p} />;
 
-export const ScreenShareIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="2.5" y="4" width="19" height="13" rx="2" />
-    <path d="M8 21h8M12 17v4" />
-    <path d="M9 10.5l3-3 3 3M12 7.5v6" />
-  </Svg>
-);
+export const ScreenShareIcon = (p: IconProps) => <Glyph glyph={LucideScreenShare} {...p} />;
 
-export const LeaveCallIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M3.2 14.8c5-4.6 12.6-4.6 17.6 0l-2 2.2-3.3-1.4v-2.4a9 9 0 0 0-7 0v2.4l-3.3 1.4z" />
-  </Svg>
-);
+/** Hanging up: the handset, struck through. */
+export const LeaveCallIcon = (p: IconProps) => <Glyph glyph={LucidePhoneOff} {...p} />;
 
-export const ExpandIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M15 3.5h5.5V9M9 20.5H3.5V15M20.5 3.5l-7 7M3.5 20.5l7-7" />
-  </Svg>
-);
+export const ExpandIcon = (p: IconProps) => <Glyph glyph={LucideMaximize2} {...p} />;
 
-export const CollapseIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
-  </Svg>
-);
+export const CollapseIcon = (p: IconProps) => <Glyph glyph={LucideMinimize2} {...p} />;
 
 /** Two sheets, the front one whole: "take a copy". */
-export const CopyIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.2" />
-    <path d="M15.5 8.5V6.2a1.7 1.7 0 0 0-1.7-1.7H6.2a1.7 1.7 0 0 0-1.7 1.7v7.6a1.7 1.7 0 0 0 1.7 1.7h2.3" />
-  </Svg>
-);
+export const CopyIcon = (p: IconProps) => <Glyph glyph={LucideCopy} {...p} />;
 
 /** Done. A bare stroke reads light beside detailed glyphs, so it carries a touch more. */
-export const CheckIcon = (p: IconProps) => (
-  <Svg boost={0.2} {...p}>
-    <path d="M5 12.5l4.3 4.3L19 7" />
-  </Svg>
-);
+export const CheckIcon = (p: IconProps) => <Glyph glyph={LucideCheck} boost={0.2} {...p} />;
 
 /** Down to the end of something: the newest message. */
-export const ArrowDownIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 5v14M6.5 13.5L12 19l5.5-5.5" />
-  </Svg>
-);
+export const ArrowDownIcon = (p: IconProps) => <Glyph glyph={LucideArrowDown} {...p} />;
 
 /** A private channel: a shackle over a body. */
-export const LockIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="5" y="10.5" width="14" height="9.5" rx="2.2" />
-    <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
-  </Svg>
-);
+export const LockIcon = (p: IconProps) => <Glyph glyph={LucideLock} {...p} />;

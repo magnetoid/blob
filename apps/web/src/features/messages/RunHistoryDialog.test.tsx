@@ -6,6 +6,7 @@ import type { AgentRunView } from '@blob/shared';
 import { api } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { RunHistoryDialog } from './RunHistoryDialog.tsx';
+import '../../test/overlayChunk.ts';
 
 afterEach(() => {
   cleanup();

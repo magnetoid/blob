@@ -13,6 +13,7 @@ import { MessageMenu } from './MessageMenu.tsx';
 import { MessageEditor } from './MessageEditor.tsx';
 import { VersionsDialog } from './VersionsDialog.tsx';
 import { DeleteConfirm } from './MessageRow.tsx';
+import '../../test/overlayChunk.ts';
 
 afterEach(() => {
   cleanup();

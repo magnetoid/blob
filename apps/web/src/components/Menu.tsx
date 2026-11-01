@@ -1,38 +1,39 @@
 /** The dropdown behind a trigger the caller renders.
  *
- * Three menus grew three private copies of the same dismissal wiring, and no two got
- * it quite alike. This is the house contract, once: dismissed by a click *outside*
- * the panel — decided by `ref.contains`, never "any click" — or by Escape, with both
- * suspended while the caller has a dialog up, because a dialog rendered beside the
- * panel is "outside" by that test and would be unmounted by the very click that
- * asked for it. See the ChannelMenu trap note in `.torsor/active/context.md`.
- *
- * Escape goes through `lib/useEscape`, which owns one capture-phase listener and a stack,
- * so the key stops here instead of also reaching the shell.
+ * Dismissed the house way — a click outside the panel by `contains`, Escape through the
+ * shared stack, focus moving out of it, all suspended while the caller has a dialog up,
+ * and focus home to the trigger on close. That contract is `lib/useDismissal.ts`, shared
+ * with `Popover` rather than copied: three menus once grew three copies of it and no two
+ * got it quite alike. What is a menu's own is below: the arrow keys, which walk its items.
  *
  * The trigger stays with the caller: what opens a menu is one-off (an avatar, a
  * workspace name, a channel title) and what closes one is not. The panel keeps the
  * caller's own class so each menu's existing CSS continues to key on its own name.
+ *
+ * The panel is drawn by Base UI's Menu, through shadcn's `DropdownMenu` root, in the
+ * overlay chunk (`components/overlays/MenuImpl.tsx`): it places the panel, turns it over
+ * and caps it where there is no room, plays its exit and moves focus to its first item. Only
+ * that — the callers' items are their own buttons, not Base UI's, so its own keys and
+ * dismissal are off. This file is what the first load carries — the contract, the arrows,
+ * and a zero-size anchor where the panel used to sit, which the panel is drawn into and
+ * hangs from (`PanelAnchor`). The contract lives here rather than in the chunk so it holds
+ * from the first click: a menu opened before the chunk lands already answers Escape and a
+ * click outside, and opens once the chunk is here.
+ *
+ * The contract, the arrows, the anchor and the hidden focus guards are scaffolding: they go
+ * when the callers move to `DropdownMenuTrigger` and `DropdownMenuItem` (phases 4 and 5;
+ * `MenuImpl.tsx` says which caller goes when).
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { usePresence } from '../lib/usePresence.ts';
-import { useEscape } from '../lib/useEscape.ts';
-import { fitPanel, type Fit } from '../lib/menuFit.ts';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { lazyOverlay } from './lazyOverlay.tsx';
+import { MENU_ITEM } from './menuItems.ts';
+import { PanelAnchor } from './PanelAnchor.tsx';
+import { useDismissal } from '../lib/useDismissal.ts';
+import { useHeldThroughExit } from '../lib/useHeldThroughExit.ts';
 
-/** The nearest ancestor that clips what overflows it — the conversation's scroll area, a
- *  thread panel — or null, when only the viewport does. */
-function clippingAncestor(node: HTMLElement): HTMLElement | null {
-  for (let el = node.parentElement; el; el = el.parentElement) {
-    if (getComputedStyle(el).overflowY !== 'visible') return el;
-  }
-  return null;
-}
-
-/** Every focusable menu item, in DOM order. Disabled ones cannot take focus, so
- *  offering them to the arrows would strand the roving focus on the way past. */
-const ITEM_SELECTOR =
-  '[role="menuitem"]:not(:disabled), [role="menuitemradio"]:not(:disabled)';
+/** Base UI's root, portal, positioner and popup, from the overlay chunk. */
+const MenuPanel = lazyOverlay((m) => m.MenuImpl);
 
 interface Props {
   open: boolean;
@@ -51,65 +52,18 @@ export function Menu({
   suspendDismiss = false,
   children,
 }: Props) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  // Whatever held focus when the menu opened — the trigger, wherever the browser left
-  // it. Focus goes back there on close so a keyboard user is not stranded on <body>.
-  const openerRef = useRef<HTMLElement | null>(null);
-  const { present, state } = usePresence(open, panelRef);
-  const [fit, setFit] = useState<Fit>({ above: false, maxHeight: null });
+  // Where the panel used to sit. It is drawn inside this — so `contains` on it is "inside
+  // the panel" — and hangs from the box this is positioned in, the caller's own wrapper.
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const opener = useDismissal(anchorRef, { open, suspended: suspendDismiss, onClose });
+  const [drawn, exited] = useHeldThroughExit(open);
 
-  // Where the panel goes so all of it can be seen (`lib/menuFit.ts`). Before paint, so a
-  // panel that belongs above its trigger is never drawn below it first; once per opening,
-  // and nothing is measured while it stays open.
-  useLayoutEffect(() => {
-    if (!open) return;
-    const panel = panelRef.current;
-    const anchor = panel?.offsetParent ?? panel?.parentElement;
-    if (!panel || !anchor) return;
-    const clip = clippingAncestor(panel)?.getBoundingClientRect();
-    const bounds = {
-      top: Math.max(clip?.top ?? 0, 0),
-      bottom: Math.min(clip?.bottom ?? window.innerHeight, window.innerHeight),
-    };
-    setFit(fitPanel({ height: panel.scrollHeight }, anchor.getBoundingClientRect(), bounds));
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    openerRef.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    const panel = panelRef.current;
-    return () => {
-      // Restore only when closing left focus nowhere — the panel that held it is
-      // already gone when this cleanup runs. A click that closed the menu by landing
-      // on another control has given that control focus, and keeps it.
-      const active = document.activeElement;
-      if (
-        active === null ||
-        active === document.body ||
-        (active instanceof Node && panel?.contains(active))
-      ) {
-        openerRef.current?.focus();
-      }
-      openerRef.current = null;
-    };
-  }, [open]);
-
-  // Escape through the shared stack rather than a listener of its own: two bubble
-  // listeners on `window` both run, so a menu closing itself did not stop the shell
-  // from also acting on the key — closing the thread behind it, or marking the channel
-  // read. See `lib/useEscape`.
-  useEscape(onClose, open && !suspendDismiss);
-
+  // Keyed on `open`, not on whether the panel is still drawn: a menu on its way out must
+  // stop steering focus the moment it is asked to close.
   useEffect(() => {
     if (!open || suspendDismiss) return undefined;
-    // Capture phase, so a click that lands on another control closes this first
-    // rather than leaving two panels open.
-    const onClick = (event: globalThis.MouseEvent) => {
-      if (!panelRef.current?.contains(event.target as Node)) onClose();
-    };
+    // Capture phase, so the keys arrive whatever the panel is drawn inside: a dialog
+    // stops the arrow keys at its edge, and a menu opened in one would never hear them.
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (
         event.key !== 'ArrowDown' &&
@@ -119,7 +73,7 @@ export function Menu({
       ) {
         return;
       }
-      const panel = panelRef.current;
+      const panel = anchorRef.current;
       if (!panel) return;
       const active = document.activeElement;
       const inPanel = active instanceof HTMLElement && panel.contains(active);
@@ -140,14 +94,14 @@ export function Menu({
       // pressed in a composer behind an open menu keep moving the caret there.
       if (
         !inPanel &&
-        active !== openerRef.current &&
+        active !== opener.current &&
         active !== document.body &&
         active !== null
       ) {
         return;
       }
       const items = Array.from(
-        panel.querySelectorAll<HTMLElement>(ITEM_SELECTOR),
+        panel.querySelectorAll<HTMLElement>(MENU_ITEM),
       );
       if (items.length === 0) return;
       event.preventDefault();
@@ -164,31 +118,23 @@ export function Menu({
             : (index - 1 + items.length) % items.length;
       items[next]?.focus();
     };
-    window.addEventListener('click', onClick, true);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('click', onClick, true);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open, suspendDismiss, onClose]);
-
-  // Held through its exit rather than dropped on the render that closes it, so the
-  // panel can animate away. Every effect above keys on `open`, not on presence: a
-  // menu on its way out must stop answering Escape and arrow keys the moment it is
-  // asked to close, or it would still be steering focus while it faded.
-  if (!present) return null;
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open, suspendDismiss, opener]);
 
   return (
-    <div
-      className={className}
-      role="menu"
-      ref={panelRef}
-      data-state={state}
-      data-placement={fit.above ? 'above' : undefined}
-      style={fit.maxHeight !== null ? { maxHeight: fit.maxHeight, overflowY: 'auto' } : undefined}
-      inert={state === 'closed' ? true : undefined}
-    >
-      {children}
-    </div>
+    <PanelAnchor anchor={anchorRef}>
+      {drawn && (
+        <MenuPanel
+          open={open}
+          anchor={anchorRef}
+          opener={opener}
+          className={className}
+          onExited={exited}
+        >
+          {children}
+        </MenuPanel>
+      )}
+    </PanelAnchor>
   );
 }

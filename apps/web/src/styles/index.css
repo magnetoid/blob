@@ -9,9 +9,9 @@
  * for that order to be the one declared here.
  *
  * `source(none)` turns off Tailwind's automatic scan of the project; each `@source`
- * names a directory that has been converted. A path joins that list when its components
- * are rewritten, never before — otherwise every class-like string in the legacy markup
- * would put a utility in the sheet that nothing asked for.
+ * names a directory, or a single file, that has been converted. A path joins that list
+ * when its components are rewritten, never before — otherwise every class-like string in
+ * the legacy markup would put a utility in the sheet that nothing asked for.
  */
 @layer theme, base, legacy, components, utilities;
 @import "tailwindcss" source(none);
@@ -19,6 +19,15 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 @source "../components/ui";
+@source "../components/overlays";
+@source "../components/PanelAnchor.tsx";
+@source "../components/PersonCard.tsx";
+@source "../components/EmojiPicker.tsx";
+@source "../components/Toasts.tsx";
+@source "../components/Confirmation.tsx";
+@source "../components/Avatar.tsx";
+@source "../components/EmptyState.tsx";
+@source "../components/ListSkeleton.tsx";
 @import "./theme.css";
 @import "./tokens.css" layer(legacy);
 @import "./app.css" layer(legacy);

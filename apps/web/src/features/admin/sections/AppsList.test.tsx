@@ -8,6 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import '../../../test/overlayChunk.ts';
 
 const plugins = vi.fn();
 const activity = vi.fn();

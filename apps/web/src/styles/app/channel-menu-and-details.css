@@ -1,11 +1,35 @@
 /* ─── channel menu and details ────────────────────────────────────────────── */
 /* A generic dropdown. The workspace name and the message ••• each grew their own
-   before this existed; those are left alone, and anything new lands here. */
+   before this existed; those are left alone, and anything new lands here.
+
+   How it looks, not where it is: Base UI's positioner places every panel the shared Menu
+   draws (components/overlays/MenuImpl.tsx) — below its trigger from the left edge, 4px
+   clear, unless a panel's class says otherwise in `--menu-side` (bottom or top),
+   `--menu-align` (start or end) and `--menu-gap` — and turns it over to the other side
+   where the box that clips it has no room, as the ••• on the newest message needs. */
+
+/* Each panel's own, and not handed down: registered so they do not inherit, a panel nested
+   in something that sets them takes the defaults below rather than its container's
+   placement. The initial values are the defaults MenuImpl falls back to. */
+@property --menu-side {
+  syntax: 'bottom | top';
+  inherits: false;
+  initial-value: bottom;
+}
+
+@property --menu-align {
+  syntax: 'start | end';
+  inherits: false;
+  initial-value: start;
+}
+
+@property --menu-gap {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 4px;
+}
+
 .menu {
-  position: absolute;
-  z-index: var(--z-menu);
-  top: calc(100% + 4px);
-  left: 0;
   min-width: 232px;
   padding: 5px;
   border-radius: var(--blob-radius-md);
@@ -13,21 +37,11 @@
   box-shadow: var(--elev-2);
 }
 
-/* Above its trigger instead, where the box that clips it has more room there — the ••• on
-   the newest message, at the foot of the conversation (components/Menu.tsx decides). By
-   role, not class: every panel the shared Menu draws takes it, whatever it is called. */
-[role='menu'][data-placement='above'] {
-  top: auto;
-  bottom: calc(100% + 4px);
-  transform-origin: bottom center;
-}
-
 /* The message ••• hangs from the right of its trigger, at the right edge of the row,
    and is narrower than a channel menu because its rows are single words. Everything
    else about it — the panel, the rows, the dismissal — is now the shared menu. */
 .message-menu {
-  left: auto;
-  right: 0;
+  --menu-align: end;
   min-width: 168px;
 }
 

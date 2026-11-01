@@ -8,9 +8,40 @@
  * A workspace's own emoji come first and stay first. They are the vocabulary that is
  * actually specific to the people using this deployment; the Unicode set is the same
  * everywhere and can wait one row.
+ *
+ * The shell is shadcn's popover, from the overlay chunk (`components/overlays/PopoverImpl.tsx`):
+ * it places the panel — below "Add reaction", or above the composer, as the caller's
+ * stylesheet says in `--popover-side` and `--popover-align` on `.emoji-picker` — wears
+ * shadcn's popover surface, plays the entrance, and puts the cursor in the search field.
+ * The search, the grid, the keys and the tones inside it are the picker's own legacy
+ * markup, in a `data-legacy` island so legacy CSS still reaches it inside shadcn's popup.
+ *
+ * Closing is its callers'. They keep the open state, the anchor round it, Escape through
+ * `lib/useEscape` and the click outside, decided by `contains` on that anchor — so the
+ * panel is drawn in place, inside the anchor, where `contains` finds it, and the picker
+ * brings no second Escape or outside click of its own (one Escape closes one layer). It is
+ * open for as long as it is mounted and goes when its caller unmounts it, with no exit,
+ * as before. The one close it asks for itself, through the caller's `onClose`, is focus
+ * moving out of it by the keyboard — see below.
+ *
+ * Why that one. Base UI's popover takes everything in its panel out of the tab order the
+ * moment focus leaves it, and gives it back only to focus coming in through the guards it
+ * draws round the panel — hidden here, because the panel is drawn in place (`PanelAnchor`).
+ * A picker left open behind focus that had Tabbed on could not be reached again by Tab or
+ * Shift+Tab. So it closes then, by the rule the menus use (`focusMovedOut`) — but only for
+ * the keyboard. Once a pointer has been pressed, focus moving out is that press's doing until
+ * the next key, and a press is the caller's to judge by `contains`: on its own trigger, the
+ * caller's toggle closes the picker, where closing on the focus would have had the toggle
+ * open it again. Not "while a pointer is down": a tap moves focus after the finger has lifted
+ * (Chrome sends pointerup, then the mousedown it makes up for the tap, which is what focuses
+ * the button). Every move the keyboard makes comes after a keydown, so the next key always
+ * hands the close back to the keyboard, and no lost pointerup can keep it from it.
+ *
+ * Scaffolding, with an exit: the callers move to `PopoverTrigger` in phase 5, and the
+ * anchor, the in-place drawing and the callers' own dismissal go then.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   EMOJI_CATEGORIES,
   SKIN_TONES,
@@ -25,6 +56,12 @@ import {
   type SkinToneId,
 } from "../lib/emoji.ts";
 import { useStore } from "../lib/store.ts";
+import { focusMovedOut } from "../lib/useDismissal.ts";
+import { lazyOverlay } from "./lazyOverlay.tsx";
+import { PanelAnchor } from "./PanelAnchor.tsx";
+
+/** Base UI's popover root, portal, positioner and popup, from the overlay chunk. */
+const PickerPanel = lazyOverlay((m) => m.PopoverImpl);
 
 interface Props {
   /** Receives the value to store: the character, or `:name:` for a custom emoji. */
@@ -81,9 +118,40 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const modifier = skinToneById(toneId).modifier;
 
-  useEffect(() => {
-    inputRef.current?.focus();
+  // Where the panel is drawn, inside the caller's anchor, so the caller's `contains` finds it.
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  // What had focus as the picker opened: the button that opened it. The cursor goes into the
+  // search field only from there, or from nowhere — a picker opened before the chunk landed
+  // is drawn late, and by then the person may have moved on (`PopoverImpl`'s `initialFocus`).
+  const openerRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    openerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }, []);
+
+  // Closed when the keyboard moves focus out of it (the docblock says why). Which of the two
+  // was used last: a pointer from its press until the next key, the keyboard from that key on.
+  const byPointerRef = useRef(false);
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    const pointer = () => {
+      byPointerRef.current = true;
+    };
+    const keyboard = () => {
+      byPointerRef.current = false;
+    };
+    const onFocusOut = (event: FocusEvent) => {
+      if (!byPointerRef.current && focusMovedOut(event, anchor)) onClose();
+    };
+    window.addEventListener("pointerdown", pointer, true);
+    window.addEventListener("keydown", keyboard, true);
+    anchor?.addEventListener("focusout", onFocusOut);
+    return () => {
+      window.removeEventListener("pointerdown", pointer, true);
+      window.removeEventListener("keydown", keyboard, true);
+      anchor?.removeEventListener("focusout", onFocusOut);
+    };
+  }, [onClose]);
 
   const results = useMemo(
     () => (query.trim() ? searchEmoji(query, customEmoji) : []),
@@ -125,119 +193,130 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
   }));
 
   return (
-    <div className="emoji-picker" role="dialog" aria-label={label}>
-      <input
-        ref={inputRef}
-        className="emoji-search"
-        type="search"
-        value={query}
-        placeholder="Search emoji"
-        aria-label="Search emoji"
-        onChange={(event) => {
-          setQuery(event.target.value);
-          setCursor(0);
-        }}
-        onKeyDown={onKeyDown}
-      />
-
-      <div className="emoji-scroll">
-        {query.trim() ? (
-          results.length ? (
-            <div className="emoji-grid">
-              {results.map((emoji, index) => (
-                <EmojiButton
-                  key={`${emoji.kind}:${emoji.name}`}
-                  emoji={emoji}
-                  active={index === clamped}
-                  modifier={modifier}
-                  onPick={onPick}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="emoji-empty">No emoji matches “{query.trim()}”.</p>
-          )
-        ) : (
-          <>
-            {/* Groups, not headings.
-                These were h4, which skipped a level and broke heading navigation for
-                the whole page — and no level is reliably right, because what precedes
-                a popover depends on where it opened. The document's own order is
-                already h2, h2, h1: the sidebar's section labels come before the
-                channel title. A picker's internal labels are not document structure,
-                so they name a group instead of joining the outline, and a reader still
-                hears "Smileys and people, group" on the way in. */}
-            {own.length > 0 && (
-              <section
-                className="emoji-section"
-                role="group"
-                aria-labelledby="emoji-group-own"
-              >
-                <p className="emoji-heading" id="emoji-group-own">
-                  {"This workspace"}
-                </p>
-                <div className="emoji-grid">
-                  {own.map((emoji) => (
-                    <EmojiButton
-                      key={`custom:${emoji.name}`}
-                      emoji={emoji}
-                      active={false}
-                      modifier={modifier}
-                      onPick={onPick}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {EMOJI_CATEGORIES.map((category) => (
-              <section
-                className="emoji-section"
-                key={category.id}
-                role="group"
-                aria-labelledby={`emoji-group-${category.id}`}
-              >
-                <p className="emoji-heading" id={`emoji-group-${category.id}`}>
-                  {category.label}
-                </p>
-                <div className="emoji-grid">
-                  {category.entries.map((entry) => (
-                    <EmojiButton
-                      key={entry.name}
-                      emoji={{
-                        kind: "unicode",
-                        name: entry.name,
-                        char: entry.char,
-                      }}
-                      active={false}
-                      modifier={modifier}
-                      onPick={onPick}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </>
-        )}
-      </div>
-
-      <div className="emoji-tones" role="group" aria-label="Skin tone">
-        {SKIN_TONES.map((tone) => (
-          <button
-            key={tone.id}
-            className="emoji-tone"
-            type="button"
-            aria-label={tone.label}
-            aria-pressed={tone.id === toneId}
-            onClick={() => {
-              setToneId(tone.id);
-              saveSkinToneId(tone.id);
+    <PanelAnchor anchor={anchorRef}>
+      <PickerPanel
+        open
+        anchor={anchorRef}
+        opener={openerRef}
+        label={label}
+        className="emoji-picker"
+        initialFocus={inputRef}
+      >
+        <div data-legacy="" className="contents">
+          <input
+            ref={inputRef}
+            className="emoji-search"
+            type="search"
+            value={query}
+            placeholder="Search emoji"
+            aria-label="Search emoji"
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setCursor(0);
             }}
-          >
-            {tone.swatch}
-          </button>
-        ))}
-      </div>
-    </div>
+            onKeyDown={onKeyDown}
+          />
+
+          <div className="emoji-scroll">
+            {query.trim() ? (
+              results.length ? (
+                <div className="emoji-grid">
+                  {results.map((emoji, index) => (
+                    <EmojiButton
+                      key={`${emoji.kind}:${emoji.name}`}
+                      emoji={emoji}
+                      active={index === clamped}
+                      modifier={modifier}
+                      onPick={onPick}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="emoji-empty">No emoji matches “{query.trim()}”.</p>
+              )
+            ) : (
+              <>
+                {/* Groups, not headings.
+                    These were h4, which skipped a level and broke heading navigation for
+                    the whole page — and no level is reliably right, because what precedes
+                    a popover depends on where it opened. The document's own order is
+                    already h2, h2, h1: the sidebar's section labels come before the
+                    channel title. A picker's internal labels are not document structure,
+                    so they name a group instead of joining the outline, and a reader still
+                    hears "Smileys and people, group" on the way in. */}
+                {own.length > 0 && (
+                  <section
+                    className="emoji-section"
+                    role="group"
+                    aria-labelledby="emoji-group-own"
+                  >
+                    <p className="emoji-heading" id="emoji-group-own">
+                      {"This workspace"}
+                    </p>
+                    <div className="emoji-grid">
+                      {own.map((emoji) => (
+                        <EmojiButton
+                          key={`custom:${emoji.name}`}
+                          emoji={emoji}
+                          active={false}
+                          modifier={modifier}
+                          onPick={onPick}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {EMOJI_CATEGORIES.map((category) => (
+                  <section
+                    className="emoji-section"
+                    key={category.id}
+                    role="group"
+                    aria-labelledby={`emoji-group-${category.id}`}
+                  >
+                    <p className="emoji-heading" id={`emoji-group-${category.id}`}>
+                      {category.label}
+                    </p>
+                    <div className="emoji-grid">
+                      {category.entries.map((entry) => (
+                        <EmojiButton
+                          key={entry.name}
+                          emoji={{
+                            kind: "unicode",
+                            name: entry.name,
+                            char: entry.char,
+                          }}
+                          active={false}
+                          modifier={modifier}
+                          onPick={onPick}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </>
+            )}
+          </div>
+
+          <div className="emoji-tones" role="group" aria-label="Skin tone">
+            {SKIN_TONES.map((tone) => (
+              <button
+                key={tone.id}
+                className="emoji-tone"
+                type="button"
+                aria-label={tone.label}
+                aria-pressed={tone.id === toneId}
+                onClick={() => {
+                  setToneId(tone.id);
+                  saveSkinToneId(tone.id);
+                }}
+              >
+                {tone.swatch}
+              </button>
+            ))}
+          </div>
+        </div>
+      </PickerPanel>
+    </PanelAnchor>
   );
 }

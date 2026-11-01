@@ -367,7 +367,7 @@ export const MessageRow = memo(function MessageRow({
                 <button
                   type="button"
                   className="message-author person-trigger"
-                  aria-haspopup="menu"
+                  aria-haspopup="dialog"
                   aria-expanded={cardOpen}
                   onClick={() => setCardOpen((v) => !v)}
                 >

@@ -1,8 +1,51 @@
-/** The stack of transient notices. Rendered once, near the root. */
+/** The stack of transient notices. Rendered once, near the root.
+ *
+ * Wearing shadcn's toast — a card with a border, a shadow and a radius — in Tailwind's
+ * utilities, and still Blob's underneath: the store (`lib/toasts.ts`), the live region,
+ * and the hold through each toast's exit are as they were. It stays in the first load, and
+ * is not Base UI's toast from the overlay chunk, because the region has to be in the
+ * document before its first announcement (below). The class names that are left —
+ * `toast-stack`, `toast`, `toast-text` — style nothing; they name the parts.
+ */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToasts, type Toast } from '../lib/toasts.ts';
 import { usePresence } from '../lib/usePresence.ts';
+
+/**
+ * Fixed at the bottom of the screen, centred, above every dialog (`--z-toast`): a failure
+ * notice must survive an open modal. It catches no clicks itself, so an empty one costs
+ * nothing; each toast takes them back.
+ */
+const STACK =
+  'toast-stack pointer-events-none fixed bottom-4 left-1/2 z-(--z-toast) flex -translate-x-1/2 flex-col gap-2';
+
+/**
+ * shadcn's toast surface. The edge says which kind it is — a failure in the destructive
+ * colour, a notice in Blob's accent — so an info toast does not read as a failure whose
+ * colour did not load. It rises in from below on `toast-in` and leaves on `overlay-out`,
+ * which travel only by the motion tokens, so under reduced motion it fades and does not
+ * move; and a leaving toast catches no clicks.
+ */
+const TOAST = [
+  'toast pointer-events-auto flex max-w-[420px] items-center gap-2.5 rounded-lg border bg-popover px-3 py-2.5',
+  'text-popover-foreground shadow-lg',
+  'data-[kind=error]:border-destructive data-[kind=info]:border-(--blob-accent-border)',
+  'animate-[toast-in_var(--dur-open)_var(--blob-ease-out)]',
+  'data-[state=closed]:pointer-events-none',
+  'data-[state=closed]:animate-[overlay-out_var(--dur-exit)_var(--blob-ease-in)_forwards]',
+].join(' ');
+
+/** The notice itself, at the size shadcn's toast sets it. */
+const TEXT = 'toast-text text-sm leading-snug';
+
+/** Quiet until it is pointed at, and pressed like every other control here — and a 44px
+ *  target under a coarse pointer, as everything sized for a pointer is. */
+const DISMISS = [
+  'shrink-0 cursor-pointer rounded-sm px-1 py-0.5 text-lg leading-none text-muted-foreground',
+  'pointer-coarse:min-h-11 pointer-coarse:min-w-11',
+  'transition-[color,scale] duration-(--dur-fast) hover:text-foreground active:scale-(--motion-press)',
+].join(' ');
 
 /**
  * What is on screen: the store's toasts, plus any that have been taken out of it and are
@@ -60,7 +103,7 @@ export function Toasts() {
   return (
     // `status`+polite: announced by screen readers without stealing focus, which is
     // the right weight for "that didn't work" — an alert would interrupt typing.
-    <div className="toast-stack" role="status" aria-live="polite">
+    <div className={STACK} role="status" aria-live="polite">
       {shown.map((toast) => (
         <ToastItem
           key={toast.id}
@@ -83,8 +126,8 @@ interface ItemProps {
   onGone: (id: number) => void;
 }
 
-/** One notice, held through its exit by the hook `Menu` uses. A component of its own
- *  because that takes a ref and a hook, and neither can live inside a `.map`. */
+/** One notice, held through its exit by `usePresence`. A component of its own because
+ *  that takes a ref and a hook, and neither can live inside a `.map`. */
 function ToastItem({ toast, open, onDismiss, onGone }: ItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   const { present, state } = usePresence(open, ref);
@@ -96,11 +139,10 @@ function ToastItem({ toast, open, onDismiss, onGone }: ItemProps) {
   if (!present) return null;
 
   return (
-    // `data-state` is what the stylesheet keys the exit off; it is set on the node that
-    // is already there rather than on a new one, so a leaving toast is not announced a
-    // second time.
-    <div ref={ref} className={`toast toast-${toast.kind}`} data-state={state}>
-      <span className="toast-text">{toast.text}</span>
+    // `data-state` is what the exit is keyed off; it is set on the node that is already
+    // there rather than on a new one, so a leaving toast is not announced a second time.
+    <div ref={ref} className={TOAST} data-slot="toast" data-kind={toast.kind} data-state={state}>
+      <span className={TEXT}>{toast.text}</span>
       {/* Gone the moment the toast starts leaving. `pointer-events: none` stops the
           pointer and nothing else — a leaving toast would still be in the tab order,
           offering a control that dismisses what is already dismissed. Removing the
@@ -109,7 +151,7 @@ function ToastItem({ toast, open, onDismiss, onGone }: ItemProps) {
       {state === 'open' && (
         <button
           type="button"
-          className="toast-dismiss"
+          className={DISMISS}
           aria-label="Dismiss notice"
           onClick={() => onDismiss(toast.id)}
         >

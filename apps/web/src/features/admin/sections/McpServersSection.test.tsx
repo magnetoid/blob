@@ -19,6 +19,7 @@ import {
   type AdminPlugin,
   type McpServer,
 } from "../../../lib/api.ts";
+import '../../../test/overlayChunk.ts';
 
 afterEach(() => {
   cleanup();

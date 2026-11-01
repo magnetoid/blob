@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 
 export default tseslint.config(
-  { ignores: ['dist'] },
+  // `cn-tables.ts` is written by `cn`'s Vite plugin (vite.config.ts), not by hand: what a
+  // future release generates is that release's to answer for, not `--max-warnings 0`'s.
+  { ignores: ['dist', 'src/lib/cn-tables.ts'] },
   {
     extends: [
       js.configs.recommended,

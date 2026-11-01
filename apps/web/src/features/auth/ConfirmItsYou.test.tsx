@@ -2,6 +2,7 @@
 /** The prompt the server's `reauth_required` brings up (M3 · B1). */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import '../../test/overlayChunk.ts';
 
 const reauthState = vi.fn();
 const reauth = vi.fn();

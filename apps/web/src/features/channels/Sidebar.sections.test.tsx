@@ -6,6 +6,7 @@ import type { SidebarSection } from '@blob/shared';
 import { Sidebar } from './Sidebar.tsx';
 import { MoveToSectionDialog } from './SectionDialogs.tsx';
 import { useStore } from '../../lib/store.ts';
+import '../../test/overlayChunk.ts';
 
 vi.mock('../../lib/router.ts', async () => ({
   navigate: vi.fn(),

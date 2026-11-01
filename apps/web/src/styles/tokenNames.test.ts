@@ -151,11 +151,26 @@ describe('styles/index.css', () => {
     readFileSync(join(STYLES, 'index.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
   /**
-   * Directories Tailwind may scan, relative to `src/`. A phase that converts a path adds
-   * it here in the same commit as its `@source` — the point of the list is that adding
-   * one is deliberate.
+   * Directories and files Tailwind may scan, relative to `src/`. A phase that converts a
+   * path adds it here in the same commit as its `@source` — the point of the list is that
+   * adding one is deliberate. The eight files in `components/` that phase 2 wrote or
+   * converted are named one at a time, not `components/`, which still holds legacy markup.
+   * `EmojiPicker`'s grid is still legacy markup, in a `data-legacy` island, and none of its
+   * class names is one of Tailwind's. `Icon.tsx` is not here: it draws Lucide's glyphs and
+   * carries no utility; nor is `Menu.tsx`, whose panel wears the classes its callers pass.
    */
-  const CONVERTED = ['components/ui'];
+  const CONVERTED = [
+    'components/ui',
+    'components/overlays',
+    'components/PanelAnchor.tsx',
+    'components/PersonCard.tsx',
+    'components/EmojiPicker.tsx',
+    'components/Toasts.tsx',
+    'components/Confirmation.tsx',
+    'components/Avatar.tsx',
+    'components/EmptyState.tsx',
+    'components/ListSkeleton.tsx',
+  ];
 
   it('scans only converted paths', () => {
     const css = indexCss();
