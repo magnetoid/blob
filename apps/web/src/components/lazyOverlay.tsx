@@ -39,7 +39,9 @@ function settled<T>(value: T): Promise<T> {
  * happens, inside the lazy thunk, and not by an error boundary around the overlay — a
  * boundary there would also swallow a render error from the overlay's own content (a
  * dialog body, a menu item a caller passed in), which belongs to the app's `ErrorBoundary`
- * and its report to the admins.
+ * and its report to the admins. In the built app the person is also told, once, that Blob
+ * was updated and the page wants a reload — the usual reason a chunk goes missing
+ * (`lib/staleBuild.ts`).
  *
  * `React.lazy` keeps a settled result for good, so the failure also replaces the `lazy`
  * that failed: the next mount — the next time the overlay is opened — gets a fresh one,

@@ -22,9 +22,19 @@ import { useEffect } from 'react';
 
 type Handler = () => void;
 
-/** One thing open. `close` is null for an overlay that answers the key itself. */
+/** One thing open. `close` is null for an overlay that answers the key itself, and `early`
+ *  is what answers for such an overlay until it can. */
 interface Layer {
   close: Handler | null;
+  early: EarlyAnswer | null;
+}
+
+/** For an overlay that is open before it is drawn — see `useEscapeLayer`. */
+export interface EarlyAnswer {
+  /** Whether it is drawn, with its own listener in the document. Asked as each key arrives. */
+  drawn: () => boolean;
+  /** What an Escape pressed before then does. */
+  close: Handler;
 }
 
 /** Innermost last. Empty means nothing is open and the shell may have the key. */
@@ -32,11 +42,21 @@ const open: Layer[] = [];
 
 let listening = false;
 
+/** What answers this Escape for a layer: a handler, or null to leave it to the overlay. */
+function answerFor(layer: Layer, event: KeyboardEvent): Handler | null {
+  if (layer.close) return layer.close;
+  // Not drawn yet, so nothing of the overlay's own is listening and the layer answers for
+  // it — except the Escape that only ends a composition, which the overlay would leave alone.
+  if (layer.early && !layer.early.drawn() && !event.isComposing) return layer.early.close;
+  return null;
+}
+
 function onKeyDown(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return;
   const innermost = open[open.length - 1];
   if (!innermost) return;
-  if (innermost.close === null) {
+  const close = answerFor(innermost, event);
+  if (close === null) {
     // A Base UI dialog on top. Its own listener, on `document`, closes it and stops the key
     // there, before it can bubble back up to the shell's; all the stack does is hold the top,
     // so nothing opened before it hears this. The exception is the Escape that only ends an
@@ -49,12 +69,10 @@ function onKeyDown(event: KeyboardEvent): void {
     return;
   }
   event.stopPropagation();
-  // And the browser's own answer to the key, which comes after every handler: a close
-  // request, sent to whichever native modal is on top *by then* — which need not be the
-  // thing that just answered. The key has been answered here; nothing else should answer
-  // it again.
+  // And its default, so the browser does nothing more with the key either. It has been
+  // answered here, and one Escape is answered once.
   event.preventDefault();
-  innermost.close();
+  close();
 }
 
 function listenOnce(): void {
@@ -63,17 +81,17 @@ function listenOnce(): void {
   listening = true;
 }
 
-function useLayer(close: Handler | null, active: boolean): void {
+function useLayer(close: Handler | null, active: boolean, early: EarlyAnswer | null = null): void {
   useEffect(() => {
     if (!active) return undefined;
     listenOnce();
-    const layer: Layer = { close };
+    const layer: Layer = { close, early };
     open.push(layer);
     return () => {
       const at = open.lastIndexOf(layer);
       if (at !== -1) open.splice(at, 1);
     };
-  }, [close, active]);
+  }, [close, early, active]);
 }
 
 /**
@@ -95,7 +113,14 @@ export function useEscape(onClose: () => void, active = true): void {
  * be innermost and take the key out from under it. So it takes a place here too, one that
  * closes nothing: while it is on top the key goes on to its own listener untouched, and
  * nothing beneath it hears that Escape. One key, one layer.
+ *
+ * `early` is for an overlay that is open before it is drawn: a dialog is opened by
+ * first-load code (`DialogPresence`) and drawn by the overlay chunk, which may still be on
+ * its way. Until `early.drawn()` says it is there, an Escape is the dialog's all the same —
+ * stopped here, default prevented and handed to `early.close` — where letting it through
+ * would hand it to nobody, and it would reach the shell. Pass the same object on every
+ * render: a new one re-registers the layer, which puts it back on top.
  */
-export function useEscapeLayer(active = true): void {
-  useLayer(null, active);
+export function useEscapeLayer(active = true, early: EarlyAnswer | null = null): void {
+  useLayer(null, active, early);
 }

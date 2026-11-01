@@ -20,7 +20,6 @@
 @import "@fontsource-variable/inter";
 @source "../components/ui";
 @source "../components/overlays";
-@source "../components/Menu.tsx";
 @source "../components/PanelAnchor.tsx";
 @source "../components/PersonCard.tsx";
 @source "../components/EmojiPicker.tsx";

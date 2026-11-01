@@ -9,9 +9,10 @@
  * The scaffold is shadcn's Dialog now, which is Base UI's: a portal out of whatever
  * transformed, virtualised row opened it, a backdrop, a focus trap, the page behind hidden
  * from assistive tech, Escape and an exit it waits for. It lives in the overlay chunk
- * (`components/overlays/DialogImpl.tsx`) — Base UI's overlay code is some 75 KB the first
- * load does not carry — and this file is what the first load does carry: the two names
- * the callers already use, and how a body becomes a legacy island.
+ * (`components/overlays/DialogImpl.tsx`) — Base UI's overlay code, about 42 KB gzipped,
+ * which the first load does not carry — and this file is what the first load does carry:
+ * the two names the callers already use, the dialog's place on the Escape stack from the
+ * moment it opens, and how a body becomes a legacy island.
  *
  * Where the shell goes. Base UI draws a portal's contents a render or two after the portal
  * itself, and the component that renders `<Dialog>` runs its effects in between — which is
@@ -32,9 +33,10 @@
  * the same moment and unmounts it later, once Base UI has played its exit.
  */
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { lazyOverlay } from './lazyOverlay.tsx';
 import { DialogHostContext, useDialogHost, type DialogHost } from '../lib/dialogHost.ts';
+import { useEscapeLayer, type EarlyAnswer } from '../lib/useEscape.ts';
 import { FALLBACK_MS } from '../lib/usePresence.ts';
 
 /** Base UI's root, portal, backdrop and popup, from the overlay chunk. */
@@ -135,10 +137,43 @@ export function DialogPresence<T>({
 
   if (!(open || phase.leaving) || !held) return null;
   return (
-    <Fragment key={phase.count}>
-      <DialogShell open={open} onExited={finish}>
-        {children(held as T)}
-      </DialogShell>
-    </Fragment>
+    <Opening key={phase.count} open={open} onExited={finish}>
+      {children(held as T)}
+    </Opening>
+  );
+}
+
+/**
+ * One opening of a dialog: its place on the Escape stack, and the shell round it.
+ *
+ * The place is taken here, in the first load, as the dialog opens — not by the shell, which
+ * is the overlay chunk's and may still be on its way. A dialog asked for in the first
+ * second after load is open before it is drawn, and an Escape pressed then is the dialog's
+ * all the same: let through, it reached the shell's listener, which closed the thread
+ * behind or marked the channel read. So until the shell says it is drawn the layer answers
+ * the key itself — nothing beneath hears it — and the shell closes the dialog once the
+ * chunk lands and the contents have said what closing means, since `onClose` is theirs and
+ * only the chunk draws them. It is drawn for the length of its exit, the one sign of an
+ * Escape that came early. From the moment it is drawn, Base UI's own listener answers and
+ * the layer only holds the top. Either way it comes off the stack as soon as the dialog
+ * has been answered or starts to leave, so the next Escape reaches whatever is underneath.
+ */
+function Opening({ open, onExited, children }: { open: boolean; onExited: () => void; children: ReactNode }) {
+  const [escaped, setEscaped] = useState(false);
+  const drawn = useRef(false);
+  const onDrawn = useCallback(() => {
+    drawn.current = true;
+  }, []);
+  // One object for the opening's whole life: a new one would re-register the layer on top.
+  const [early] = useState<EarlyAnswer>(() => ({
+    drawn: () => drawn.current,
+    close: () => setEscaped(true),
+  }));
+  useEscapeLayer(open && !escaped, early);
+
+  return (
+    <DialogShell open={open} escaped={escaped} onDrawn={onDrawn} onExited={onExited}>
+      {children}
+    </DialogShell>
   );
 }

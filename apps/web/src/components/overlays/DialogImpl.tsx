@@ -20,7 +20,11 @@
  * before it is on `lib/useEscape`'s stack and would otherwise be innermost. So the dialog
  * holds the top of that stack while it is open and lets the key through
  * (`useEscapeLayer`), and comes off it the moment it starts to leave, so the next Escape
- * reaches whatever is underneath.
+ * reaches whatever is underneath. That place is taken by the first-load half
+ * (`DialogPresence`), as the dialog opens, because the dialog can be open before this chunk
+ * has arrived; the shell says when it is drawn (`onDrawn`), and until then the place
+ * answers the key itself. An Escape that came that early arrives here as `escaped`, and the
+ * shell closes the dialog the moment the contents have said what closing means.
  *
  * Focus going home. Base UI hands focus back when the exit has finished; Blob hands it
  * back as the exit begins, so a key pressed in those 150ms lands on the page rather than in
@@ -29,11 +33,10 @@
  * shell mounted — before the contents, which may well take focus as they mount.
  */
 
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Dialog, DialogPortal } from '../ui/dialog.tsx';
 import { DialogHostContext, type DialogConfig, type DialogHost } from '../../lib/dialogHost.ts';
-import { useEscapeLayer } from '../../lib/useEscape.ts';
 
 /**
  * Over the page at the modal's step on Blob's stacking ladder. The colour is the host's to
@@ -78,10 +81,14 @@ export interface DialogImplProps {
   /** False while it leaves: Base UI plays the exit, then `onExited` is called. */
   open: boolean;
   onExited?: (() => void) | undefined;
+  /** Escape was pressed for this dialog before the chunk had drawn it. */
+  escaped?: boolean | undefined;
+  /** Called once the shell is drawn and Base UI is listening for Escape. */
+  onDrawn?: (() => void) | undefined;
   children: ReactNode;
 }
 
-export function DialogImpl({ open, onExited, children }: DialogImplProps) {
+export function DialogImpl({ open, onExited, escaped = false, onDrawn, children }: DialogImplProps) {
   const [config, setConfig] = useState<DialogConfig | null>(null);
   const onClose = useRef<(() => void) | null>(null);
   const answered = useRef(false);
@@ -121,7 +128,17 @@ export function DialogImpl({ open, onExited, children }: DialogImplProps) {
     if (!open) giveFocusBack(opener.current, popup);
   }, [open]);
 
-  useEscapeLayer(open);
+  // Drawn, and Base UI is listening: its root adds the listener in an effect of its own,
+  // and a child's effects run before this one. From here Escape is Base UI's to answer.
+  useEffect(() => {
+    onDrawn?.();
+  }, [onDrawn]);
+
+  // An Escape that came before the chunk did, held for the dialog by `DialogPresence`:
+  // answered as soon as the contents have registered what closing means.
+  useLayoutEffect(() => {
+    if (escaped && config) close();
+  }, [escaped, config, close]);
 
   const alert = Boolean(config?.alert);
   return (

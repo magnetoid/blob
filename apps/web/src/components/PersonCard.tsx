@@ -26,9 +26,11 @@ import { useFetch } from '../lib/useFetch.ts';
 const CARD = 'flex w-72 flex-col gap-2.5 p-2.5 text-sm';
 
 /**
- * shadcn's outline `Button`, the whole width of the card, written out rather than imported:
- * `components/ui/button.tsx` brings `cn` into the first load, and whether it may is the next
- * task's to measure. 44px under a coarse pointer, as every control here is.
+ * shadcn's outline `Button`, the whole width of the card, written out rather than imported.
+ * The card is first-load code, and `components/ui/button.tsx` is not: it is Base UI's
+ * `Button` with shadcn's variants, and both ride in the overlay chunk with the dialogs that
+ * use them. Imported here they would move onto the first load for one plain button that
+ * needs neither. 44px under a coarse pointer, as every control here is.
  */
 const MESSAGE = [
   'inline-flex h-8 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border',
@@ -83,11 +85,7 @@ export function PersonCard({
   return (
     <Popover open={open} onClose={onClose} label={live.displayName} className={CARD}>
       <div className="flex items-center gap-2.5 border-b border-border pb-2.5">
-        {/* Legacy markup until the avatar is shadcn's: an island, so the preflight repair
-            still reaches it inside shadcn's popup (`styles/app/base.css`). */}
-        <span data-legacy="" className="contents">
-          <Avatar user={live} size="lg" />
-        </span>
+        <Avatar user={live} size="lg" />
         <div className="flex min-w-0 flex-col gap-0.5">
           <div className="truncate font-medium">{live.displayName}</div>
           {live.fullName && live.fullName !== live.displayName && (

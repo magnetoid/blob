@@ -126,8 +126,8 @@ interface ItemProps {
   onGone: (id: number) => void;
 }
 
-/** One notice, held through its exit by the hook `Menu` uses. A component of its own
- *  because that takes a ref and a hook, and neither can live inside a `.map`. */
+/** One notice, held through its exit by `usePresence`. A component of its own because
+ *  that takes a ref and a hook, and neither can live inside a `.map`. */
 function ToastItem({ toast, open, onDismiss, onGone }: ItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   const { present, state } = usePresence(open, ref);

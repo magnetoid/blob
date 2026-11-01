@@ -6,16 +6,16 @@
 // raise it only on purpose, in the commit that says why. It also holds two lines CLAUDE.md
 // draws: the call SDK (livekit-client) never reaches the first load — opening a channel
 // that merely shows a Meetup button must not cost everybody the media stack — and neither
-// does Base UI's overlay code, which would put some 75 KB of dialog, menu and popover machinery
-// in front of every first paint (components/overlays/, lib/overlays.ts).
+// does Base UI's overlay code, which would put about 42 KB gzipped of dialog, menu and
+// popover machinery in front of every first paint (components/overlays/, lib/overlays.ts).
 import { readdirSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
 // The measured first load rounded up, plus 1 KB. The entry chunk carries the last commits'
 // subjects for "What's new" (vite.config.ts), so the same code weighs a few hundred bytes
-// more or less from one commit to the next — 239.6 KB, then 239.7, for one tree — and a
-// budget with no room would fail a docs commit, a merge ref or a squash for nothing the
-// app does. Lower it with the app, keeping the 1 KB.
+// more or less from one commit to the next — 239.6 KB, then 239.7, for one tree under
+// Vite 6 — and a budget with no room would fail a docs commit, a merge ref or a squash for
+// nothing the app does. Lower it with the app, keeping the 1 KB.
 const BUDGET_KB = 233;
 const DIST = new URL('../apps/web/dist/', import.meta.url);
 /** Strings only livekit-client's own code carries. */

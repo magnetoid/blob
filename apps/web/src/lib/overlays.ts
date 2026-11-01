@@ -2,12 +2,13 @@
  * The one door to the overlay chunk.
  *
  * shadcn's dialog, alert dialog, dropdown menu and popover stand on Base UI's overlay
- * machinery and floating-ui, which is some 75 KB gzipped on top of a first load that
- * has 40 KB of room. So none of them is imported statically. `components/overlays/index.ts`
- * is the barrel that chunk is built from; this module is the only place that imports it,
- * `components/lazyOverlay.tsx` is how a component waits for it, and
- * `scripts/bundle-budget.mjs` fails the build if Base UI's overlay code ever turns up in
- * the first load by another road.
+ * machinery and floating-ui, about 42 KB gzipped, on top of a first load that sits a little
+ * over a kilobyte under `BUDGET_KB` and 28 KB under the 260 KB ceiling. So none of them is
+ * imported statically. `components/overlays/index.ts` is the barrel that chunk is built
+ * from; this module is the only place that imports it, `components/lazyOverlay.tsx` is how
+ * a component waits for it, and `scripts/bundle-budget.mjs` fails the build if Base UI's
+ * overlay code ever turns up in the first load by another road. A chunk that will not load
+ * at all — a deploy replaced it — is `lib/staleBuild.ts`'s to explain.
  */
 
 /** What the barrel exports, which is what `lazyOverlay`'s `pick` chooses from. */

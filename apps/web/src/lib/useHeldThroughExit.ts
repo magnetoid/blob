@@ -15,8 +15,8 @@ import { FALLBACK_MS } from './usePresence.ts';
  * Returns that, and what to call once the exit has played — Base UI says so in
  * `onOpenChangeComplete`. Adjusted during render, React's "adjusting state when a prop
  * changes", so the panel goes in the same commit as the `open` that asked for it; and
- * `FALLBACK_MS` is the floor for an exit nobody reports, since a chunk that never arrived
- * has none to play.
+ * `FALLBACK_MS` is the backstop for an exit nobody reports — 400ms against a 150ms exit —
+ * since a chunk that never arrived has none to play.
  */
 export function useHeldThroughExit(open: boolean): readonly [drawn: boolean, exited: () => void] {
   const [phase, setPhase] = useState({ open, leaving: false });

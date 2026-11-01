@@ -12,8 +12,9 @@
  *
  * The anchor is out of the flow and the span round it has no box (`contents`), so neither
  * costs the caller's layout anything, and the anchor still hangs from the caller's own
- * wrapper. The panel comes after the anchor rather than inside it so the anchor is in the
- * document by the time Base UI looks for it to draw into.
+ * wrapper. The panel is drawn inside that zero-size anchor span: the lazy half, rendered
+ * after the anchor, hands it to Base UI as its portal's container, and Base UI draws the
+ * popup there.
  *
  * Everything Base UI draws for the panel lands inside the outer span, including the focus
  * guards it puts round a portal to carry Tab from a trigger to a panel drawn somewhere

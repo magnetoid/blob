@@ -2,12 +2,16 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App.tsx';
 import { installLogCapture } from './lib/diagnostics.ts';
+import { installStaleBuildNotice } from './lib/staleBuild.ts';
 import { registerServiceWorker } from './lib/push.ts';
 import './styles/index.css';
 
 // Before React renders, so a crash during the first paint is still in the buffer when
 // someone reports it. A feedback ticket's whole value is the log attached to it.
 installLogCapture();
+
+// Before anything is imported lazily: a chunk that a deploy has replaced says "reload", once.
+installStaleBuildNotice();
 
 // Production only: the dev server's HMR and a service worker fight over every reload,
 // and push needs a stable origin anyway.

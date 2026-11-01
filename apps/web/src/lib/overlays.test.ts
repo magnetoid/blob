@@ -2,8 +2,8 @@
 /**
  * The seam that keeps shadcn's overlays out of the first load.
  *
- * Dialog, menu and popover pull in Base UI's overlay machinery and floating-ui —
- * 76 KB gzipped between them — so they are one dynamic import, started once the page has
+ * Dialog, menu and popover pull in Base UI's overlay machinery and floating-ui — about
+ * 42 KB gzipped between them — so they are one dynamic import, started once the page has
  * painted and shared by everything that asks. The cases here are the three ways that
  * could quietly go wrong: asking twice fetches twice, one failed fetch breaks every
  * later open, and "after first paint" becomes "during it".
