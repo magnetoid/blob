@@ -27,10 +27,7 @@
 @import "./app/admin-console.css";
 @import "./app/usage.css";
 @import "./app/the-agents-console.css";
-@import "./app/deploying-an-agent-from-a-repository.css";
 @import "./app/message-blocks.css";
-@import "./app/hosted-agent-deployment.css";
-@import "./app/an-agents-configuration.css";
 @import "./app/an-agents-terminal.css";
 @import "./app/emoji-the-picker-and-custom-emoji-wherever-they-render.css";
 @import "./app/slash-commands.css";
@@ -70,7 +67,6 @@
 @import "./app/home.css";
 @import "./app/the-janus-page-server-half.css";
 @import "./app/calls.css";
-@import "./app/calls-the-admin-settings-page.css";
 @import "./app/mcp-servers.css";
 @import "./app/the-decision-log.css";
 @import "./app/an-agents-notes.css";

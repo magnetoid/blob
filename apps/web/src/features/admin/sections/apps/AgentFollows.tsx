@@ -10,7 +10,7 @@
  * followed channel to messages with files, or to the questions nobody answered.
  */
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   api,
   type AppChannel,
@@ -18,6 +18,11 @@ import {
   type FollowHears,
 } from "../../../../lib/api.ts";
 import { useFetch } from "../../../../lib/useFetch.ts";
+import { ItemActions, ItemContent, ItemTitle } from "../../../../components/ui/item.tsx";
+import { Label } from "../../../../components/ui/label.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../../components/ui/native-select.tsx";
+import { Switch } from "../../../../components/ui/switch.tsx";
+import { CardNotice, CardRow, CardRows } from "../../../console/Card.tsx";
 
 /** What a followed channel can send the agent, as one choice. */
 const HEARING: readonly { value: string; label: string }[] = [
@@ -63,6 +68,7 @@ export function AgentFollows({
   const [changed, setChanged] = useState<Map<string, FollowedChannel> | null>(null);
   const following = changed ?? loaded;
   const joined = channels.filter((channel) => channel.joined);
+  const ids = useId();
 
   function toggle(channel: AppChannel) {
     void act(async () => {
@@ -86,7 +92,7 @@ export function AgentFollows({
 
   return (
     <>
-      <div className="pref-hint">
+      <p className="m-0 max-w-[68ch] text-sm text-pretty text-muted-foreground">
         A channel {agentName} follows sends it what people post there, not only what mentions
         it — told it was not addressed, so it can stay quiet unless it has something to add.
         Choose what it hears: every message, only messages with files, or only the questions
@@ -94,45 +100,49 @@ export function AgentFollows({
         post through Blob&apos;s tools, it shows the channel nothing while it thinks, and it
         hears at most one message every two minutes and forty a day in each channel. Switch
         it on only for an agent built to keep quiet.
-      </div>
-      {joined.length === 0 && (
-        <div className="pref-hint">It is in no channel yet. Add it to one above first.</div>
+      </p>
+      {joined.length === 0 ? (
+        <CardNotice>It is in no channel yet. Add it to one above first.</CardNotice>
+      ) : (
+        <CardRows>
+          {joined.map((channel) => {
+            const follow = following?.get(channel.id);
+            const on = follow !== undefined;
+            const where = `#${channel.name ?? channel.id}`;
+            const switchId = `${ids}-${channel.id}`;
+            return (
+              <CardRow key={channel.id}>
+                <ItemContent>
+                  <ItemTitle>
+                    <Label htmlFor={switchId}>{where}</Label>
+                  </ItemTitle>
+                </ItemContent>
+                <ItemActions>
+                  {follow && (
+                    <NativeSelect
+                      aria-label={`What ${agentName} hears in ${where}`}
+                      value={hearingOf(follow)}
+                      onChange={(event) => hear(channel, event.target.value)}
+                    >
+                      {HEARING.map((option) => (
+                        <NativeSelectOption key={option.value} value={option.value}>
+                          {option.label}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  )}
+                  <Switch
+                    id={switchId}
+                    checked={on}
+                    disabled={following === null}
+                    onCheckedChange={() => toggle(channel)}
+                  />
+                </ItemActions>
+              </CardRow>
+            );
+          })}
+        </CardRows>
       )}
-      {joined.map((channel) => {
-        const follow = following?.get(channel.id);
-        const on = follow !== undefined;
-        const where = `#${channel.name ?? channel.id}`;
-        return (
-          <div className="pref-row" key={channel.id}>
-            <div className="grow min-0">
-              <div className="pref-label">{where}</div>
-            </div>
-            {follow && (
-              <select
-                className="input"
-                aria-label={`What ${agentName} hears in ${where}`}
-                value={hearingOf(follow)}
-                onChange={(event) => hear(channel, event.target.value)}
-              >
-                {HEARING.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            )}
-            <button
-              className="toggle"
-              aria-pressed={on}
-              aria-label={`${agentName} follows ${where}`}
-              disabled={following === null}
-              onClick={() => toggle(channel)}
-            >
-              <span />
-            </button>
-          </div>
-        );
-      })}
     </>
   );
 }

@@ -1,21 +1,35 @@
 /** Installed apps, and the agents this workspace hosts. */
 
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useId, useState, type CSSProperties } from "react";
 import {
   api,
   type AdminPlugin,
   type AdminPluginCatalog,
   type WorkspacePolicy,
 } from "../../../lib/api.ts";
+import { cn } from "cn";
 import { navigate } from "../../../lib/router.ts";
 import { useStore } from "../../../lib/store.ts";
 import { Dialog, DialogPresence } from "../../../components/Dialog.tsx";
 import { EmptyState } from "../../../components/EmptyState.tsx";
+import { Badge } from "../../../components/ui/badge.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import { Field, FieldContent, FieldDescription, FieldLabel } from "../../../components/ui/field.tsx";
+import { Switch } from "../../../components/ui/switch.tsx";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../components/ui/table.tsx";
+import { ToggleGroup, ToggleGroupItem } from "../../../components/ui/toggle-group.tsx";
 import { ConnectAgentForm } from "./apps/ConnectAgentForm.tsx";
 import { InstallAppForm } from "./apps/InstallAppForm.tsx";
 import { DesktopAgentSetup } from "../../agentic/DesktopAgentSetup.tsx";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
-import { Card, CardNotice } from "../../console/Card.tsx";
+import { Card, CardNotice, CardTable } from "../../console/Card.tsx";
+import { CopyField } from "../../console/CopyField.tsx";
 import { useAdminAction } from "../../console/hooks.ts";
 import { AppSettings } from "./AppSettings.tsx";
 import { isSeededJanus } from "./janus/seeded.ts";
@@ -76,6 +90,7 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
   const [installing, setInstalling] = useState<InstallPath | null>(null);
   const [secretNotice, setSecretNotice] = useState<SecretNotice | null>(null);
   const workspaceId = useStore((s) => s.workspaceId);
+  const switchId = useId();
 
   const load = useCallback(() => {
     setLoading(true);
@@ -121,10 +136,6 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
 
   const act = useAdminAction(onError, load);
 
-  const copySecret = async (value: string) => {
-    await navigator.clipboard.writeText(value);
-  };
-
   const installed = plugins.length;
   const runningNow = plugins.reduce((sum, p) => sum + (p.runningNow ?? 0), 0);
   const runsThisWeek = plugins.reduce(
@@ -133,103 +144,84 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
   );
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       {/* Credentials first: they are shown once, and the page opens here straight after
           the install dialog closes. */}
       {secretNotice && (
-        <div className="admin-secret-card">
-          <div className="min-0">
-            <div className="admin-row-title">{secretNotice.pluginName}</div>
-            <div className="admin-row-meta">
-              These credentials are shown once. Rotate them later if you lose
-              them.
-            </div>
-          </div>
+        <Card
+          title="New credentials"
+          description={`${secretNotice.pluginName} — these credentials are shown once. Rotate them later if you lose them.`}
+        >
           {secretNotice.signingSecret && (
-            <div className="draft-chip admin-secret-chip">
-              <span className="admin-secret-label">Signing secret</span>
-              <code>{secretNotice.signingSecret}</code>
-              <button
-                className="btn btn-ghost"
-                onClick={() => void copySecret(secretNotice.signingSecret!)}
-              >
-                Copy
-              </button>
-            </div>
+            <CopyField label="Signing secret" value={secretNotice.signingSecret} />
           )}
           {secretNotice.botToken && (
-            <div className="draft-chip admin-secret-chip">
-              <span className="admin-secret-label">Bot token</span>
-              <code>{secretNotice.botToken}</code>
-              <button
-                className="btn btn-ghost"
-                onClick={() => void copySecret(secretNotice.botToken!)}
-              >
-                Copy
-              </button>
-            </div>
+            <CopyField label="Bot token" value={secretNotice.botToken} />
           )}
+        </Card>
+      )}
+
+      {/* What these two print is the agents console's own markup (`features/agentic/`),
+          drawn by the legacy stylesheet. */}
+      {secretNotice?.setup === "janus" && secretNotice.botToken && (
+        <div data-legacy>
+          <JanusSetup
+            agentName={secretNotice.pluginName}
+            botToken={secretNotice.botToken}
+          />
+        </div>
+      )}
+      {secretNotice?.setup === "bridge" && secretNotice.botToken && (
+        <div data-legacy>
+          <DesktopAgentSetup
+            agentName={secretNotice.pluginName}
+            botToken={secretNotice.botToken}
+            signingSecret={secretNotice.signingSecret ?? null}
+          />
         </div>
       )}
 
-      {secretNotice?.setup === "janus" && secretNotice.botToken && (
-        <JanusSetup
-          agentName={secretNotice.pluginName}
-          botToken={secretNotice.botToken}
-        />
-      )}
-      {secretNotice?.setup === "bridge" && secretNotice.botToken && (
-        <DesktopAgentSetup
-          agentName={secretNotice.pluginName}
-          botToken={secretNotice.botToken}
-          signingSecret={secretNotice.signingSecret ?? null}
-        />
-      )}
-
-      <div className="admin-console-grid">
-        <div className="console-stack min-0">
+      {/* Side by side only when the table keeps room for its five columns; below that the
+          guardrails follow it. Asked of the page's column rather than the window, because
+          the nav takes 240px of the window at one width and none of it at the next. */}
+      <div className="grid items-start gap-6 @min-[961px]/console-page:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="flex min-w-0 flex-col gap-6">
           <Card
             title="Agents"
             description={
-              <span className="admin-summary" aria-live="polite">
+              <span className="tabular-nums" aria-live="polite">
                 {installed} installed · {runningNow} running now · {runsThisWeek}{" "}
                 runs this week
               </span>
             }
             actions={
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setInstalling("janus")}
-              >
+              <Button type="button" onClick={() => setInstalling("janus")}>
                 + Install agent
-              </button>
+              </Button>
             }
           >
-            <div className="pref-row">
-              <div className="grow">
-                <div className="pref-label">Agents may run</div>
-                <div className="pref-hint">
+            <Field orientation="horizontal">
+              <FieldContent>
+                <FieldLabel htmlFor={switchId}>Agents may run</FieldLabel>
+                <FieldDescription id={`${switchId}-hint`}>
                   When off, mentions of agents are refused and nothing is
                   dispatched. Apps still receive webhook deliveries.
-                </div>
-              </div>
-              <button
-                className="toggle"
-                aria-pressed={agentsEnabled}
-                aria-label="Agents may run"
-                onClick={() =>
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                id={switchId}
+                aria-describedby={`${switchId}-hint`}
+                checked={agentsEnabled}
+                onCheckedChange={(on) =>
                   void act(async () => {
                     const updated = await api.admin.updateSettings({
-                      settings: { agentsEnabled: !agentsEnabled },
+                      settings: { agentsEnabled: on },
                     });
                     setAgentsEnabled(updated.settings.agentsEnabled !== false);
                   })
                 }
-              >
-                <span />
-              </button>
-            </div>
+              />
+            </Field>
 
             {loading && plugins.length === 0 ? (
               <CardNotice>Loading agents…</CardNotice>
@@ -239,26 +231,26 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
                 an app by its URL.
               </EmptyState>
             ) : (
-              <div className="console-table-wrap">
-                <table className="admin-table admin-agents">
-                  <thead>
-                    <tr>
-                      <th scope="col">Agent</th>
-                      <th scope="col">Access</th>
-                      <th scope="col" className="num">Runs 7d</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">
-                        <span className="sr-only">Configure</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {plugins.map((plugin) => (
-                      <AgentRow key={plugin.id} plugin={plugin} act={act} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <CardTable label="Agents">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead scope="col">Agent</TableHead>
+                    <TableHead scope="col">Access</TableHead>
+                    <TableHead scope="col" className="text-right">
+                      Runs 7d
+                    </TableHead>
+                    <TableHead scope="col">Status</TableHead>
+                    <TableHead scope="col">
+                      <span className="sr-only">Configure</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {plugins.map((plugin) => (
+                    <AgentRow key={plugin.id} plugin={plugin} act={act} />
+                  ))}
+                </TableBody>
+              </CardTable>
             )}
           </Card>
 
@@ -271,35 +263,34 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
       <DialogPresence when={installing}>
         {(installing) => (
           <Dialog label="Install an agent" onClose={() => setInstalling(null)}>
-            <div className="admin-install">
-              <div className="chip-row" aria-label="How the agent joins">
-                {(
-                  [
-                    ["janus", "Janus"],
-                    ["bridge", "Another agent on this machine"],
-                    ["app", "An app by URL"],
-                  ] as const
-                ).map(([path, label]) => (
-                  <button
-                    key={path}
-                    type="button"
-                    className="chip"
-                    aria-pressed={installing === path}
-                    onClick={() => setInstalling(path)}
-                  >
+            <div className="flex min-w-[min(560px,calc(100vw-48px))] flex-col gap-3.5">
+              {/* One way in is chosen at a time, and pressing the one that is chosen
+                  would leave none. */}
+              <ToggleGroup
+                aria-label="How the agent joins"
+                variant="outline"
+                className="flex-wrap"
+                value={[installing]}
+                onValueChange={([next]) => {
+                  const chosen = INSTALL_PATHS.find(([path]) => path === next);
+                  if (chosen) setInstalling(chosen[0]);
+                }}
+              >
+                {INSTALL_PATHS.map(([path, label]) => (
+                  <ToggleGroupItem key={path} value={path}>
                     {label}
-                  </button>
+                  </ToggleGroupItem>
                 ))}
-              </div>
+              </ToggleGroup>
 
               {installing === "janus" && (
-                <p className="pref-hint">
+                <p className="m-0 text-sm text-muted-foreground">
                   Janus dials Blob itself — no bridge, no public address. Register
                   it here, then give it the two values this page prints.
                 </p>
               )}
               {installing === "bridge" && (
-                <p className="pref-hint">
+                <p className="m-0 text-sm text-muted-foreground">
                   Any other AG-UI agent, with the bridge holding Blob's socket
                   beside it.
                 </p>
@@ -339,6 +330,13 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
   );
 }
 
+/** The three ways in, in the order they are offered: Janus first. */
+const INSTALL_PATHS = [
+  ["janus", "Janus"],
+  ["bridge", "Another agent on this machine"],
+  ["app", "An app by URL"],
+] as const satisfies readonly (readonly [InstallPath, string])[];
+
 /** What the agent may reach, in a sentence. The scopes themselves are on its page. */
 function accessOf(plugin: AdminPlugin): string {
   const n = plugin.channelCount ?? 0;
@@ -364,61 +362,84 @@ function AgentRow({
   const enabled = plugin.status === "enabled";
   const live = plugin.runningNow ?? 0;
   return (
-    <tr data-inactive={!enabled}>
-      <td>
-        <div className="admin-row-title">{plugin.name}</div>
-        <div className="admin-row-meta">
+    // An agent that is off goes grey, and its badge says why.
+    <TableRow className={cn(!enabled && "text-muted-foreground")}>
+      <TableCell className="align-top whitespace-normal">
+        <div className="font-medium">{plugin.name}</div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {plugin.description || plugin.slug}
-          <span className="role-pill">{plugin.runtime}</span>
+          <Badge variant="outline">{plugin.runtime}</Badge>
         </div>
-      </td>
-      <td className="admin-row-meta">{accessOf(plugin)}</td>
-      <td className="num">
+      </TableCell>
+      <TableCell className="align-top text-sm whitespace-normal text-muted-foreground">
+        {accessOf(plugin)}
+      </TableCell>
+      <TableCell className="text-right align-top tabular-nums">
         <span>{plugin.runsLastWeek ?? 0}</span>
         {live > 0 && (
-          <span className="admin-live" aria-label={`${live} running now`}>
+          // A run in flight. The one thing on the page worth a glance.
+          <Badge
+            variant="secondary"
+            className="ml-2"
+            role="img"
+            aria-label={`${live} running now`}
+          >
             ● {live} live
-          </span>
+          </Badge>
         )}
-      </td>
-      <td>
-        <span className="role-pill" data-status={plugin.status}>
-          {STATUS_LABEL[plugin.status] ?? plugin.status}
-        </span>
-        {plugin.runtime === "socket" && plugin.online != null && (
-          <span className="role-pill" data-online={plugin.online}>
-            {plugin.online ? "online" : "offline"}
-          </span>
-        )}
-      </td>
-      <td className="console-cell-actions">
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={() =>
-            void act(() => api.admin.setPluginEnabled(plugin.id, !enabled))
-          }
-        >
-          {enabled ? "Disable" : "Enable"}
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          // The agent every workspace has owns a page of its own — the workspace's half
-          // of it, and for the server's admin what Janus runs on. The generic app page
-          // shows none of that, so its row goes there instead.
-          onClick={() =>
-            navigate(
-              isSeededJanus(plugin)
-                ? "/admin/janus"
-                : `/admin/apps/${plugin.id}`,
-            )
-          }
-        >
-          Configure
-        </button>
-      </td>
-    </tr>
+      </TableCell>
+      <TableCell className="align-top">
+        <div className="flex flex-wrap gap-1.5">
+          <Badge
+            variant={
+              enabled
+                ? "secondary"
+                : plugin.status === "failed"
+                  ? "destructive"
+                  : "outline"
+            }
+          >
+            {STATUS_LABEL[plugin.status] ?? plugin.status}
+          </Badge>
+          {plugin.runtime === "socket" && plugin.online != null && (
+            <Badge variant={plugin.online ? "secondary" : "outline"}>
+              {plugin.online ? "online" : "offline"}
+            </Badge>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="align-top">
+        <div className="flex justify-end gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label={`${enabled ? "Disable" : "Enable"} ${plugin.name}`}
+            onClick={() =>
+              void act(() => api.admin.setPluginEnabled(plugin.id, !enabled))
+            }
+          >
+            {enabled ? "Disable" : "Enable"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label={`Configure ${plugin.name}`}
+            // The agent every workspace has owns a page of its own — the workspace's half
+            // of it, and for the server's admin what Janus runs on. The generic app page
+            // shows none of that, so its row goes there instead.
+            onClick={() =>
+              navigate(
+                isSeededJanus(plugin)
+                  ? "/admin/janus"
+                  : `/admin/apps/${plugin.id}`,
+              )
+            }
+          >
+            Configure
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -429,18 +450,9 @@ function AgentRow({
  * and a tick that does nothing is worse than no tick.
  */
 function Guardrails({ policy }: { policy: WorkspacePolicy | null }) {
-  // A card, drawn by hand rather than with <Card>: it stays an <aside> named by its
-  // heading, which is what it was to a screen reader before it was a card.
   return (
-    <aside className="console-card admin-guardrails" aria-labelledby="guardrails-title">
-      <header className="console-card-header">
-        <div className="console-card-heading">
-          <h2 id="guardrails-title" className="console-card-title">
-            Guardrails
-          </h2>
-        </div>
-      </header>
-      <ul className="admin-guardrail-list">
+    <Card title="Guardrails">
+      <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5 text-sm">
         <li>Agents act with the asker's permissions</li>
         {policy && (
           <li>
@@ -450,41 +462,39 @@ function Guardrails({ policy }: { policy: WorkspacePolicy | null }) {
               : " — off"}
           </li>
         )}
-        <li className="muted" data-unavailable="true">
+        {/* Not live yet, and said so in words; the muted colour is the only dimming,
+            because opacity on top of it took the line under 4.5:1. */}
+        <li className="list-[circle] text-muted-foreground">
           Destructive tools require a human click — not yet available
         </li>
       </ul>
-      <button
+      <Button
         type="button"
-        className="btn btn-ghost"
+        variant="outline"
+        className="self-start"
         onClick={() => navigate("/server/app-policy")}
       >
         App policy
-      </button>
-    </aside>
+      </Button>
+    </Card>
   );
 }
 
 function RunsThisWeek({ days }: { days: { date: string; runs: number }[] }) {
   const max = Math.max(1, ...days.map((d) => d.runs));
   return (
-    <section className="console-card admin-chart" aria-labelledby="runs-week-title">
-      <header className="console-card-header">
-        <div className="console-card-heading">
-          <h2 id="runs-week-title" className="console-card-title">
-            Runs this week
-          </h2>
-        </div>
-      </header>
+    <Card title="Runs this week">
       <div
-        className="admin-chart-bars"
+        className="mt-2 grid h-24 grid-cols-7 items-end gap-2"
         role="img"
         aria-label={days.map((d) => `${weekday(d.date)} ${d.runs}`).join(", ")}
       >
         {days.map((day) => (
-          <div key={day.date} className="admin-chart-col">
+          <div key={day.date} className="flex h-full min-h-0 flex-col items-center justify-end gap-1.5">
+            {/* The height is the day's share of the busiest day, so it is data and rides
+                in a custom property. */}
             <div
-              className="admin-chart-bar"
+              className="min-h-0.5 w-full origin-bottom scale-y-(--bar-scale) rounded-t-sm bg-primary transition-transform duration-(--dur-open) ease-(--ease-standard) motion-reduce:transition-none"
               style={
                 {
                   "--bar-scale": day.runs / max,
@@ -492,11 +502,11 @@ function RunsThisWeek({ days }: { days: { date: string; runs: number }[] }) {
               }
               title={`${day.runs} on ${day.date}`}
             />
-            <span className="admin-chart-label">{weekday(day.date)}</span>
+            <span className="text-xs text-muted-foreground">{weekday(day.date)}</span>
           </div>
         ))}
       </div>
-    </section>
+    </Card>
   );
 }
 

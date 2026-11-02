@@ -8,7 +8,7 @@
  * spoke nowhere, with nothing on screen to say why.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import {
   api,
   type AdminAgentRun,
@@ -25,12 +25,26 @@ import { byDisplayName } from "../../../lib/format.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../../components/Dialog.tsx";
 import { showError } from "../../../lib/toasts.ts";
-import { Card, CardNotice } from "../../console/Card.tsx";
+import { ChevronLeftIcon } from "../../../components/Icon.tsx";
+import { Alert, AlertDescription } from "../../../components/ui/alert.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from "../../../components/ui/field.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../components/ui/native-select.tsx";
+import { Switch } from "../../../components/ui/switch.tsx";
+import { Card, CardFields, CardNotice, LegacyRows } from "../../console/Card.tsx";
+import { CopyField } from "../../console/CopyField.tsx";
 import { AppChannelList } from "./apps/AppChannelList.tsx";
 import { AgentFollows } from "./apps/AgentFollows.tsx";
 import { AgentMcpServers } from "./apps/AgentMcpServers.tsx";
 import { PluginCard } from "./apps/PluginCard.tsx";
 import { RecentErrors } from "./apps/RecentErrors.tsx";
+import { useDisclosure } from "./apps/useDisclosure.ts";
 import { JanusSetup } from "../../agentic/JanusSetup.tsx";
 import { DesktopAgentSetup } from "../../agentic/DesktopAgentSetup.tsx";
 import { MemoryList } from "../../agentic/MemoryList.tsx";
@@ -46,6 +60,7 @@ export function AppSettings({ pluginId, onError }: Props) {
   const [channels, setChannels] = useState<AppChannel[]>([]);
   const [catalog, setCatalog] = useState<AdminPluginCatalog | null>(null);
   const users = useStore((s) => s.users);
+  const ids = useId();
 
   // Everything per-app that the list used to carry on a card lives here now: the
   // budget dial, the consent block, the credential buttons, the activity log and
@@ -142,13 +157,15 @@ export function AppSettings({ pluginId, onError }: Props) {
     .sort(byDisplayName);
 
   return (
-    <div className="console-stack">
-      <button
-        className="btn btn-ghost console-back"
+    <div className="flex flex-col gap-6">
+      <Button
+        variant="ghost"
+        className="self-start"
         onClick={() => navigate("/admin/apps")}
       >
-        ← All apps
-      </button>
+        <ChevronLeftIcon size="sm" />
+        All apps
+      </Button>
 
       {/* What it is, where it points, whose it is and what it may do: the four answers
           that were four headings down the page, as rows of the app's own card. */}
@@ -163,152 +180,160 @@ export function AppSettings({ pluginId, onError }: Props) {
         }
       >
         {plugin.lastError && (
-          <div className="connection-banner">
-            Last failure: {plugin.lastError}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>Last failure: {plugin.lastError}</AlertDescription>
+          </Alert>
         )}
         <RecentErrors errors={plugin.recentErrors} />
 
-        <div className="pref-row">
-          <div className="grow">
-            <h3 className="pref-label">Endpoint</h3>
-            <div className="pref-hint console-break">
-              {endpoint ?? "None — this app is not reachable over the network."}
-            </div>
-          </div>
-        </div>
+        <CardFields>
+          <Field orientation="responsive">
+            <FieldContent>
+              <FieldTitle>Endpoint</FieldTitle>
+              <FieldDescription className="wrap-anywhere">
+                {endpoint ?? "None — this app is not reachable over the network."}
+              </FieldDescription>
+            </FieldContent>
+          </Field>
 
-        <div className="pref-row">
-          <div className="grow">
-            <h3 className="pref-label">Owner</h3>
-            <div className="pref-hint">
-              {plugin.ownerUserId
-                ? `Only ${owner?.displayName ?? "its owner"} can command this agent, plus anyone they lend it to with /allow. Mentioning it does nothing for everybody else.`
-                : "Nobody owns this agent, so anyone can mention it and get an answer — which is what the assistant a workspace shares should do."}
-            </div>
-          </div>
-          <select
-            className="input"
-            aria-label={`Owner of ${plugin.name}`}
-            value={plugin.ownerUserId ?? ""}
-            onChange={(event) =>
-              void act(() =>
-                api.admin.setPluginOwner(pluginId, event.target.value || null),
-              )
-            }
-          >
-            <option value="">The workspace — anyone can use it</option>
-            {plugin.ownerUserId && !owner && (
-              <option value={plugin.ownerUserId}>Someone no longer here</option>
-            )}
-            {people.map((person) => (
-              <option key={person.id} value={person.id}>
-                {person.displayName}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="pref-row">
-          <div className="grow">
-            <h3 className="pref-label">Permissions</h3>
-            <div className="pref-hint">
-              {plugin.scopes.length ? plugin.scopes.join(", ") : "None granted."}
-            </div>
-          </div>
-        </div>
-
-        {(plugin.aguiUrl || plugin.runtime === "socket") && (
-          <div className="pref-row">
-            <div className="grow">
-              <h3 className="pref-label">What it may do in the workspace</h3>
-              <div className="pref-hint">
-                With Blob&apos;s tools, an agent can look further than the conversation it
-                was asked in — always as the person who asked, and in a channel only
-                into public channels and that room. Posts wait for that person&apos;s
-                approval unless you choose otherwise below.
-              </div>
-            </div>
-            <select
-              className="input"
-              aria-label={`What ${plugin.name} may do`}
-              value={plugin.toolAccess ?? "none"}
+          <Field orientation="responsive">
+            <FieldContent>
+              <FieldLabel htmlFor={`${ids}-owner`}>Owner</FieldLabel>
+              <FieldDescription id={`${ids}-owner-hint`}>
+                {plugin.ownerUserId
+                  ? `Only ${owner?.displayName ?? "its owner"} can command this agent, plus anyone they lend it to with /allow. Mentioning it does nothing for everybody else.`
+                  : "Nobody owns this agent, so anyone can mention it and get an answer — which is what the assistant a workspace shares should do."}
+              </FieldDescription>
+            </FieldContent>
+            <NativeSelect
+              id={`${ids}-owner`}
+              aria-describedby={`${ids}-owner-hint`}
+              value={plugin.ownerUserId ?? ""}
               onChange={(event) =>
                 void act(() =>
-                  api.admin.setPluginTools(
-                    pluginId,
-                    event.target.value as AdminPlugin["toolAccess"],
-                  ),
+                  api.admin.setPluginOwner(pluginId, event.target.value || null),
                 )
               }
             >
-              <option value="none">Only answer what it was asked</option>
-              <option value="read">Read and search, as the person who asked</option>
-              <option value="write">Read, and post as itself</option>
-            </select>
-          </div>
-        )}
+              <NativeSelectOption value="">
+                The workspace — anyone can use it
+              </NativeSelectOption>
+              {plugin.ownerUserId && !owner && (
+                <NativeSelectOption value={plugin.ownerUserId}>
+                  Someone no longer here
+                </NativeSelectOption>
+              )}
+              {people.map((person) => (
+                <NativeSelectOption key={person.id} value={person.id}>
+                  {person.displayName}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
 
-        {(plugin.aguiUrl || plugin.runtime === "socket") && plugin.toolAccess === "write" && (
-          <div className="pref-row">
-            <div className="grow">
-              <h3 className="pref-label">When it posts</h3>
-              <div className="pref-hint">
-                Asked in its own DM, the only words that reach it are that person&apos;s. In a
-                channel, anyone&apos;s message can try to steer it — so asking first is the
-                safe default there. Either way it can only post where that person and the
-                agent both can, and from a channel only to that room or a public one.
-              </div>
-            </div>
-            <select
-              className="input"
-              aria-label={`When ${plugin.name} posts`}
-              value={plugin.writeApproval ?? "ask"}
-              onChange={(event) =>
-                void act(() =>
-                  api.admin.setPluginTools(
-                    pluginId,
-                    "write",
-                    event.target.value as AdminPlugin["writeApproval"],
-                  ),
-                )
-              }
-            >
-              <option value="ask">Ask the person every time</option>
-              <option value="auto_in_dm">Without asking in its DM with them; ask elsewhere</option>
-              <option value="auto_everywhere">Without asking, anywhere</option>
-            </select>
-          </div>
-        )}
+          <Field orientation="responsive">
+            <FieldContent>
+              <FieldTitle>Permissions</FieldTitle>
+              <FieldDescription>
+                {plugin.scopes.length ? plugin.scopes.join(", ") : "None granted."}
+              </FieldDescription>
+            </FieldContent>
+          </Field>
 
-        {(plugin.aguiUrl || plugin.runtime === "socket") && (
-          <AgentMcpServers pluginId={pluginId} agentName={plugin.name} />
-        )}
+          {(plugin.aguiUrl || plugin.runtime === "socket") && (
+            <Field orientation="responsive">
+              <FieldContent>
+                <FieldLabel htmlFor={`${ids}-tools`}>
+                  What it may do in the workspace
+                </FieldLabel>
+                <FieldDescription id={`${ids}-tools-hint`}>
+                  With Blob&apos;s tools, an agent can look further than the conversation it
+                  was asked in — always as the person who asked, and in a channel only
+                  into public channels and that room. Posts wait for that person&apos;s
+                  approval unless you choose otherwise below.
+                </FieldDescription>
+              </FieldContent>
+              <NativeSelect
+                id={`${ids}-tools`}
+                aria-describedby={`${ids}-tools-hint`}
+                value={plugin.toolAccess ?? "none"}
+                onChange={(event) =>
+                  void act(() =>
+                    api.admin.setPluginTools(
+                      pluginId,
+                      event.target.value as AdminPlugin["toolAccess"],
+                    ),
+                  )
+                }
+              >
+                <NativeSelectOption value="none">Only answer what it was asked</NativeSelectOption>
+                <NativeSelectOption value="read">
+                  Read and search, as the person who asked
+                </NativeSelectOption>
+                <NativeSelectOption value="write">Read, and post as itself</NativeSelectOption>
+              </NativeSelect>
+            </Field>
+          )}
 
-        {(plugin.aguiUrl || plugin.runtime === "socket") && (
-          <div className="pref-row">
-            <div className="grow">
-              <h3 className="pref-label">Show its reasoning</h3>
-              <div className="pref-hint">
-                The card under a mention can show the channel a tail of what the agent
-                was thinking. Off by default: an agent narrates what it read there,
-                including from tools and memory of its own beyond the room.
-              </div>
-            </div>
-            <button
-              className="toggle"
-              aria-pressed={plugin.showsReasoning}
-              aria-label={`Show ${plugin.name}'s reasoning`}
-              onClick={() =>
-                void act(() =>
-                  api.admin.setPluginReasoning(pluginId, !plugin.showsReasoning),
-                )
-              }
-            >
-              <span />
-            </button>
-          </div>
-        )}
+          {(plugin.aguiUrl || plugin.runtime === "socket") && plugin.toolAccess === "write" && (
+            <Field orientation="responsive">
+              <FieldContent>
+                <FieldLabel htmlFor={`${ids}-posts`}>When it posts</FieldLabel>
+                <FieldDescription id={`${ids}-posts-hint`}>
+                  Asked in its own DM, the only words that reach it are that person&apos;s. In a
+                  channel, anyone&apos;s message can try to steer it — so asking first is the
+                  safe default there. Either way it can only post where that person and the
+                  agent both can, and from a channel only to that room or a public one.
+                </FieldDescription>
+              </FieldContent>
+              <NativeSelect
+                id={`${ids}-posts`}
+                aria-describedby={`${ids}-posts-hint`}
+                value={plugin.writeApproval ?? "ask"}
+                onChange={(event) =>
+                  void act(() =>
+                    api.admin.setPluginTools(
+                      pluginId,
+                      "write",
+                      event.target.value as AdminPlugin["writeApproval"],
+                    ),
+                  )
+                }
+              >
+                <NativeSelectOption value="ask">Ask the person every time</NativeSelectOption>
+                <NativeSelectOption value="auto_in_dm">
+                  Without asking in its DM with them; ask elsewhere
+                </NativeSelectOption>
+                <NativeSelectOption value="auto_everywhere">Without asking, anywhere</NativeSelectOption>
+              </NativeSelect>
+            </Field>
+          )}
+
+          {(plugin.aguiUrl || plugin.runtime === "socket") && (
+            <AgentMcpServers pluginId={pluginId} agentName={plugin.name} />
+          )}
+
+          {(plugin.aguiUrl || plugin.runtime === "socket") && (
+            <Field orientation="horizontal">
+              <FieldContent>
+                <FieldLabel htmlFor={`${ids}-reasoning`}>Show its reasoning</FieldLabel>
+                <FieldDescription id={`${ids}-reasoning-hint`}>
+                  The card under a mention can show the channel a tail of what the agent
+                  was thinking. Off by default: an agent narrates what it read there,
+                  including from tools and memory of its own beyond the room.
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                id={`${ids}-reasoning`}
+                aria-describedby={`${ids}-reasoning-hint`}
+                checked={plugin.showsReasoning}
+                onCheckedChange={(on) =>
+                  void act(() => api.admin.setPluginReasoning(pluginId, on))
+                }
+              />
+            </Field>
+          )}
+        </CardFields>
       </Card>
 
       <Card title="Channels">
@@ -326,46 +351,39 @@ export function AppSettings({ pluginId, onError }: Props) {
         </Card>
       )}
 
-      {secretNotice?.botToken && (
-        <Card title="New credentials">
-          <div className="admin-secret-card">
-            <div className="min-0">
-              <div className="admin-row-title">{secretNotice.pluginName}</div>
-              <div className="admin-row-meta">
-                Shown once. Rotate again later if you lose them.
-              </div>
-            </div>
-            {secretNotice.signingSecret && (
-              <div className="draft-chip admin-secret-chip">
-                <span className="admin-secret-label">Signing secret</span>
-                <code>{secretNotice.signingSecret}</code>
-              </div>
-            )}
-            <div className="draft-chip admin-secret-chip">
-              <span className="admin-secret-label">Bot token</span>
-              <code>{secretNotice.botToken}</code>
-            </div>
-          </div>
+      {/* A rotated signing secret and an issued token are each shown once, here, and not
+          again: the server keeps only their hashes. */}
+      {(secretNotice?.signingSecret || secretNotice?.botToken) && (
+        <Card
+          title="New credentials"
+          description="Shown once. Rotate again later if you lose them."
+        >
+          {secretNotice.signingSecret && (
+            <CopyField label="Signing secret" value={secretNotice.signingSecret} />
+          )}
+          {secretNotice.botToken && (
+            <CopyField label="Bot token" value={secretNotice.botToken} />
+          )}
         </Card>
       )}
       {secretNotice?.botToken && plugin.runtime === "socket" && (
         <>
-          <JanusSetup agentName={plugin.name} botToken={secretNotice.botToken} />
-          <details className="console-details">
-            <summary className="pref-hint">Not Janus? Connect another agent with the bridge</summary>
-            <DesktopAgentSetup
-              agentName={plugin.name}
-              botToken={secretNotice.botToken}
-              signingSecret={secretNotice.signingSecret ?? null}
-            />
-          </details>
+          {/* What these two print is the agents console's own markup (`features/agentic/`),
+              drawn by the legacy stylesheet. */}
+          <div data-legacy>
+            <JanusSetup agentName={plugin.name} botToken={secretNotice.botToken} />
+          </div>
+          <BridgeInstead
+            agentName={plugin.name}
+            botToken={secretNotice.botToken}
+            signingSecret={secretNotice.signingSecret ?? null}
+          />
         </>
       )}
 
       <Card title="Budget, credentials and activity">
         <PluginCard
           plugin={plugin}
-          expanded
           scopeCatalog={catalog?.scopes ?? {}}
           runs={runs}
           deliveries={deliveries}
@@ -374,7 +392,6 @@ export function AppSettings({ pluginId, onError }: Props) {
           act={act}
           onError={onError}
           onSecret={setSecretNotice}
-          onToggleActivity={() => undefined}
           onToggleDelivery={toggleDelivery}
           onReplay={(deliveryId) =>
             void act(async () => {
@@ -412,6 +429,36 @@ export function AppSettings({ pluginId, onError }: Props) {
   );
 }
 
+/** For a token that was issued to an agent that is not Janus: the bridge, folded under the
+ * Janus steps above it. */
+function BridgeInstead({
+  agentName,
+  botToken,
+  signingSecret,
+}: {
+  agentName: string;
+  botToken: string;
+  signingSecret: string | null;
+}) {
+  const disclosure = useDisclosure();
+  return (
+    <div className="flex flex-col items-start gap-3">
+      <Button variant="ghost" size="sm" {...disclosure.buttonProps}>
+        Not Janus? Connect another agent with the bridge
+      </Button>
+      {disclosure.open && (
+        <div id={disclosure.panelId} data-legacy className="w-full">
+          <DesktopAgentSetup
+            agentName={agentName}
+            botToken={botToken}
+            signingSecret={signingSecret}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * What this agent remembers of conversations you can see — the memories nobody owns
  * (migration 0050). Forget one and the agent starts that conversation fresh; forget them
@@ -442,12 +489,14 @@ function AgentNotesCard({
         <CardNotice>None, in the conversations you can see.</CardNotice>
       )}
       {notes.length > 0 && (
-        <NoteList
-          notes={notes}
-          showAgent={false}
-          onReword={(note, body) => act(() => api.admin.rewordAgentNote(pluginId, note.id, body))}
-          onForget={(note) => void act(() => api.admin.forgetAgentNote(pluginId, note.id))}
-        />
+        <LegacyRows>
+          <NoteList
+            notes={notes}
+            showAgent={false}
+            onReword={(note, body) => act(() => api.admin.rewordAgentNote(pluginId, note.id, body))}
+            onForget={(note) => void act(() => api.admin.forgetAgentNote(pluginId, note.id))}
+          />
+        </LegacyRows>
       )}
     </Card>
   );
@@ -471,25 +520,16 @@ function AgentMemoryCard({
   const memories = data?.memories ?? [];
 
   return (
-    <Card title="What it remembers">
-      {data && memories.length === 0 && (
-        <CardNotice>Nothing, in the conversations you can see.</CardNotice>
-      )}
-      {memories.length > 0 && (
-        <MemoryList
-          memories={memories}
-          showAgent={false}
-          onForget={(memory) =>
-            void act(() => api.admin.forgetAgentMemory(pluginId, memory.id))
-          }
-        />
-      )}
-      {data && (
-        <div className="console-row-more">
-          {confirming ? (
+    <Card
+      title="What it remembers"
+      // The way to forget all of it closes the card, whether or not any is listed: it also
+      // reaches the conversations that are not shown here.
+      footer={
+        data ? (
+          confirming ? (
             <>
-              <button
-                className="btn btn-danger"
+              <Button
+                variant="destructive"
                 onClick={() =>
                   void act(async () => {
                     await api.admin.forgetAllAgentMemory(pluginId);
@@ -498,17 +538,32 @@ function AgentMemoryCard({
                 }
               >
                 Forget every conversation
-              </button>
-              <button className="btn btn-ghost" onClick={() => setConfirming(false)}>
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirming(false)}>
                 Keep
-              </button>
+              </Button>
             </>
           ) : (
-            <button className="btn btn-ghost" onClick={() => setConfirming(true)}>
+            <Button variant="ghost" onClick={() => setConfirming(true)}>
               Forget everything it remembers of conversations
-            </button>
-          )}
-        </div>
+            </Button>
+          )
+        ) : undefined
+      }
+    >
+      {data && memories.length === 0 && (
+        <CardNotice>Nothing, in the conversations you can see.</CardNotice>
+      )}
+      {memories.length > 0 && (
+        <LegacyRows>
+          <MemoryList
+            memories={memories}
+            showAgent={false}
+            onForget={(memory) =>
+              void act(() => api.admin.forgetAgentMemory(pluginId, memory.id))
+            }
+          />
+        </LegacyRows>
       )}
     </Card>
   );
@@ -517,7 +572,7 @@ function AgentMemoryCard({
 /** Where the app page would be, while it loads or when the id names nothing here. */
 function NoApp({ children }: { children: string }) {
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card>
         <CardNotice>{children}</CardNotice>
       </Card>

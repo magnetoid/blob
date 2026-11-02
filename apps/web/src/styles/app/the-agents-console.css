@@ -1,112 +1,7 @@
 /* ─── the agents console (Meadow 2c) ─────────────────────────────────────── */
-/* One line of numbers, one table, the guardrails beside it, a week of bars under it.
-   The table is the real `.admin-table` ruleset above; it used to wrap a stack of card
-   divs too, which is why that class briefly meant two things. */
-.admin-summary {
-  margin: 4px 0 0;
-  font-size: var(--text-meta);
-  font-variant-numeric: tabular-nums;
-}
-
-.admin-console-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: var(--space-6);
-  align-items: start;
-}
-
-/* Side by side only when the table keeps room for its five columns; below that the
-   guardrails follow it. Asked of the page's column rather than the window, because the
-   nav takes 240px of the window at one width and none of it at the next. */
-@container console-page (max-width: 960px) {
-  .admin-console-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.admin-agents td {
-  vertical-align: top;
-}
-
-/* The runtime beside the description, and the second status pill beside the first. */
-.admin-agents .admin-row-meta .role-pill {
-  margin-left: var(--space-2);
-}
-
-.admin-agents .role-pill + .role-pill {
-  margin-left: 6px;
-}
-
 .admin-row-actions {
   white-space: nowrap;
   text-align: right;
-}
-
-/* A run in flight, in the agents' own colour. The one thing on the page worth a glance. */
-.admin-live {
-  margin-left: 8px;
-  font-size: var(--blob-text-xs);
-  font-weight: 600;
-  color: var(--iris);
-  white-space: nowrap;
-}
-
-.admin-guardrail-list {
-  padding-left: 18px;
-  font-size: var(--text-meta);
-  line-height: 1.5;
-}
-
-.admin-guardrail-list li + li {
-  margin-top: 6px;
-}
-
-/* Not live yet, and said so in words; the muted colour is the only dimming, because
-   opacity on top of it took the line under 4.5:1. */
-.admin-guardrail-list li[data-unavailable='true'] {
-  list-style-type: circle;
-}
-
-.admin-chart-bars {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-  height: 96px;
-  align-items: end;
-  margin-top: 8px;
-}
-
-.admin-chart-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  height: 100%;
-  min-height: 0;
-}
-
-.admin-chart-bar {
-  width: 100%;
-  height: 100%;
-  min-height: 2px;
-  border-radius: var(--blob-radius-xs) var(--blob-radius-xs) 0 0;
-  background: var(--blob-accent);
-  transform: scaleY(var(--bar-scale, 0));
-  transform-origin: bottom;
-  transition: transform var(--dur-open) var(--ease-standard);
-}
-
-.admin-chart-label {
-  font-size: var(--text-2xs);
-  color: var(--text-faint);
-}
-
-.admin-install {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: min(560px, calc(100vw - 48px));
 }
 
 .admin-row {
@@ -115,110 +10,6 @@
   gap: 13px;
   padding: 14px 0;
   border-bottom: 1px solid var(--hairline-soft);
-}
-
-.admin-plugin-card {
-  overflow: hidden;
-}
-
-.admin-plugin-card .admin-row {
-  margin: 0 18px;
-}
-
-.admin-plugin-actions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-/* The consent screen on an app card: an update's permission diff, itemised, with both
-   answers. Bordered like a run card — it is the same kind of object, a decision the
-   workspace owes a response to. */
-.admin-consent {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--hairline);
-  border-left: 3px solid var(--danger);
-  border-radius: var(--blob-radius-md);
-  background: var(--surface-muted);
-  max-width: 560px;
-}
-
-.admin-consent-title {
-  font-weight: 600;
-  font-size: var(--blob-text-sm);
-}
-
-.admin-consent-list {
-  margin: 8px 0 10px;
-  padding-left: 18px;
-  font-size: var(--blob-text-sm);
-  color: var(--text-2);
-}
-
-.admin-consent-list li + li {
-  margin-top: 3px;
-}
-
-.admin-consent-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* A scope an update requested that nobody has approved yet. */
-.chip[data-pending] {
-  border-style: dashed;
-  color: var(--text-3);
-}
-
-/* The budget meter row on an app card: the dial and the meter on one line. */
-.admin-budget {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-  font-size: var(--blob-text-sm);
-  color: var(--text-3);
-}
-
-.admin-budget-label {
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.admin-budget-usage[data-over] {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-.admin-budget-field {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.admin-budget-input {
-  width: 84px;
-}
-
-/* A token cap runs to six or seven digits. */
-.admin-budget-input-wide {
-  width: 116px;
-}
-
-.admin-budget-edit {
-  padding: 2px 8px;
-}
-
-.admin-plugin-deliveries {
-  margin: 0 18px 18px;
-  padding: 0 14px;
-  background: var(--surface-muted);
-}
-
-.admin-plugin-deliveries .admin-row:last-child {
-  border-bottom: 0;
 }
 
 .admin-row-title {
@@ -701,25 +492,6 @@
 }
 
 @media (max-width: 900px) {
-  .admin-app-form,
-  .admin-app-permissions {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-app-form-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .admin-plugin-card .admin-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .admin-plugin-actions {
-    justify-content: flex-start;
-  }
-
   .dashboard-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -736,22 +508,9 @@
   }
 }
 
-/* On a phone a card goes the full width of the page, and its own padding comes down
-   with it. */
 @media (max-width: 600px) {
   .console-stack {
     gap: var(--space-4);
-  }
-
-  .console-card {
-    --card-pad-x: var(--space-4);
-    --card-pad-y: var(--space-4);
-  }
-
-  /* A long table is as long as it is: the page scrolls it, and the box keeps only its
-     sideways scroll for columns wider than the phone. */
-  .console-card > .console-table-wrap {
-    max-height: none;
   }
 }
 

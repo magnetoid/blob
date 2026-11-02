@@ -1,7 +1,11 @@
 // @vitest-environment happy-dom
-/** The console's log of an agent's runs, and opening one to see what it did. */
+/** The console's log of an agent's runs, and opening one to see what it did.
+ *
+ * A run is a row: where it ran and how it ended, who asked and when. What it did and what
+ * it streamed are two disclosures on that row, each named after the run it belongs to and
+ * saying whether it is open; what it streamed is not fetched until somebody opens it. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { api, type AdminAgentRun } from '../../../../lib/api.ts';
 import { RunLog } from './RunLog.tsx';
 
@@ -35,6 +39,23 @@ function logged(overrides: Partial<AdminAgentRun> = {}): AdminAgentRun {
 }
 
 describe('the run log', () => {
+  it('is a row for each run: where it ran, how it ended, who asked and when', () => {
+    render(<RunLog pluginId="p1" runs={[logged(), logged({ id: 'r2', channelName: 'launch', status: 'succeeded', error: null, postCount: 1 })]} />);
+    const rows = screen.getAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]!).getByText('#general')).toBeTruthy();
+    expect(within(rows[0]!).getByText('failed')).toBeTruthy();
+    expect(within(rows[0]!).getByText(/^Ana asked · .* · 3000 ms · 0 replies · model unavailable$/)).toBeTruthy();
+    expect(within(rows[1]!).getByText('succeeded')).toBeTruthy();
+    expect(within(rows[1]!).getByText(/ · 1 reply$/)).toBeTruthy();
+  });
+
+  it('says there is nothing yet, in the words it was given', () => {
+    render(<RunLog pluginId="p1" runs={[]} emptyLabel="Janus has not been asked anything yet." />);
+    expect(screen.getByText('Janus has not been asked anything yet.')).toBeTruthy();
+    expect(screen.queryByRole('listitem')).toBeNull();
+  });
+
   it('opens a run onto what it did and what it was shown', () => {
     render(
       <RunLog
@@ -63,18 +84,27 @@ describe('the run log', () => {
         ]}
       />,
     );
-    const detail = document.querySelector('details.run-log-detail');
-    expect(detail?.querySelector('summary')?.textContent).toBe('What it did');
+    // Named after the run it is for, and closed until pressed.
+    const toggle = screen.getByRole('button', { name: 'What it did #general' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('read the thread')).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle.getAttribute('aria-controls')).toBeTruthy();
     expect(screen.getByText('read the thread')).toBeTruthy();
-    expect(detail?.querySelector('.agent-run-seen')?.textContent).toBe(
-      'Saw 4 messages of this channel',
-    );
+    expect(screen.getByText('Saw 4 messages of this channel')).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.getAttribute('aria-controls')).toBeNull();
+    expect(screen.queryByText('read the thread')).toBeNull();
   });
 
   it('offers no card to open for a run that left none', () => {
     render(<RunLog pluginId="p1" runs={[logged()]} />);
-    const summaries = [...document.querySelectorAll('details.run-log-detail > summary')];
-    expect(summaries.map((s) => s.textContent)).toEqual(['What it streamed']);
+    expect(screen.queryByRole('button', { name: /What it did/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'What it streamed #general' })).toBeTruthy();
     expect(screen.getByText(/model unavailable/)).toBeTruthy();
   });
 
@@ -91,9 +121,10 @@ describe('the run log', () => {
     render(<RunLog pluginId="p1" runs={[logged()]} />);
     expect(read).not.toHaveBeenCalled();
 
-    const detail = document.querySelector('details.run-log-detail') as HTMLDetailsElement;
-    detail.open = true;
-    fireEvent(detail, new Event('toggle'));
+    const toggle = screen.getByRole('button', { name: 'What it streamed #general' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
 
     expect(await screen.findByText('RUN_ERROR')).toBeTruthy();
     expect(read).toHaveBeenCalledWith('p1', 'r1');
@@ -111,9 +142,26 @@ describe('the run log', () => {
       keptUntil: '2026-10-14T10:00:00.000Z',
     });
     render(<RunLog pluginId="p1" runs={[logged()]} />);
-    const detail = document.querySelector('details.run-log-detail') as HTMLDetailsElement;
-    detail.open = true;
-    fireEvent(detail, new Event('toggle'));
+    fireEvent.click(screen.getByRole('button', { name: 'What it streamed #general' }));
     expect(await screen.findByText(/a conversation you are not in/)).toBeTruthy();
+  });
+
+  it('says so when its events cannot be read, and when none are kept', async () => {
+    const read = vi.spyOn(api.admin, 'runEvents').mockRejectedValueOnce(new Error('nope'));
+    render(<RunLog pluginId="p1" runs={[logged()]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'What it streamed #general' }));
+    expect(await screen.findByText('Its events could not be read.')).toBeTruthy();
+    expect(read).toHaveBeenCalledTimes(1);
+
+    cleanup();
+    vi.spyOn(api.admin, 'runEvents').mockResolvedValue({
+      hidden: false,
+      total: 0,
+      events: [],
+      keptUntil: '2026-10-14T10:00:00.000Z',
+    });
+    render(<RunLog pluginId="p1" runs={[logged()]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'What it streamed #general' }));
+    expect(await screen.findByText(/Nothing is kept for this run/)).toBeTruthy();
   });
 });

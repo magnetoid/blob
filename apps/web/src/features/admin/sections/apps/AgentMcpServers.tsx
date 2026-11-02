@@ -6,10 +6,12 @@
  * agent's side, so nobody wonders why it can open issues.
  */
 
-import { useCallback } from "react";
+import { useCallback, useId } from "react";
 import { api } from "../../../../lib/api.ts";
 import { navigate } from "../../../../lib/router.ts";
 import { useFetch } from "../../../../lib/useFetch.ts";
+import { Button } from "../../../../components/ui/button.tsx";
+import { Field, FieldContent, FieldDescription, FieldTitle } from "../../../../components/ui/field.tsx";
 
 export function AgentMcpServers({ pluginId, agentName }: { pluginId: string; agentName: string }) {
   const load = useCallback(
@@ -18,6 +20,7 @@ export function AgentMcpServers({ pluginId, agentName }: { pluginId: string; age
     [pluginId],
   );
   const { data: granted, error } = useFetch(load, [load]);
+  const hint = useId();
 
   const said =
     granted === null
@@ -30,15 +33,17 @@ export function AgentMcpServers({ pluginId, agentName }: { pluginId: string; age
             granted.some((server) => !server.enabled) ? " (some are switched off)" : ""
           }. Which calls wait for the person who asked is set tool by tool there.`;
 
+  // Not one of the page's switches: nothing here is set from this row. It says where
+  // things stand and goes to where they are changed.
   return (
-    <div className="pref-row">
-      <div className="grow">
-        <h3 className="pref-label">Tools from MCP servers</h3>
-        <div className="pref-hint">{said}</div>
-      </div>
-      <button className="btn" onClick={() => navigate("/admin/mcp-servers")}>
+    <Field orientation="horizontal">
+      <FieldContent>
+        <FieldTitle>Tools from MCP servers</FieldTitle>
+        <FieldDescription id={hint}>{said}</FieldDescription>
+      </FieldContent>
+      <Button variant="outline" aria-describedby={hint} onClick={() => navigate("/admin/mcp-servers")}>
         MCP servers
-      </button>
-    </div>
+      </Button>
+    </Field>
   );
 }

@@ -9,7 +9,8 @@
  * truth about who owns it, including when the owner is somebody the client cannot name.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import '../../../test/overlayChunk.ts';
 import { AppSettings } from './AppSettings.tsx';
 import { api } from '../../../lib/api.ts';
 import { useStore } from '../../../lib/store.ts';
@@ -17,6 +18,7 @@ import { useStore } from '../../../lib/store.ts';
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  window.history.replaceState(null, '', '/');
 });
 
 // An agent's page also lists the channels it follows (`AgentFollows`) and the MCP servers
@@ -73,7 +75,7 @@ function seed(ownerUserId: string | null) {
 }
 
 function ownerPicker() {
-  return screen.getByLabelText('Owner of Assistant') as HTMLSelectElement;
+  return screen.getByRole('combobox', { name: 'Owner' }) as HTMLSelectElement;
 }
 
 describe('who owns an agent', () => {
@@ -168,8 +170,11 @@ describe('showing an agent its reasoning', () => {
     const set = vi.spyOn(api.admin, 'setPluginReasoning').mockResolvedValue({} as never);
     render(<AppSettings pluginId="p1" onError={vi.fn()} />);
 
-    const toggle = await screen.findByRole('button', { name: "Show Assistant's reasoning" });
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    const toggle = await screen.findByRole('switch', {
+      name: 'Show its reasoning',
+      checked: false,
+      description: /Off by default/,
+    });
     fireEvent.click(toggle);
     await waitFor(() => expect(set).toHaveBeenCalledWith('p1', true));
   });
@@ -178,7 +183,7 @@ describe('showing an agent its reasoning', () => {
     seed(null);
     render(<AppSettings pluginId="p1" onError={vi.fn()} />);
     await waitFor(() => expect(ownerPicker()).toBeTruthy());
-    expect(screen.queryByRole('button', { name: /reasoning/ })).toBeNull();
+    expect(screen.queryByRole('switch', { name: /reasoning/ })).toBeNull();
   });
 });
 
@@ -204,13 +209,15 @@ describe("what an agent may do with Blob's tools", () => {
     const set = vi.spyOn(api.admin, 'setPluginTools').mockResolvedValue({} as never);
     render(<AppSettings pluginId="p1" onError={vi.fn()} />);
 
-    const select = (await screen.findByLabelText('What Assistant may do')) as HTMLSelectElement;
+    const select = (await screen.findByRole('combobox', {
+      name: 'What it may do in the workspace',
+    })) as HTMLSelectElement;
     expect(select.value).toBe('none');
     expect([...select.options].map((o) => o.value)).toEqual(['none', 'read', 'write']);
     fireEvent.change(select, { target: { value: 'write' } });
     await waitFor(() => expect(set).toHaveBeenCalledWith('p1', 'write'));
     // Asking first is the rule until the agent can post at all.
-    expect(screen.queryByLabelText('When Assistant posts')).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'When it posts' })).toBeNull();
   });
 
   it('asks when it may post without asking only once it may post, and sends the choice', async () => {
@@ -235,7 +242,7 @@ describe("what an agent may do with Blob's tools", () => {
     const set = vi.spyOn(api.admin, 'setPluginTools').mockResolvedValue({} as never);
     render(<AppSettings pluginId="p1" onError={vi.fn()} />);
 
-    const when = (await screen.findByLabelText('When Assistant posts')) as HTMLSelectElement;
+    const when = (await screen.findByRole('combobox', { name: 'When it posts' })) as HTMLSelectElement;
     expect(when.value).toBe('ask');
     expect([...when.options].map((o) => o.value)).toEqual([
       'ask',
@@ -304,5 +311,138 @@ describe('the credentials an app holds', () => {
 
     const line = await screen.findByText(/Signing secret rotated/);
     expect(line.textContent).toMatch(/Signing secret rotated 3h ago · no bot token used yet/);
+  });
+});
+
+describe('the page itself', () => {
+  it('is the app’s card: its name, what it is, where it points and what it may reach', async () => {
+    seed(null);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+    expect(await screen.findByRole('heading', { name: 'Assistant' })).toBeTruthy();
+    expect(screen.getByText(/assistant · v1\.0\.0 · enabled/)).toBeTruthy();
+    expect(screen.getByText('https://apps.example.com/hook')).toBeTruthy();
+    expect(screen.getByText('None granted.')).toBeTruthy();
+  });
+
+  it('goes back to the list', async () => {
+    seed(null);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: /All apps/ }));
+    expect(window.location.pathname).toBe('/admin/apps');
+  });
+
+  it('says when the id names nothing installed here', async () => {
+    vi.spyOn(api.admin, 'plugins').mockResolvedValue({ plugins: [] } as never);
+    vi.spyOn(api.admin, 'appChannels').mockResolvedValue({ channels: [] } as never);
+    vi.spyOn(api.admin, 'pluginCatalog').mockResolvedValue({ scopes: {}, events: {} } as never);
+    vi.spyOn(api.admin, 'pluginRuns').mockResolvedValue({ runs: [] } as never);
+    vi.spyOn(api.admin, 'pluginDeliveries').mockResolvedValue({ deliveries: [] } as never);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+    expect(await screen.findByText('That app is not installed here.')).toBeTruthy();
+  });
+
+  it('puts the last failure where it is read as an alert, and keeps the record under it', async () => {
+    useStore.setState({ users: { u1: ME, u2: MATE, u3: BOT } } as never);
+    vi.spyOn(api.admin, 'plugins').mockResolvedValue({
+      plugins: [
+        {
+          ...PLUGIN,
+          lastError: 'Circuit open: too many delivery failures.',
+          recentErrors: [{ at: '2026-10-07T10:00:00.000Z', error: 'the agent answered 500' }],
+        },
+      ],
+    } as never);
+    vi.spyOn(api.admin, 'appChannels').mockResolvedValue({ channels: [] } as never);
+    vi.spyOn(api.admin, 'pluginCatalog').mockResolvedValue({ scopes: {}, events: {} } as never);
+    vi.spyOn(api.admin, 'pluginRuns').mockResolvedValue({ runs: [] } as never);
+    vi.spyOn(api.admin, 'pluginDeliveries').mockResolvedValue({ deliveries: [] } as never);
+    vi.spyOn(api.admin, 'agentMemory').mockResolvedValue({ memories: [] } as never);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Last failure: Circuit open: too many delivery failures.');
+    const record = screen.getByRole('button', { name: '1 recent error' });
+    expect(record.getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
+describe('where an agent can speak', () => {
+  it('adds it to a channel, and takes it out of one', async () => {
+    seed(null);
+    vi.spyOn(api.admin, 'appChannels').mockResolvedValue({
+      channels: [
+        { id: 'c1', name: 'general', kind: 'public', joined: true },
+        { id: 'c2', name: 'launch', kind: 'public', joined: false },
+      ],
+    } as never);
+    const join = vi.spyOn(api.admin, 'appJoinChannel').mockResolvedValue({ ok: true } as never);
+    const leave = vi.spyOn(api.admin, 'appLeaveChannel').mockResolvedValue({ ok: true } as never);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+
+    const list = await screen.findByRole('list', { name: 'Channels' });
+    const launch = within(within(list).getByText('#launch').closest('[role=listitem]') as HTMLElement);
+    fireEvent.click(launch.getByRole('button', { name: 'Add #launch' }));
+    await waitFor(() => expect(join).toHaveBeenCalledWith('p1', 'c2'));
+
+    const general = within(within(list).getByText('#general').closest('[role=listitem]') as HTMLElement);
+    fireEvent.click(general.getByRole('button', { name: 'Remove #general' }));
+    await waitFor(() => expect(leave).toHaveBeenCalledWith('p1', 'c1'));
+    expect(screen.getByText('Mentioning it in this channel will reach it.')).toBeTruthy();
+  });
+});
+
+describe('the credentials an app is given', () => {
+  function seedWithRotation() {
+    seed(null);
+    vi.spyOn(api.admin, 'rotatePluginSecret').mockResolvedValue({ signingSecret: 'whsec_rotated' } as never);
+    vi.spyOn(api.admin, 'issuePluginToken').mockResolvedValue({ botToken: 'bot_issued' } as never);
+  }
+
+  it('shows a rotated secret once, in a field to copy from', async () => {
+    seedWithRotation();
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+    expect(screen.queryByRole('textbox', { name: 'Signing secret' })).toBeNull();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Rotate secret' }));
+    const field = (await screen.findByRole('textbox', { name: 'Signing secret' })) as HTMLInputElement;
+    expect(field.value).toBe('whsec_rotated');
+    expect(field.readOnly).toBe(true);
+  });
+
+  it('shows an issued token once, with the steps for a socket agent', async () => {
+    useStore.setState({ users: { u1: ME, u2: MATE, u3: BOT } } as never);
+    vi.spyOn(api.admin, 'plugins').mockResolvedValue({
+      plugins: [{ ...PLUGIN, runtime: 'socket', requestUrl: null }],
+    } as never);
+    vi.spyOn(api.admin, 'appChannels').mockResolvedValue({ channels: [] } as never);
+    vi.spyOn(api.admin, 'pluginCatalog').mockResolvedValue({ scopes: {}, events: {} } as never);
+    vi.spyOn(api.admin, 'pluginRuns').mockResolvedValue({ runs: [] } as never);
+    vi.spyOn(api.admin, 'pluginDeliveries').mockResolvedValue({ deliveries: [] } as never);
+    vi.spyOn(api.admin, 'agentMemory').mockResolvedValue({ memories: [] } as never);
+    vi.spyOn(api.admin, 'issuePluginToken').mockResolvedValue({ botToken: 'bot_issued' } as never);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Issue token' }));
+    const field = (await screen.findByRole('textbox', { name: 'Bot token' })) as HTMLInputElement;
+    expect(field.value).toBe('bot_issued');
+    expect(screen.getByRole('heading', { name: 'New credentials' })).toBeTruthy();
+    expect(screen.getByTestId('janus-setup')).toBeTruthy();
+  });
+});
+
+describe('uninstalling', () => {
+  it('asks first, and only then removes it and goes back to the list', async () => {
+    seed(null);
+    const uninstall = vi.spyOn(api.admin, 'uninstallPlugin').mockResolvedValue({ ok: true } as never);
+    render(<AppSettings pluginId="p1" onError={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Uninstall' }));
+    const dialog = within(await screen.findByRole('alertdialog'));
+    expect(dialog.getByText('Uninstall Assistant?')).toBeTruthy();
+    expect(uninstall).not.toHaveBeenCalled();
+
+    fireEvent.click(dialog.getByRole('button', { name: 'Uninstall' }));
+    await waitFor(() => expect(uninstall).toHaveBeenCalledWith('p1'));
+    await waitFor(() => expect(window.location.pathname).toBe('/admin/apps'));
   });
 });

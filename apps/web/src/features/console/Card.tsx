@@ -219,6 +219,20 @@ export function CardTable({
 }
 
 /**
+ * Rows a card holds that are still drawn by the legacy stylesheet — what an agent remembers
+ * (`features/agentic/MemoryList`, `NoteList`) — as an island, run to the card's edges as
+ * the rows of `CardRows` are, with the padding those rows read from the card they used to
+ * sit in. Replace it with `CardRows` when the rows are converted.
+ */
+export function LegacyRows({ children }: { children: ReactNode }) {
+  return (
+    <div data-legacy className="-mx-(--card-spacing) [--card-pad-x:var(--card-spacing)]">
+      {children}
+    </div>
+  );
+}
+
+/**
  * The settings a card holds: a label and what it means on the left, its control on the
  * right — a `Field` each — ruled from one another. Inside the card's padding, where a
  * list runs to its edges.

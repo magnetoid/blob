@@ -49,109 +49,6 @@
   font-size: var(--text-ui);
 }
 
-/* Inside a card it is a part of that card, not a second surface on the first. */
-.console-card > .admin-secret-card {
-  padding: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-/* The per-app card on an app's own page sits in a card of its own now, and its buttons
-   take a row under what they act on rather than a column squeezing it. */
-.console-card > .admin-plugin-card {
-  overflow: visible;
-  border: 0;
-  border-radius: 0;
-  background: none;
-}
-
-.console-card > .admin-plugin-card > .admin-row {
-  flex-direction: column;
-  align-items: stretch;
-  margin: 0;
-  padding: 0;
-  border-bottom: 0;
-}
-
-.console-card > .admin-plugin-card .admin-plugin-actions {
-  justify-content: flex-start;
-}
-
-.console-card > .admin-plugin-card > .admin-plugin-deliveries {
-  margin: var(--space-5) 0 0;
-}
-
-/* Its runs and deliveries line up with their headings inside the panel. */
-.console-card > .admin-plugin-card .admin-plugin-deliveries .admin-row {
-  margin: 0;
-}
-
-/* Toolsets and scopes, in columns where the card is wide enough for them. */
-.console-card .admin-check-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
-}
-
-.admin-secret-chip {
-  width: 100%;
-  justify-content: space-between;
-  margin: 0;
-}
-
-.admin-secret-chip code {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.admin-secret-label {
-  min-width: 104px;
-  color: var(--text-4);
-}
-
-.admin-app-form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.admin-app-form-wide {
-  grid-column: 1 / -1;
-}
-
-/* A button in a card's grid is still a button: as wide as its words, at the start of
-   the row, not stretched across the column like a heading. */
-.admin-form-open {
-  justify-self: start;
-}
-
-/* A URL, a short ref and a button. The URL takes what is left and may shrink; the
-   other two are as wide as their content needs and no wider. */
-.repo-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-}
-
-.repo-ref {
-  width: 130px;
-  flex: none;
-}
-
-.repo-read {
-  flex: none;
-  margin-bottom: 2px;
-}
-
-.admin-app-permissions {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
 .admin-check-grid {
   display: grid;
   gap: 10px;
@@ -176,14 +73,6 @@
   margin-top: 3px;
   color: var(--text-4);
   line-height: 1.5;
-}
-
-.admin-app-form-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
 }
 
 /* A table, laid out as one.
@@ -245,16 +134,4 @@
 /* Counts line up by their last digit. */
 .admin-table :is(th, td).num {
   text-align: right;
-}
-
-/* A row's buttons, at its end. A cell rather than the flex `.admin-row-actions`: a table
-   cell given `display: flex` leaves the table, and its rule and its row's height with it. */
-.admin-table td.console-cell-actions {
-  width: 1%;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.console-cell-actions > .btn + .btn {
-  margin-left: var(--space-1);
 }

@@ -9,6 +9,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, type AgentDeployment as Deployment } from '../../../../lib/api.ts';
+import { Badge } from '../../../../components/ui/badge.tsx';
+import { Button } from '../../../../components/ui/button.tsx';
 import { AgentConfig } from './AgentConfig.tsx';
 import { AgentTerminal } from '../../../agentic/AgentTerminal.tsx';
 
@@ -92,71 +94,92 @@ export function AgentDeployment({ pluginId, agentName, repo, gitRef, onError }: 
   }
 
   return (
-    <div className="agent-deployment-panel">
-      <div className="agent-deployment">
-        <span className="role-pill" data-muted={deployment?.status !== 'running'}>
+    <div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3">
+      <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+        <Badge variant={deployment?.status === 'running' ? 'secondary' : 'outline'}>
           {deployment?.status ?? 'checking…'}
-        </span>
+        </Badge>
         {repo && (
-          <a href={repo} target="_blank" rel="noreferrer">
+          <a
+            href={repo}
+            target="_blank"
+            rel="noreferrer"
+            className="min-w-0 truncate font-mono text-xs underline underline-offset-4"
+          >
             {repo.replace('https://github.com/', '')}
             {gitRef && gitRef !== 'main' ? `@${gitRef}` : ''}
           </a>
         )}
       </div>
 
-      <div className="chip-row">
+      <div className="flex flex-wrap gap-2">
         {/* Two halves of setting an agent up, side by side because that is what they
             are: the values it declares it needs, and the session for everything that is
             not a value. Neither replaces the other — a device-code login is not a field,
-            and an API key is not worth opening a shell for. */}
-        <button
-          className="btn"
+            and an API key is not worth opening a shell for. The names stay put and
+            `aria-expanded` says which is open. */}
+        <Button
+          variant="outline"
           disabled={busy}
+          aria-expanded={panel === 'config'}
           onClick={() => setPanel((p) => (p === 'config' ? null : 'config'))}
         >
-          {panel === 'config' ? 'Hide config' : 'Config'}
-        </button>
-        <button
-          className="btn"
+          Config
+        </Button>
+        <Button
+          variant="outline"
           disabled={busy}
+          aria-expanded={panel === 'terminal'}
           onClick={() => setPanel((p) => (p === 'terminal' ? null : 'terminal'))}
         >
           Terminal
-        </button>
-        <button className="btn" disabled={busy} onClick={() => void showLogs()}>
-          {logs !== null ? 'Hide logs' : 'Logs'}
-        </button>
-        <button
-          className="btn"
+        </Button>
+        <Button
+          variant="outline"
+          disabled={busy}
+          aria-expanded={logs !== null}
+          onClick={() => void showLogs()}
+        >
+          Logs
+        </Button>
+        <Button
+          variant="outline"
           disabled={busy}
           onClick={() => void run(() => api.admin.redeploy(pluginId), 'Redeploy failed.')}
         >
           Redeploy
-        </button>
-        <button
-          className="btn"
+        </Button>
+        <Button
+          variant="outline"
           disabled={busy}
           onClick={() => void run(() => api.admin.stopAgent(pluginId), 'Could not stop it.')}
         >
           Stop
-        </button>
-        <button className="btn btn-ghost" disabled={busy} onClick={() => void refresh()}>
+        </Button>
+        <Button variant="ghost" disabled={busy} onClick={() => void refresh()}>
           Refresh
-        </button>
+        </Button>
       </div>
 
       {panel === 'config' && <AgentConfig pluginId={pluginId} onError={onError} />}
 
       {panel === 'terminal' && (
-        <AgentTerminal
-          pluginId={pluginId}
-          agentName={agentName}
-          onClose={() => setPanel(null)}
-        />
+        // The terminal is the conversation's own (`features/agentic/`), drawn by its own
+        // stylesheet, and it is also where xterm.js is mounted — so it stays an island.
+        <div data-legacy>
+          <AgentTerminal
+            pluginId={pluginId}
+            agentName={agentName}
+            onClose={() => setPanel(null)}
+          />
+        </div>
       )}
 
-      {logs !== null && <pre className="agent-logs">{logs}</pre>}
+      {logs !== null && (
+        <pre className="m-0 max-h-75 overflow-auto rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+          {logs}
+        </pre>
+      )}
     </div>
   );
 }

@@ -12,13 +12,13 @@
  * offered, for the same reason an admin may not add an app somewhere they cannot read.
  */
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { api, type AgentLoan, type AppChannel, type MyAgent } from "../../lib/api.ts";
 import { DesktopAgentSetup } from '../agentic/DesktopAgentSetup.tsx';
 import { MemoryList } from "../agentic/MemoryList.tsx";
 import { NoteList } from "../agentic/NoteList.tsx";
 import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
-import { Card, CardNotice, CardRow, CardRows } from "../console/Card.tsx";
+import { Card, CardNotice, CardRow, CardRows, LegacyRows } from "../console/Card.tsx";
 import { useAdminAction, useAdminData } from "../console/hooks.ts";
 import { UsageTable } from "../console/UsageTable.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
@@ -134,19 +134,6 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
       {agents.length > 0 && <SpendCard onError={onError} />}
       <RememberedCard onError={onError} />
       <NotesCard onError={onError} />
-    </div>
-  );
-}
-
-/**
- * `MemoryList` and `NoteList` are the agents console's own markup (`features/agentic/`),
- * still drawn by the legacy stylesheet — so an island, run to the card's edges as their
- * rows were, with the padding those rows read from the card they used to sit in.
- */
-function LegacyRows({ children }: { children: ReactNode }) {
-  return (
-    <div data-legacy className="-mx-(--card-spacing) [--card-pad-x:var(--card-spacing)]">
-      {children}
     </div>
   );
 }

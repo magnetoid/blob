@@ -5,7 +5,16 @@
  * takes its level from whether the card has a title, and what closes a card comes last. */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { Card, CardFields, CardHeading, CardNotice, CardRow, CardRows, CardTable } from './Card.tsx';
+import {
+  Card,
+  CardFields,
+  CardHeading,
+  CardNotice,
+  CardRow,
+  CardRows,
+  CardTable,
+  LegacyRows,
+} from './Card.tsx';
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
 
 afterEach(cleanup);
@@ -289,5 +298,20 @@ describe('a table a card holds', () => {
       </CardTable>,
     );
     expect(screen.getByRole('table', { name: 'Emoji' }).classList.contains('emoji')).toBe(true);
+  });
+});
+
+describe('legacy rows', () => {
+  it('are an island inside the card, so the legacy stylesheet still reaches them', () => {
+    render(
+      <Card title="What it remembers">
+        <LegacyRows>
+          <div className="console-list">a row</div>
+        </LegacyRows>
+      </Card>,
+    );
+    const row = screen.getByText('a row');
+    expect(row.closest('[data-legacy]')).not.toBeNull();
+    expect(cardOf(row)).toBe(cardOf(screen.getByRole('heading', { name: 'What it remembers' })));
   });
 });

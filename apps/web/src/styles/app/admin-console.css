@@ -1,16 +1,4 @@
 /* ─── admin console ──────────────────────────────────────────────────────── */
-.admin-app-form,
-.admin-plugin-card,
-.admin-plugin-deliveries {
-  border: 1px solid var(--hairline);
-  border-radius: var(--blob-radius-lg);
-  background: var(--surface);
-}
-
-.admin-app-form {
-  padding: 18px;
-}
-
 /* Credentials shown once, and the setup that follows them: a card on the page like any
    other, elevated rather than bordered. */
 .admin-secret-card {
