@@ -205,7 +205,8 @@ describe('your agents', () => {
     const toggle = await screen.findByRole('button', { name: 'Channels', expanded: false });
     fireEvent.click(toggle);
     expect(await screen.findByText('#general')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Hide channels', expanded: true })).toBeTruthy();
+    // The same words, the other state: the label does not change under a screen reader.
+    expect(screen.getByRole('button', { name: 'Channels', expanded: true })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     await waitFor(() => expect(join).toHaveBeenCalledWith('p1', 'c1'));

@@ -183,6 +183,15 @@ describe('recent activity', () => {
 });
 
 describe('changing the password', () => {
+  it('describes the new password by the rule for it', async () => {
+    serve();
+    render(<SecuritySection onError={vi.fn()} isOwner={false} />);
+    // A password field has no role to query by, so the description is followed by hand.
+    const field = await screen.findByLabelText('New password');
+    const hint = document.getElementById(field.getAttribute('aria-describedby') ?? '');
+    expect(hint?.textContent).toMatch(/^At least 10 characters\./);
+  });
+
   it('needs the current one and says so beside it when wrong', async () => {
     serve();
     changePassword.mockRejectedValue(
@@ -306,7 +315,10 @@ describe('passkeys', () => {
     serve({ passkeys: [LAPTOP_KEY], twoStep: false });
     setTwoStep.mockResolvedValue({ ok: true });
     render(<SecuritySection onError={vi.fn()} isOwner={false} />);
-    const toggle = await screen.findByRole('switch', { name: 'Ask for a passkey after my password' });
+    const toggle = await screen.findByRole('switch', {
+      name: 'Ask for a passkey after my password',
+      description: /a password alone no longer signs in as you/,
+    });
     expect(toggle.getAttribute('aria-checked')).toBe('false');
     fireEvent.click(toggle);
     await waitFor(() => expect(setTwoStep).toHaveBeenCalledWith(true));

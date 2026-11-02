@@ -7,7 +7,7 @@
  * Yours, so every member sees it. Nothing here is a workspace-wide setting.
  */
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { UserPrefs } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import {
@@ -55,6 +55,7 @@ export function NotificationsCard() {
   const myGroupIds = useStore((s) => s.myGroupIds);
   const mutedGroupIds = useStore((s) => s.mutedGroupIds);
   const [keywordDraft, setKeywordDraft] = useState("");
+  const hint = useId();
 
   const myGroups = Object.values(groups).filter((g) => myGroupIds.has(g.id));
 
@@ -105,13 +106,14 @@ export function NotificationsCard() {
         <Field orientation="responsive">
           <FieldContent>
             <FieldLabel htmlFor="email-when-away">Email me when I'm away</FieldLabel>
-            <FieldDescription>
+            <FieldDescription id={`${hint}-email`}>
               Direct messages, mentions and replies in threads you follow that
               are still unread while you have no Blob open, all in one email.
             </FieldDescription>
           </FieldContent>
           <NativeSelect
             id="email-when-away"
+            aria-describedby={`${hint}-email`}
             value={prefs.emailWhenAway ?? "quarter_hour"}
             onChange={(e) =>
               void setPrefs({
@@ -166,7 +168,7 @@ export function NotificationsCard() {
         <Field orientation="horizontal">
           <FieldContent>
             <FieldLabel htmlFor="nudges">Nudge me about unanswered questions</FieldLabel>
-            <FieldDescription>
+            <FieldDescription id={`${hint}-nudges`}>
               In channels that have it switched on, a question of yours that goes
               a day without a reply comes back to you in Later. Nobody else is
               told.
@@ -174,7 +176,7 @@ export function NotificationsCard() {
           </FieldContent>
           <Switch
             id="nudges"
-            aria-label="Nudge me about unanswered questions"
+            aria-describedby={`${hint}-nudges`}
             checked={prefs.nudges}
             onCheckedChange={(on) => void setPrefs({ nudges: on })}
           />
@@ -183,14 +185,14 @@ export function NotificationsCard() {
         <Field orientation="horizontal">
           <FieldContent>
             <FieldLabel htmlFor="quiet-hours">Quiet hours</FieldLabel>
-            <FieldDescription>
+            <FieldDescription id={`${hint}-quiet`}>
               Only the hours you choose will notify you. Unread counts still
               update.
             </FieldDescription>
           </FieldContent>
           <Switch
             id="quiet-hours"
-            aria-label="Quiet hours"
+            aria-describedby={`${hint}-quiet`}
             checked={dnd.enabled}
             onCheckedChange={(on) => void setPrefs({ dnd: { ...dnd, enabled: on } })}
           />
@@ -267,7 +269,7 @@ export function NotificationsCard() {
         <Field>
           <FieldContent>
             <FieldTitle>Keyword alerts</FieldTitle>
-            <FieldDescription>
+            <FieldDescription id={`${hint}-keywords`}>
               Notify me whenever one of these words appears anywhere I can see.
             </FieldDescription>
           </FieldContent>
@@ -314,6 +316,7 @@ export function NotificationsCard() {
               // disappears the moment there is a value, so the one control on this screen
               // with nothing else to identify it was the one with no name at all.
               aria-label="Add a keyword to be alerted on"
+              aria-describedby={`${hint}-keywords`}
               placeholder="Add a word"
             />
             <Button variant="outline" type="submit">
@@ -326,7 +329,7 @@ export function NotificationsCard() {
           <Field>
             <FieldContent>
               <FieldTitle>Group mentions</FieldTitle>
-              <FieldDescription>
+              <FieldDescription id={`${hint}-groups`}>
                 Silence a group you are in: @-mentions of it stop counting as
                 mentions of you. Muting is yours alone — nobody is told.
               </FieldDescription>
@@ -334,12 +337,12 @@ export function NotificationsCard() {
             {myGroups.map((group) => (
               <div key={group.id} className="flex items-center gap-3">
                 <Label htmlFor={`mute-${group.id}`} className="flex-1 font-normal">
-                  <code className="font-mono text-xs">@{group.handle}</code>
+                  <code className="font-mono text-xs">@{group.handle}</code>{" "}
                   <span className="text-muted-foreground">{group.name}</span>
                 </Label>
                 <Switch
                   id={`mute-${group.id}`}
-                  aria-label={`Notifications for @${group.handle}`}
+                  aria-describedby={`${hint}-groups`}
                   checked={!mutedGroupIds.has(group.id)}
                   onCheckedChange={() => void toggleGroupMute(group.id)}
                 />
@@ -358,6 +361,7 @@ export function NotificationsCard() {
  * switch is what finally subscribes a browser to receive them.
  */
 function PushPanel() {
+  const hint = useId();
   const { data: detected } = useFetch(currentPushState, []);
   /** Where the switch was last put, which outranks what was detected on arrival. */
   const [changed, setChanged] = useState<PushState | null>(null);
@@ -377,6 +381,7 @@ function PushPanel() {
     }
   }
 
+  const hasSwitch = state === "on" || state === "off";
   const explanation =
     state === "unsupported"
       ? "This browser cannot receive push notifications."
@@ -390,8 +395,13 @@ function PushPanel() {
     <>
       <Field orientation="horizontal">
         <FieldContent>
-          <FieldLabel htmlFor="push-device">Notify this device</FieldLabel>
-          <FieldDescription>
+          {/* A label only while there is a switch for it to point at. */}
+          {hasSwitch ? (
+            <FieldLabel htmlFor="push-device">Notify this device</FieldLabel>
+          ) : (
+            <FieldTitle>Notify this device</FieldTitle>
+          )}
+          <FieldDescription id={hint}>
             {state === "loading" ? "Checking…" : (tested ?? explanation)}
           </FieldDescription>
         </FieldContent>
@@ -423,10 +433,10 @@ function PushPanel() {
               Send a test
             </Button>
           )}
-          {(state === "on" || state === "off") && (
+          {hasSwitch && (
             <Switch
               id="push-device"
-              aria-label="Push notifications on this device"
+              aria-describedby={hint}
               checked={state === "on"}
               disabled={busy}
               onCheckedChange={() => void toggle()}

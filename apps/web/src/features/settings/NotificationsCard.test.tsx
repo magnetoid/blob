@@ -15,6 +15,7 @@ vi.mock('../../lib/push.ts', () => ({
 const { NotificationsCard } = await import('./NotificationsCard.tsx');
 const { useStore } = await import('../../lib/store.ts');
 const { api } = await import('../../lib/api.ts');
+const push = await import('../../lib/push.ts');
 
 /** What the store's own action does once a save has gone through: the preference lands in
  * the user, which is what every control here draws itself from. */
@@ -59,10 +60,58 @@ describe('email when away', () => {
   });
 });
 
+describe('what each control says it does', () => {
+  it('describes the nudge switch, the email choice and the keyword field by their hints', () => {
+    render(<NotificationsCard />);
+    expect(
+      screen.getByRole('switch', {
+        name: 'Nudge me about unanswered questions',
+        description: /Nobody else is told/,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('combobox', {
+        name: "Email me when I'm away",
+        description: /all in one email/,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('textbox', {
+        name: 'Add a keyword to be alerted on',
+        description: /Notify me whenever one of these words/,
+      }),
+    ).toBeTruthy();
+  });
+});
+
+describe('notifying this device', () => {
+  it('is a label for the switch while there is a switch, and a title while there is not', async () => {
+    // Unsupported: nothing to switch, so nothing for a label to point at.
+    const { unmount } = render(<NotificationsCard />);
+    await screen.findByText('This browser cannot receive push notifications.');
+    expect(screen.getByText('Notify this device').closest('label')).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Notify this device' })).toBeNull();
+    unmount();
+
+    vi.mocked(push.currentPushState).mockResolvedValueOnce('off');
+    render(<NotificationsCard />);
+    // The visible words are the switch's name, and the sentence under them describes it.
+    expect(
+      await screen.findByRole('switch', {
+        name: 'Notify this device',
+        description: /Get notified on this device even when the tab is closed/,
+      }),
+    ).toBeTruthy();
+  });
+});
+
 describe('the switches', () => {
   it('toggles a notification switch from the keyboard and saves it', () => {
     render(<NotificationsCard />);
-    const quietHours = screen.getByRole('switch', { name: 'Quiet hours' });
+    const quietHours = screen.getByRole('switch', {
+      name: 'Quiet hours',
+      description: /Only the hours you choose will notify you/,
+    });
     expect(quietHours.getAttribute('aria-checked')).toBe('false');
 
     // A switch has no native button under it. Focus it, and Space — pressed on keydown,
@@ -148,14 +197,17 @@ describe('group mentions', () => {
     } as never);
     render(<NotificationsCard />);
 
-    const mention = screen.getByRole('switch', { name: 'Notifications for @design' });
+    // Named for the group it is shown beside, described by what silencing one does.
+    const mention = screen.getByRole('switch', {
+      name: '@design Design',
+      description: /@-mentions of it stop counting as mentions of you/,
+    });
     expect(mention.getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByText('Design')).toBeTruthy();
 
     fireEvent.click(mention);
     await waitFor(() => expect(setMuted).toHaveBeenCalledWith('g1', true));
-    expect(
-      screen.getByRole('switch', { name: 'Notifications for @design' }).getAttribute('aria-checked'),
-    ).toBe('false');
+    expect(screen.getByRole('switch', { name: '@design Design' }).getAttribute('aria-checked')).toBe(
+      'false',
+    );
   });
 });

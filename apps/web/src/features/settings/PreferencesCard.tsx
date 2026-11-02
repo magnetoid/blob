@@ -4,7 +4,7 @@
  * a console named after the workspace, which made a preference look like an admin screen.
  */
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useState, type CSSProperties } from 'react';
 import { Radio } from '@base-ui/react/radio';
 import { api } from '../../lib/api.ts';
 import { deviceZone, knownZones, timeIn } from './timezones.ts';
@@ -60,6 +60,7 @@ export function PreferencesCard() {
   const translationEnabled = useStore((s) => s.translationEnabled);
   const setPrefs = useStore((s) => s.setPrefs);
   const themes = useStore((s) => s.themes);
+  const hint = useId();
 
   const prefs = currentUser?.prefs;
   if (!prefs || !currentUser) return null;
@@ -153,13 +154,14 @@ export function PreferencesCard() {
               <Field orientation="responsive">
                 <FieldContent>
                   <FieldLabel htmlFor="preferred-language">Preferred language</FieldLabel>
-                  <FieldDescription>
+                  <FieldDescription id={`${hint}-language`}>
                     Message translation uses this as your target language when teammates write in
                     another language.
                   </FieldDescription>
                 </FieldContent>
                 <NativeSelect
                   id="preferred-language"
+                  aria-describedby={`${hint}-language`}
                   value={prefs.language ?? ''}
                   onChange={(event) =>
                     void setPrefs({
@@ -179,13 +181,13 @@ export function PreferencesCard() {
               <Field orientation="horizontal" data-disabled={!prefs.language || undefined}>
                 <FieldContent>
                   <FieldLabel htmlFor="auto-translate">Auto-translate incoming messages</FieldLabel>
-                  <FieldDescription>
+                  <FieldDescription id={`${hint}-auto-translate`}>
                     Show translated copies inline when your preferred language is set.
                   </FieldDescription>
                 </FieldContent>
                 <Switch
                   id="auto-translate"
-                  aria-label="Auto-translate incoming messages"
+                  aria-describedby={`${hint}-auto-translate`}
                   checked={prefs.autoTranslate && !!prefs.language}
                   onCheckedChange={(on) =>
                     void setPrefs({ autoTranslate: !!prefs.language && on })
@@ -210,13 +212,13 @@ export function PreferencesCard() {
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel htmlFor="enter-sends">Enter sends a message</FieldLabel>
-              <FieldDescription>
+              <FieldDescription id={`${hint}-enter`}>
                 When off, Enter starts a new line and ⌘Enter sends instead.
               </FieldDescription>
             </FieldContent>
             <Switch
               id="enter-sends"
-              aria-label="Enter sends a message"
+              aria-describedby={`${hint}-enter`}
               checked={prefs.enterToSend}
               onCheckedChange={(on) => void setPrefs({ enterToSend: on })}
             />
@@ -316,6 +318,7 @@ function PaletteTile({ theme }: { theme: Theme }) {
  */
 function TimeZoneRow() {
   const currentUser = useStore((s) => s.currentUser);
+  const hint = useId();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Ticks so the sample clock is not frozen at mount. A minute is plenty for a clock
@@ -356,7 +359,7 @@ function TimeZoneRow() {
     <Field orientation="responsive">
       <FieldContent>
         <CardHeading className={ROW_HEADING}>Time zone</CardHeading>
-        <FieldDescription>
+        <FieldDescription id={hint}>
           Quiet hours and <code className="font-mono text-xs">/remind</code> are read in this
           zone.
           {clock && ` It is ${clock} there now.`}
@@ -366,6 +369,7 @@ function TimeZoneRow() {
       <div className="flex flex-wrap items-center gap-2">
         <NativeSelect
           aria-label="Time zone"
+          aria-describedby={hint}
           value={zone}
           disabled={saving}
           onChange={(event) => void choose(event.target.value)}

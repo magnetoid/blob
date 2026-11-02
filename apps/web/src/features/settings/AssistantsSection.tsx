@@ -21,7 +21,7 @@
  * substituted in — a placeholder to fill in by hand is the step people get wrong.
  */
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { formatEnds } from '../../lib/format.ts';
 import { api, type AssistantToken } from '../../lib/api.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
@@ -65,6 +65,7 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
   const [lifetime, setLifetime] = useState<30 | 90 | 365>(90);
   const [busy, setBusy] = useState(false);
   const [minted, setMinted] = useState<Minted | null>(null);
+  const hint = useId();
 
   const tokens = data?.tokens ?? [];
   const usable = name.trim().length >= 2 && !busy;
@@ -145,11 +146,12 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
             <Checkbox
               id="assistant-can-write"
               checked={canWrite}
+              aria-describedby={`${hint}-write`}
               onCheckedChange={setCanWrite}
             />
             <FieldContent>
               <FieldLabel htmlFor="assistant-can-write">Let it post</FieldLabel>
-              <FieldDescription>
+              <FieldDescription id={`${hint}-write`}>
                 Off by default. A message it sends is indistinguishable from one you typed.
               </FieldDescription>
             </FieldContent>
@@ -157,13 +159,13 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
           <Field orientation="responsive">
             <FieldContent>
               <FieldLabel htmlFor="assistant-lifetime">It lasts</FieldLabel>
-              <FieldDescription>
+              <FieldDescription id={`${hint}-lifetime`}>
                 Every connection ends; make a new one when it does. Your admins can see it too.
               </FieldDescription>
             </FieldContent>
             <NativeSelect
               id="assistant-lifetime"
-              aria-label="How long it lasts"
+              aria-describedby={`${hint}-lifetime`}
               value={lifetime}
               onChange={(event) => setLifetime(Number(event.target.value) as 30 | 90 | 365)}
             >

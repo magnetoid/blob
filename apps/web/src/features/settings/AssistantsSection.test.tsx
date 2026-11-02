@@ -98,12 +98,15 @@ describe('connecting an assistant', () => {
     expect(await screen.findByText(/It can also post/)).toBeTruthy();
   });
 
-  it('ticks the box from its label, and says what posting means beside it', async () => {
+  it('ticks the box from its label, and says what posting means as its description', async () => {
     seed([]);
     await draw();
-    const box = screen.getByRole('checkbox', { name: 'Let it post' });
+    // What a screen reader says on reaching the box: its name, then what ticking it does.
+    const box = screen.getByRole('checkbox', {
+      name: 'Let it post',
+      description: /indistinguishable from one you typed/,
+    });
     expect(box.getAttribute('aria-checked')).toBe('false');
-    expect(screen.getByText(/indistinguishable from one you typed/)).toBeTruthy();
     fireEvent.click(screen.getByText('Let it post'));
     expect(screen.getByRole('checkbox', { name: 'Let it post' }).getAttribute('aria-checked')).toBe(
       'true',
@@ -196,8 +199,12 @@ describe('how long a connection lasts', () => {
     await draw();
 
     expect(screen.getByText(/ends .*2099/)).toBeTruthy();
+    // The visible label is the name, and the line under it describes the choice.
+    expect(
+      screen.getByRole('combobox', { name: 'It lasts', description: /Every connection ends/ }),
+    ).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'Laptop' } });
-    fireEvent.change(screen.getByLabelText('How long it lasts'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('It lasts'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Get a token' }));
     await waitFor(() => expect(create).toHaveBeenCalledWith('Laptop', false, 30));
   });

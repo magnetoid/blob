@@ -79,6 +79,9 @@ describe('time zone', () => {
 
     const zone = screen.getByLabelText<HTMLSelectElement>('Time zone');
     expect(zone.value).toBe('Europe/Belgrade');
+    expect(screen.getByRole('combobox', { name: 'Time zone', description: /are read in this zone/ })).toBe(
+      zone,
+    );
     fireEvent.change(zone, { target: { value: 'Europe/London' } });
     await waitFor(() => expect(update).toHaveBeenCalledWith({ timezone: 'Europe/London' }));
   });
@@ -115,8 +118,14 @@ describe('language and input', () => {
   it('cannot auto-translate until there is a language to translate into', () => {
     seed({}, true);
     render(<PreferencesCard />);
-    const auto = screen.getByRole('switch', { name: 'Auto-translate incoming messages' });
+    const auto = screen.getByRole('switch', {
+      name: 'Auto-translate incoming messages',
+      description: /Show translated copies inline/,
+    });
     expect(auto.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      screen.getByRole('combobox', { name: 'Preferred language', description: /target language/ }),
+    ).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText('Preferred language'), { target: { value: 'de' } });
     expect(setPrefs).toHaveBeenCalledWith({ language: 'de', autoTranslate: false });
@@ -129,7 +138,10 @@ describe('language and input', () => {
 
   it('turns Enter-to-send off on the switch', () => {
     render(<PreferencesCard />);
-    const enter = screen.getByRole('switch', { name: 'Enter sends a message' });
+    const enter = screen.getByRole('switch', {
+      name: 'Enter sends a message',
+      description: /Enter starts a new line and ⌘Enter sends instead/,
+    });
     expect(enter.getAttribute('aria-checked')).toBe('true');
     fireEvent.click(enter);
     expect(setPrefs).toHaveBeenCalledWith({ enterToSend: false });

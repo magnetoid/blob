@@ -168,7 +168,8 @@ export function CardRows({ className, ...rest }: ComponentProps<typeof ItemGroup
   );
 }
 
-/** One row of `CardRows`: an `Item` with the rule under it and the card's padding on it. */
+/** One row of `CardRows`: an `Item` with the rule under it and the card's padding on it.
+ * It is a `listitem`, so it must sit inside `CardRows` (the list that has the role). */
 export function CardRow({ className, ...rest }: ComponentProps<typeof Item>) {
   return (
     <Item

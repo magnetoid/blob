@@ -5,7 +5,7 @@
  * you are. It was its own route at /profile until the three pages became one.
  */
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { api } from "../../lib/api.ts";
 import { useStore } from "../../lib/store.ts";
 import {
@@ -57,6 +57,7 @@ export function ProfileCard() {
   const [busy, setBusy] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const nameHint = useId();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,9 +206,10 @@ export function ProfileCard() {
             id="profile-display-name"
             value={displayName}
             maxLength={40}
+            aria-describedby={nameHint}
             onChange={(event) => setDisplayName(event.target.value)}
           />
-          <FieldDescription>
+          <FieldDescription id={nameHint}>
             This is the name on your messages and mentions.
           </FieldDescription>
         </Field>

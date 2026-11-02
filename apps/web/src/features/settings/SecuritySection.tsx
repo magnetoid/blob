@@ -5,7 +5,7 @@
  * listed here, and "Sign out everywhere else", are every workspace's (M3 · B1).
  */
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
 import { DialogPresence } from '../../components/Dialog.tsx';
 import {
@@ -67,6 +67,7 @@ function PasswordCard({
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const newPasswordHint = useId();
   // Until the answer arrives, assume the usual case: there is a password to change.
   const hasPassword = state === null || state.methods.includes('password');
   const usable = next.length >= 10 && (!hasPassword || current.length > 0) && !busy;
@@ -131,12 +132,13 @@ function PasswordCard({
               type="password"
               autoComplete="new-password"
               minLength={10}
+              aria-describedby={newPasswordHint}
               value={next}
               onChange={(e) => setNext(e.target.value)}
             />
           </Field>
         </FieldGroup>
-        <FieldDescription>
+        <FieldDescription id={newPasswordHint}>
           At least 10 characters. Every other device is signed out, in every workspace;
           assistants you have connected stay connected.
         </FieldDescription>
@@ -178,6 +180,7 @@ function PasskeysCard({
   const [busy, setBusy] = useState<string | null>(null);
   const [removing, setRemoving] = useState<PasskeyRow | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const twoStepHint = useId();
   const supported = passkeysSupported();
   const passkeys = data?.passkeys ?? [];
 
@@ -310,14 +313,14 @@ function PasskeysCard({
         <Field orientation="horizontal">
           <FieldContent>
             <FieldLabel htmlFor="passkey-two-step">Ask for a passkey after my password</FieldLabel>
-            <FieldDescription>
+            <FieldDescription id={twoStepHint}>
               Then a password alone no longer signs in as you, in any workspace here. Signing in
               with a passkey alone still works.
             </FieldDescription>
           </FieldContent>
           <Switch
             id="passkey-two-step"
-            aria-label="Ask for a passkey after my password"
+            aria-describedby={twoStepHint}
             checked={data?.twoStep ?? false}
             disabled={busy !== null}
             onCheckedChange={(on) =>

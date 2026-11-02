@@ -338,15 +338,16 @@ function AgentRow({
         </ItemDescription>
       </ItemContent>
       <ItemActions>
+        {/* The label stays; `aria-expanded` says which way the press goes. */}
         <Button variant="ghost" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-          {open ? "Hide channels" : "Channels"}
+          Channels
         </Button>
         <Button
           variant="ghost"
           aria-expanded={lendingOpen}
           onClick={() => setLendingOpen((v) => !v)}
         >
-          {lendingOpen ? "Hide who has it" : "Lent to"}
+          Lent to
         </Button>
         {confirming ? (
           <>

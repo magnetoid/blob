@@ -77,6 +77,18 @@ describe('saving your profile', () => {
   });
 });
 
+describe('the display name', () => {
+  it('says what it is for as its description, not only beside it', () => {
+    render(<ProfileCard />);
+    expect(
+      screen.getByRole('textbox', {
+        name: 'Display name',
+        description: 'This is the name on your messages and mentions.',
+      }),
+    ).toBeTruthy();
+  });
+});
+
 describe('your status', () => {
   it('offers "Clear after" only once there is a status to clear', () => {
     render(<ProfileCard />);
