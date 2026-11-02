@@ -5,7 +5,7 @@
  * takes its level from whether the card has a title, and what closes a card comes last. */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { Card, CardHeading, CardNotice } from './Card.tsx';
+import { Card, CardFields, CardHeading, CardNotice, CardRow, CardRows } from './Card.tsx';
 
 afterEach(cleanup);
 
@@ -182,5 +182,56 @@ describe('the notice a card shows in place of its rows', () => {
       expect(notice.className).toBe(notices[0]!.className);
       expect(notice.className).toContain('text-muted-foreground');
     }
+  });
+});
+
+// A list of things — passkeys, tokens, agents — runs from one edge of the card to the other
+// and is ruled from row to row, where a card's settings sit inside its padding.
+describe('rows a card holds', () => {
+  it('is a list of rows, each ruled from the next, the last ruled from nothing', () => {
+    render(
+      <Card title="Tokens">
+        <CardRows>
+          <CardRow>first</CardRow>
+          <CardRow>second</CardRow>
+        </CardRows>
+      </Card>,
+    );
+    const list = screen.getByRole('list');
+    const [first, second] = screen.getAllByRole('listitem');
+    expect(list.contains(first!) && list.contains(second!)).toBe(true);
+    expect(cardOf(list)).toBe(cardOf(first!));
+    // Past the card's padding to its edges, and padded again to line up with its title.
+    expect(list.classList.contains('-mx-(--card-spacing)')).toBe(true);
+    expect(first!.classList.contains('px-(--card-spacing)')).toBe(true);
+    expect(first!.classList.contains('border-b')).toBe(true);
+    expect(second!.classList.contains('last:border-b-0')).toBe(true);
+  });
+
+  it('wears a caller’s class beside its own, on the list and on a row', () => {
+    render(
+      <CardRows className="agents">
+        <CardRow className="agent">pip</CardRow>
+      </CardRows>,
+    );
+    expect(screen.getByRole('list').classList.contains('agents')).toBe(true);
+    expect(screen.getByRole('listitem').classList.contains('agent')).toBe(true);
+  });
+});
+
+describe('settings a card holds', () => {
+  it('is a run of fields ruled from each other, inside the card’s padding', () => {
+    render(
+      <Card title="Notifications">
+        <CardFields>
+          <div data-slot="field">one</div>
+          <div data-slot="field">two</div>
+        </CardFields>
+      </Card>,
+    );
+    const group = screen.getByText('one').parentElement!;
+    expect(group.getAttribute('data-slot')).toBe('field-group');
+    expect(group.classList.contains('divide-y')).toBe(true);
+    expect(cardOf(group)).toBe(cardOf(screen.getByRole('heading', { name: 'Notifications' })));
   });
 });

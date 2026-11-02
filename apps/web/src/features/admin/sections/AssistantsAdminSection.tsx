@@ -14,7 +14,7 @@
 import { useState } from 'react';
 import { api, type WorkspaceAssistantToken } from '../../../lib/api.ts';
 import type { ConsoleSectionProps } from '../../console/ConsoleShell.tsx';
-import { Card, CardNotice } from '../../console/Card.tsx';
+import { Card, CardNotice, CardRows } from '../../console/Card.tsx';
 import { ConnectedAppRow } from '../../console/ConnectedAppRow.tsx';
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { formatEnds } from '../../../lib/format.ts';
@@ -52,8 +52,10 @@ export function AssistantsAdminSection({ onError }: ConsoleSectionProps) {
         {!apps.loading && grants.length === 0 && (
           <CardNotice>No app has signed in to this workspace.</CardNotice>
         )}
+        {/* ConnectedAppRow is a row of CardRows, as it is in Settings. The pasted tokens
+            below stay on the old list until this page is converted. */}
         {grants.length > 0 && (
-          <div className="console-list">
+          <CardRows>
             {grants.map((grant) => (
               <ConnectedAppRow
                 key={grant.id}
@@ -64,7 +66,7 @@ export function AssistantsAdminSection({ onError }: ConsoleSectionProps) {
                 }
               />
             ))}
-          </div>
+          </CardRows>
         )}
       </Card>
 

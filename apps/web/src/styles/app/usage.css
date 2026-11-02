@@ -49,18 +49,6 @@
   font-size: var(--text-ui);
 }
 
-/* The connector address and the line for Claude Code (ADR 0029): the same parts as a
-   minted token's card, without the secret. */
-.connector-setup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.connector-setup > .btn {
-  align-self: flex-start;
-}
-
 /* Inside a card it is a part of that card, not a second surface on the first. */
 .console-card > .admin-secret-card {
   padding: 0;

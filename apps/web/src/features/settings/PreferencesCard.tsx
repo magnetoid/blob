@@ -4,13 +4,27 @@
  * a console named after the workspace, which made a preference look like an admin screen.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { Radio } from '@base-ui/react/radio';
 import { api } from '../../lib/api.ts';
 import { deviceZone, knownZones, timeIn } from './timezones.ts';
 import { useStore } from '../../lib/store.ts';
 import { B0_HEX } from '../../lib/theme.ts';
 import type { Theme } from '@blob/shared';
-import { Card } from '../console/Card.tsx';
+import { Button } from '../../components/ui/button.tsx';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldTitle,
+} from '../../components/ui/field.tsx';
+import { NativeSelect, NativeSelectOption } from '../../components/ui/native-select.tsx';
+import { RadioGroup } from '../../components/ui/radio-group.tsx';
+import { Switch } from '../../components/ui/switch.tsx';
+import { ToggleGroup, ToggleGroupItem } from '../../components/ui/toggle-group.tsx';
+import { Card, CardFields, CardHeading } from '../console/Card.tsx';
 
 const THEMES = [
   { label: 'System', value: 'system' },
@@ -38,6 +52,9 @@ const LANGUAGES = [
   { label: 'Korean', value: 'ko' },
 ] as const;
 
+/** A row's own heading: the setting's name, still a heading for a screen reader to move by. */
+const ROW_HEADING = 'text-sm leading-snug font-medium';
+
 export function PreferencesCard() {
   const currentUser = useStore((s) => s.currentUser);
   const translationEnabled = useStore((s) => s.translationEnabled);
@@ -52,152 +69,160 @@ export function PreferencesCard() {
   // own labels now, still headings for a screen reader to move by.
   return (
     <>
-    <Card
-      title="Preferences"
-      description="How Blob looks and behaves, on this device and everywhere."
-    >
-      <div className="pref-row">
-        <div className="grow">
-          <h3 className="pref-label">Theme</h3>
-        </div>
-        <div className="chip-row">
-          {THEMES.map((theme) => (
-            <button
-              key={theme.value}
-              className="chip"
-              aria-pressed={prefs.theme === theme.value}
-              onClick={() => void setPrefs({ theme: theme.value })}
+      <Card
+        title="Preferences"
+        description="How Blob looks and behaves, on this device and everywhere."
+      >
+        <CardFields>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <CardHeading className={ROW_HEADING}>Theme</CardHeading>
+            </FieldContent>
+            <ToggleGroup
+              aria-label="Theme"
+              variant="outline"
+              spacing={0}
+              value={[prefs.theme]}
+              // Pressing the one that is chosen would leave nothing chosen, which is not a theme.
+              onValueChange={([next]) => {
+                const theme = THEMES.find((t) => t.value === next);
+                if (theme) void setPrefs({ theme: theme.value });
+              }}
             >
-              {theme.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="pref-block">
-        <h3 className="pref-label">Light palette</h3>
-        <PaletteGallery
-          themes={themes.filter((theme) => theme.mode === 'light' && theme.isEnabled)}
-          chosen={prefs.themeLight}
-          onChoose={(slug) => void setPrefs({ themeLight: slug })}
-        />
-      </div>
-
-      <div className="pref-block">
-        <h3 className="pref-label">Dark palette</h3>
-        <PaletteGallery
-          themes={themes.filter((theme) => theme.mode === 'dark' && theme.isEnabled)}
-          chosen={prefs.themeDark}
-          onChoose={(slug) => void setPrefs({ themeDark: slug })}
-        />
-      </div>
-
-      <div className="pref-row">
-        <div className="grow">
-          <h3 className="pref-label">Density</h3>
-        </div>
-        <div className="chip-row">
-          {DENSITIES.map((density) => (
-            <button
-              key={density.value}
-              className="chip"
-              aria-pressed={prefs.density === density.value}
-              onClick={() => void setPrefs({ density: density.value })}
-            >
-              {density.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <TimeZoneRow />
-    </Card>
-
-    <Card title="Language and input">
-      {/* Both rows only mean something on a server that can translate. Elsewhere one
-          line says why there is nothing to set, rather than a select and a switch whose
-          only possible outcome is "not configured". */}
-      {translationEnabled ? (
-        <>
-          <div className="pref-row">
-            <div className="grow">
-              <div className="pref-label">Preferred language</div>
-              <div className="pref-hint">
-                Message translation uses this as your target language when teammates write in
-                another language.
-              </div>
-            </div>
-            <select
-              className="input"
-              aria-label="Preferred language"
-              value={prefs.language ?? ''}
-              onChange={(event) =>
-                void setPrefs({
-                  language: event.target.value || null,
-                  autoTranslate: !!event.target.value && prefs.autoTranslate,
-                })
-              }
-            >
-              {LANGUAGES.map((language) => (
-                <option key={language.value || 'system'} value={language.value}>
-                  {language.label}
-                </option>
+              {THEMES.map((theme) => (
+                <ToggleGroupItem key={theme.value} value={theme.value}>
+                  {theme.label}
+                </ToggleGroupItem>
               ))}
-            </select>
-          </div>
+            </ToggleGroup>
+          </Field>
 
-          <div className="pref-row">
-            <div className="grow">
-              <div className="pref-label">Auto-translate incoming messages</div>
-              <div className="pref-hint">
-                Show translated copies inline when your preferred language is set.
-              </div>
-            </div>
-            <button
-              className="toggle"
-              aria-pressed={prefs.autoTranslate && !!prefs.language}
-              aria-label="Auto-translate incoming messages"
-              onClick={() =>
-                void setPrefs({
-                  autoTranslate: !!prefs.language && !prefs.autoTranslate,
-                })
-              }
-              disabled={!prefs.language}
-              title={prefs.language ? undefined : 'Choose a preferred language first.'}
+          <Field>
+            <CardHeading className={ROW_HEADING}>Light palette</CardHeading>
+            <PaletteGallery
+              label="Light palette"
+              themes={themes.filter((theme) => theme.mode === 'light' && theme.isEnabled)}
+              chosen={prefs.themeLight}
+              onChoose={(slug) => void setPrefs({ themeLight: slug })}
+            />
+          </Field>
+
+          <Field>
+            <CardHeading className={ROW_HEADING}>Dark palette</CardHeading>
+            <PaletteGallery
+              label="Dark palette"
+              themes={themes.filter((theme) => theme.mode === 'dark' && theme.isEnabled)}
+              chosen={prefs.themeDark}
+              onChoose={(slug) => void setPrefs({ themeDark: slug })}
+            />
+          </Field>
+
+          <Field orientation="horizontal">
+            <FieldContent>
+              <CardHeading className={ROW_HEADING}>Density</CardHeading>
+            </FieldContent>
+            <ToggleGroup
+              aria-label="Density"
+              variant="outline"
+              spacing={0}
+              value={[prefs.density]}
+              onValueChange={([next]) => {
+                const density = DENSITIES.find((d) => d.value === next);
+                if (density) void setPrefs({ density: density.value });
+              }}
             >
-              <span />
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="pref-row">
-          <div className="grow">
-            <div className="pref-label">Translation</div>
-            <div className="pref-hint">
-              Not configured on this server (TRANSLATION_PROVIDER), so there is nothing to
-              choose here yet.
-            </div>
-          </div>
-        </div>
-      )}
+              {DENSITIES.map((density) => (
+                <ToggleGroupItem key={density.value} value={density.value}>
+                  {density.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </Field>
 
-      <div className="pref-row">
-        <div className="grow">
-          <div className="pref-label">Enter sends a message</div>
-          <div className="pref-hint">
-            When off, Enter starts a new line and ⌘Enter sends instead.
-          </div>
-        </div>
-        <button
-          className="toggle"
-          aria-pressed={prefs.enterToSend}
-          aria-label="Enter sends a message"
-          onClick={() => void setPrefs({ enterToSend: !prefs.enterToSend })}
-        >
-          <span />
-        </button>
-      </div>
-    </Card>
+          <TimeZoneRow />
+        </CardFields>
+      </Card>
+
+      <Card title="Language and input">
+        <CardFields>
+          {/* Both rows only mean something on a server that can translate. Elsewhere one
+              line says why there is nothing to set, rather than a select and a switch whose
+              only possible outcome is "not configured". */}
+          {translationEnabled ? (
+            <>
+              <Field orientation="responsive">
+                <FieldContent>
+                  <FieldLabel htmlFor="preferred-language">Preferred language</FieldLabel>
+                  <FieldDescription>
+                    Message translation uses this as your target language when teammates write in
+                    another language.
+                  </FieldDescription>
+                </FieldContent>
+                <NativeSelect
+                  id="preferred-language"
+                  value={prefs.language ?? ''}
+                  onChange={(event) =>
+                    void setPrefs({
+                      language: event.target.value || null,
+                      autoTranslate: !!event.target.value && prefs.autoTranslate,
+                    })
+                  }
+                >
+                  {LANGUAGES.map((language) => (
+                    <NativeSelectOption key={language.value || 'system'} value={language.value}>
+                      {language.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+
+              <Field orientation="horizontal" data-disabled={!prefs.language || undefined}>
+                <FieldContent>
+                  <FieldLabel htmlFor="auto-translate">Auto-translate incoming messages</FieldLabel>
+                  <FieldDescription>
+                    Show translated copies inline when your preferred language is set.
+                  </FieldDescription>
+                </FieldContent>
+                <Switch
+                  id="auto-translate"
+                  aria-label="Auto-translate incoming messages"
+                  checked={prefs.autoTranslate && !!prefs.language}
+                  onCheckedChange={(on) =>
+                    void setPrefs({ autoTranslate: !!prefs.language && on })
+                  }
+                  disabled={!prefs.language}
+                  title={prefs.language ? undefined : 'Choose a preferred language first.'}
+                />
+              </Field>
+            </>
+          ) : (
+            <Field>
+              <FieldContent>
+                <FieldTitle>Translation</FieldTitle>
+                <FieldDescription>
+                  Not configured on this server (TRANSLATION_PROVIDER), so there is nothing to
+                  choose here yet.
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          )}
+
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel htmlFor="enter-sends">Enter sends a message</FieldLabel>
+              <FieldDescription>
+                When off, Enter starts a new line and ⌘Enter sends instead.
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              id="enter-sends"
+              aria-label="Enter sends a message"
+              checked={prefs.enterToSend}
+              onCheckedChange={(on) => void setPrefs({ enterToSend: on })}
+            />
+          </Field>
+        </CardFields>
+      </Card>
     </>
   );
 }
@@ -209,62 +234,76 @@ export function PreferencesCard() {
  * accent were indistinguishable until you picked one and looked at the app. A palette is
  * mostly its page, its sidebar and its surfaces, so the tile draws those, in miniature,
  * in the theme's own colours. Slack sells its themes this way for the same reason.
+ *
+ * A choice of one, so a radio group: the tiles are one stop for the Tab key and the arrow
+ * keys move between them, choosing as they go.
  */
 function PaletteGallery({
+  label,
   themes,
   chosen,
   onChoose,
 }: {
+  label: string;
   themes: Theme[];
   chosen: string;
   onChoose: (slug: string) => void;
 }) {
   if (themes.length === 0) {
-    return <p className="pref-hint console-note">This workspace has no palettes for this mode yet.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        This workspace has no palettes for this mode yet.
+      </p>
+    );
   }
   return (
-    <div className="palette-gallery">
-      {themes.map((theme) => {
-        // What the theme sets, else shadcn b0's — the palette it is drawn over.
-        const fallback = B0_HEX[theme.mode];
-        const token = (name: keyof typeof fallback) => theme.tokens[name] ?? fallback[name];
-        return (
-          <button
-            key={theme.id}
-            className="palette-tile"
-            aria-pressed={chosen === theme.slug}
-            onClick={() => onChoose(theme.slug)}
-            title={theme.name}
-          >
-            <span
-              className="palette-preview"
-              style={{ background: token('--background') }}
-              aria-hidden="true"
-            >
-              <span
-                className="palette-preview-rail"
-                style={{ background: token('--sidebar') }}
-              />
-              <span className="palette-preview-body">
-                <span
-                  className="palette-preview-line"
-                  style={{ background: token('--muted') }}
-                />
-                <span
-                  className="palette-preview-line short"
-                  style={{ background: token('--muted') }}
-                />
-                <span
-                  className="palette-preview-accent"
-                  style={{ background: token('--primary') }}
-                />
-              </span>
-            </span>
-            <span className="palette-name">{theme.name}</span>
-          </button>
-        );
-      })}
-    </div>
+    <RadioGroup
+      aria-label={label}
+      value={chosen}
+      onValueChange={(slug) => onChoose(String(slug))}
+      className="grid-cols-[repeat(auto-fill,minmax(116px,1fr))] gap-2.5"
+    >
+      {themes.map((theme) => (
+        <PaletteTile key={theme.id} theme={theme} />
+      ))}
+    </RadioGroup>
+  );
+}
+
+function PaletteTile({ theme }: { theme: Theme }) {
+  // What the theme sets, else shadcn b0's — the palette it is drawn over.
+  const fallback = B0_HEX[theme.mode];
+  const token = (name: keyof typeof fallback) => theme.tokens[name] ?? fallback[name];
+  // The four colours are the theme's own — data, not paint this file chose — so they ride
+  // on the tile as custom properties, and the swatch's parts read them by name.
+  const colours = {
+    '--swatch-page': token('--background'),
+    '--swatch-rail': token('--sidebar'),
+    '--swatch-line': token('--muted'),
+    '--swatch-primary': token('--primary'),
+  } as CSSProperties;
+
+  return (
+    <Radio.Root
+      value={theme.slug}
+      style={colours}
+      className="group/tile flex cursor-pointer flex-col gap-1.5 rounded-lg p-1.5 text-left text-sm text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 data-checked:bg-primary/10 data-checked:text-foreground"
+    >
+      {/* A ring rather than a border: a preview of a pale theme on a pale page needs an edge,
+          and the ring does not eat a pixel of the palette it is showing. */}
+      <span
+        aria-hidden="true"
+        className="flex h-15.5 overflow-hidden rounded-md bg-(--swatch-page) ring-1 ring-foreground/15 group-data-checked/tile:ring-2 group-data-checked/tile:ring-primary"
+      >
+        <span className="w-[30%] flex-none bg-(--swatch-rail)" />
+        <span className="flex flex-1 flex-col justify-center gap-[5px] px-2">
+          <span className="h-[5px] rounded-full bg-(--swatch-line)" />
+          <span className="h-[5px] w-[62%] rounded-full bg-(--swatch-line)" />
+          <span className="mt-0.5 h-2 w-[34%] rounded-full bg-(--swatch-primary)" />
+        </span>
+      </span>
+      <span className="pl-0.5 font-medium">{theme.name}</span>
+    </Radio.Root>
   );
 }
 
@@ -314,36 +353,36 @@ function TimeZoneRow() {
   // A row of the Preferences card: what the zone is for on the left, the picker — and the
   // offer of this device's zone when it differs — on the right.
   return (
-    <div className="pref-row">
-      <div className="grow">
-        <h3 className="pref-label">Time zone</h3>
-        <div className="pref-hint">
-          Quiet hours and <code>/remind</code> are read in this zone.
+    <Field orientation="responsive">
+      <FieldContent>
+        <CardHeading className={ROW_HEADING}>Time zone</CardHeading>
+        <FieldDescription>
+          Quiet hours and <code className="font-mono text-xs">/remind</code> are read in this
+          zone.
           {clock && ` It is ${clock} there now.`}
-        </div>
-        {error && <p className="error-text console-note">{error}</p>}
-      </div>
-      <div className="console-row-controls">
-        <select
-          className="input"
+        </FieldDescription>
+        {error && <FieldError>{error}</FieldError>}
+      </FieldContent>
+      <div className="flex flex-wrap items-center gap-2">
+        <NativeSelect
           aria-label="Time zone"
           value={zone}
           disabled={saving}
           onChange={(event) => void choose(event.target.value)}
         >
           {options.map((name) => (
-            <option key={name} value={name}>
+            <NativeSelectOption key={name} value={name}>
               {name.replace(/_/g, ' ')}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
         {device && device !== zone && (
-          <button className="btn" disabled={saving} onClick={() => void choose(device)}>
+          <Button variant="outline" disabled={saving} onClick={() => void choose(device)}>
             Use this device’s zone ({device.replace(/_/g, ' ')})
-          </button>
+          </Button>
         )}
       </div>
-    </div>
+    </Field>
   );
 }
 

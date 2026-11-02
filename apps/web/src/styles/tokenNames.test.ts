@@ -176,8 +176,17 @@ describe('styles/index.css', () => {
     'features/console/ConsoleNav.tsx',
     'features/console/Card.tsx',
     'features/console/CopyField.tsx',
+    'features/console/ConnectedAppRow.tsx',
     'features/admin/AdminConsole.tsx',
     'features/settings/SettingsConsole.tsx',
+    'features/settings/YouSection.tsx',
+    'features/settings/ProfileCard.tsx',
+    'features/settings/PreferencesCard.tsx',
+    'features/settings/NotificationsCard.tsx',
+    'features/settings/AccountCard.tsx',
+    'features/settings/SecuritySection.tsx',
+    'features/settings/AssistantsSection.tsx',
+    'features/settings/MyAgentsSection.tsx',
     'features/server/ServerConsole.tsx',
   ];
 

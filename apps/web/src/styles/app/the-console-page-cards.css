@@ -71,7 +71,7 @@
 
 /* Settings rows: label and hint on the left, the control on the right, ruled from each
    other rather than underlined one by one — the card's edge closes the last. */
-.console-card > :is(.pref-row, .pref-block) {
+.console-card > .pref-row {
   margin-top: 0;
   padding-block: var(--space-4);
   border-top: 1px solid var(--hairline-soft);
@@ -80,16 +80,16 @@
 
 /* The first row after anything that is not a row — the header, a hint, a subheading —
    keeps the card's rhythm above its rule instead of sitting on it. */
-.console-card > :not(.pref-row, .pref-block) + :is(.pref-row, .pref-block) {
+.console-card > :not(.pref-row) + .pref-row {
   margin-top: var(--space-4);
 }
 
-.console-card > :is(.pref-row, .pref-block):first-child {
+.console-card > .pref-row:first-child {
   padding-top: 0;
   border-top: 0;
 }
 
-.console-card > :is(.pref-row, .pref-block):last-child {
+.console-card > .pref-row:last-child {
   padding-bottom: 0;
 }
 
@@ -251,7 +251,7 @@
 }
 
 /* After a settings row, a list or a table starts on the row's own rule. */
-.console-card > :is(.pref-row, .pref-block) + :is(.console-list, .console-table-wrap) {
+.console-card > .pref-row + :is(.console-list, .console-table-wrap) {
   margin-top: 0;
 }
 
@@ -420,80 +420,4 @@
    as a one-pixel change of hue. */
 .admin-page :is(.input, .agentic-textarea):focus {
   box-shadow: 0 0 0 1px var(--blob-accent);
-}
-
-/* The profile's fields, two across where the card has room: name beside full name,
-   what you do beside your status. `.field` spaces a label from its input; this spaces
-   one field from the next, which nothing did once, and the display name's hint sat on
-   the label under it. */
-.profile-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-  gap: var(--space-4) var(--space-6);
-  align-items: start;
-}
-
-.console-card > .profile-preview {
-  margin-bottom: 0;
-}
-
-/* The status: an emoji box and the words, on one line. */
-.profile-status {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.profile-status-emoji {
-  flex: none;
-  width: 72px;
-  text-align: center;
-}
-
-.profile-clear-after {
-  margin-top: var(--space-3);
-}
-
-.profile-preview-actions {
-  display: flex;
-  gap: var(--space-2);
-  margin-left: auto;
-}
-
-/* A palette row as wide as its card, so every palette of a mode sits on one line. */
-.console-card .palette-gallery {
-  max-width: none;
-}
-
-/* The time zone's select and the button that offers this device's zone, stacked at the
-   end of their row. */
-.console-row-controls {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-2);
-}
-
-/* Quiet hours: the window, then the days. */
-.console-dnd-window {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.console-select-hour {
-  width: 96px;
-}
-
-/* A row inside a block — a group you can silence — ruled from its neighbours but
-   without the block's own padding. */
-.console-subrow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-2) 0;
-}
-
-.console-subrow + .console-subrow {
-  border-top: 1px solid var(--hairline-soft);
 }

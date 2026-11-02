@@ -98,6 +98,18 @@ describe('connecting an assistant', () => {
     expect(await screen.findByText(/It can also post/)).toBeTruthy();
   });
 
+  it('ticks the box from its label, and says what posting means beside it', async () => {
+    seed([]);
+    await draw();
+    const box = screen.getByRole('checkbox', { name: 'Let it post' });
+    expect(box.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByText(/indistinguishable from one you typed/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Let it post'));
+    expect(screen.getByRole('checkbox', { name: 'Let it post' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+  });
+
   it('will not mint a nameless connection', async () => {
     seed([]);
     await draw();
@@ -126,6 +138,14 @@ describe('connecting an assistant', () => {
         '--header "Authorization: Bearer the-only-copy"',
     );
     expect(screen.getByText(/reads only/)).toBeTruthy();
+    // And the two values for a tool that takes them separately, each in a field of its own
+    // that can be read whole and copied.
+    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Server URL' }).value).toBe(
+      'https://blob.example.com/api/mcp',
+    );
+    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Authorization' }).value).toBe(
+      'Bearer the-only-copy',
+    );
   });
 });
 
@@ -193,7 +213,9 @@ describe('an assistant that signs in', () => {
   it('is given the connector address, and Claude Code a line with no secret in it', async () => {
     seed([]);
     await draw();
-    expect(await screen.findByText('https://blob.example.com/api/mcp')).toBeTruthy();
+    expect(
+      (await screen.findByRole<HTMLInputElement>('textbox', { name: 'Connector address' })).value,
+    ).toBe('https://blob.example.com/api/mcp');
     const commands = screen.getAllByText(/claude mcp add/).map((node) => node.textContent);
     expect(commands).toEqual(['claude mcp add --transport http blob https://blob.example.com/api/mcp']);
     expect(screen.getByText(/None yet. When an assistant signs in/)).toBeTruthy();

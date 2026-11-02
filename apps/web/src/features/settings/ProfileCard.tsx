@@ -14,6 +14,26 @@ import {
   presetsFor,
 } from "./statusClearAfter.ts";
 import { Avatar } from "../../components/Avatar.tsx";
+import { Alert, AlertDescription } from "../../components/ui/alert.tsx";
+import { Button } from "../../components/ui/button.tsx";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../../components/ui/field.tsx";
+import { Input } from "../../components/ui/input.tsx";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "../../components/ui/item.tsx";
+import { NativeSelect, NativeSelectOption } from "../../components/ui/native-select.tsx";
 import { uploadFile } from "../../lib/attachments.ts";
 import { showError } from "../../lib/toasts.ts";
 import { Card } from "../console/Card.tsx";
@@ -88,30 +108,32 @@ export function ProfileCard() {
       description="What other people see on your messages."
       footer={
         <>
-          {saved && <span className="pref-hint">Saved.</span>}
-          <button
-            className="btn btn-primary"
+          {/* There before anything is said in it, so the words are announced when they come. */}
+          <span role="status" className="text-sm text-muted-foreground">
+            {saved ? "Saved." : ""}
+          </span>
+          <Button
             onClick={() => void save()}
             disabled={!dirty || !displayName.trim() || busy}
           >
             {busy ? "Saving…" : "Save"}
-          </button>
+          </Button>
         </>
       }
     >
-      <div className="profile-preview">
-        <Avatar user={currentUser} />
-        <div>
-          <div className="profile-preview-name">
-            {displayName || currentUser.displayName}
-          </div>
-          <div className="profile-preview-meta">
+      <Item variant="muted">
+        <ItemMedia>
+          <Avatar user={currentUser} />
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle>{displayName || currentUser.displayName}</ItemTitle>
+          <ItemDescription>
             {[statusEmoji, statusText].filter(Boolean).join(" ") ||
               title ||
               "No status set"}
-          </div>
-        </div>
-        <div className="profile-preview-actions">
+          </ItemDescription>
+        </ItemContent>
+        <ItemActions className="flex-wrap">
           <input
             ref={avatarInputRef}
             type="file"
@@ -140,9 +162,9 @@ export function ProfileCard() {
               }
             }}
           />
-          <button
+          <Button
             type="button"
-            className="btn"
+            variant="outline"
             disabled={uploadingAvatar}
             onClick={() => avatarInputRef.current?.click()}
           >
@@ -151,11 +173,11 @@ export function ProfileCard() {
               : currentUser.avatarUrl
                 ? "Change photo"
                 : "Add a photo"}
-          </button>
+          </Button>
           {currentUser.avatarUrl && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               disabled={uploadingAvatar}
               onClick={async () => {
                 try {
@@ -169,60 +191,64 @@ export function ProfileCard() {
               }}
             >
               Remove
-            </button>
+            </Button>
           )}
-        </div>
-      </div>
+        </ItemActions>
+      </Item>
 
-      <div className="profile-fields">
-        <label className="field">
-          <span className="field-label">Display name</span>
-          <input
-            className="input"
+      {/* Two across where the card has room: name beside full name, what you do beside your
+          status. */}
+      <FieldGroup className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] items-start gap-x-6 gap-y-4">
+        <Field>
+          <FieldLabel htmlFor="profile-display-name">Display name</FieldLabel>
+          <Input
+            id="profile-display-name"
             value={displayName}
             maxLength={40}
             onChange={(event) => setDisplayName(event.target.value)}
           />
-          <span className="pref-hint">
+          <FieldDescription>
             This is the name on your messages and mentions.
-          </span>
-        </label>
+          </FieldDescription>
+        </Field>
 
-        <label className="field">
-          <span className="field-label">Full name</span>
-          <input
-            className="input"
+        <Field>
+          <FieldLabel htmlFor="profile-full-name">Full name</FieldLabel>
+          <Input
+            id="profile-full-name"
             value={fullName}
             maxLength={80}
             placeholder="Optional"
             onChange={(event) => setFullName(event.target.value)}
           />
-        </label>
+        </Field>
 
-        <label className="field">
-          <span className="field-label">What you do</span>
-          <input
-            className="input"
+        <Field>
+          <FieldLabel htmlFor="profile-title">What you do</FieldLabel>
+          <Input
+            id="profile-title"
             value={title}
             maxLength={80}
             placeholder="Optional"
             onChange={(event) => setTitle(event.target.value)}
           />
-        </label>
+        </Field>
 
-        <div className="field">
-          <span className="field-label">Status</span>
-          <div className="profile-status">
-            <input
-              className="input profile-status-emoji"
+        <FieldSet className="gap-2">
+          <FieldLegend variant="label" className="mb-0">
+            Status
+          </FieldLegend>
+          <div className="flex gap-2">
+            <Input
+              className="w-16 shrink-0 text-center"
               value={statusEmoji}
               maxLength={8}
               placeholder="🎧"
               aria-label="Status emoji"
               onChange={(event) => setStatusEmoji(event.target.value)}
             />
-            <input
-              className="input grow"
+            <Input
+              className="flex-1"
               value={statusText}
               maxLength={100}
               placeholder="Heads down until 3"
@@ -233,25 +259,30 @@ export function ProfileCard() {
           {/* Offered only once there is a status, because "clear after" with nothing
             to clear is a control that cannot do anything. */}
           {(statusEmoji.trim() || statusText.trim()) && (
-            <label className="field profile-clear-after">
-              <span className="field-label">Clear after</span>
-              <select
-                className="input"
+            <Field className="pt-2 sm:max-w-xs">
+              <FieldLabel htmlFor="profile-clear-after">Clear after</FieldLabel>
+              <NativeSelect
+                id="profile-clear-after"
+                className="w-full"
                 value={clearAfter}
                 onChange={(event) => setClearAfter(event.target.value)}
               >
                 {presetsFor(new Date()).map((option) => (
-                  <option key={option.id} value={option.id}>
+                  <NativeSelectOption key={option.id} value={option.id}>
                     {option.label}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-              </select>
-            </label>
+              </NativeSelect>
+            </Field>
           )}
-        </div>
-      </div>
+        </FieldSet>
+      </FieldGroup>
 
-      {error && <p className="error-text">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
     </Card>
   );
 }

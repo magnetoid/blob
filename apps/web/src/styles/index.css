@@ -32,8 +32,17 @@
 @source "../features/console/ConsoleNav.tsx";
 @source "../features/console/Card.tsx";
 @source "../features/console/CopyField.tsx";
+@source "../features/console/ConnectedAppRow.tsx";
 @source "../features/admin/AdminConsole.tsx";
 @source "../features/settings/SettingsConsole.tsx";
+@source "../features/settings/YouSection.tsx";
+@source "../features/settings/ProfileCard.tsx";
+@source "../features/settings/PreferencesCard.tsx";
+@source "../features/settings/NotificationsCard.tsx";
+@source "../features/settings/AccountCard.tsx";
+@source "../features/settings/SecuritySection.tsx";
+@source "../features/settings/AssistantsSection.tsx";
+@source "../features/settings/MyAgentsSection.tsx";
 @source "../features/server/ServerConsole.tsx";
 @import "./theme.css";
 @import "./tokens.css" layer(legacy);

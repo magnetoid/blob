@@ -1,9 +1,15 @@
 /** One app signed in as a person (ADR 0029) — in their own Settings, and on the admin's
  * list of everything connected to the workspace. Disconnecting asks first: it ends every
- * token the app holds, and the app has to be connected again from its side. */
+ * token the app holds, and the app has to be connected again from its side.
+ *
+ * A row of `CardRows`: the caller draws the list, and the row is an item in it. */
 
 import { useState } from 'react';
 import type { OAuthGrant } from '../../lib/api.ts';
+import { Badge } from '../../components/ui/badge.tsx';
+import { Button } from '../../components/ui/button.tsx';
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from '../../components/ui/item.tsx';
+import { CardRow } from './Card.tsx';
 
 export function ConnectedAppRow({
   grant,
@@ -21,40 +27,38 @@ export function ConnectedAppRow({
   const label = owner ? `${owner}’s ${grant.clientName}` : grant.clientName;
 
   return (
-    <div className="console-list-item">
-      <div className="admin-row">
-        <div className="grow min-0">
-          <div className="admin-row-title">
-            {title}
-            <span className="role-pill" data-muted={!writes}>
-              {writes ? 'reads and posts' : 'reads only'}
-            </span>
-          </div>
-          <div className="admin-row-meta">
-            {grant.vouchedBy ? `Confirmed by ${grant.vouchedBy}` : 'Registered itself'}
-            {' · '}
-            {grant.lastUsedAt
-              ? `Last used ${new Date(grant.lastUsedAt).toLocaleString()}`
-              : `Connected ${new Date(grant.createdAt).toLocaleDateString()}`}
-          </div>
-        </div>
-        <div className="admin-row-actions">
-          {confirming ? (
-            <>
-              <button className="btn btn-danger" onClick={onDisconnect}>
-                Disconnect {label}
-              </button>
-              <button className="btn btn-ghost" onClick={() => setConfirming(false)}>
-                Keep
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-ghost" onClick={() => setConfirming(true)}>
-              Disconnect
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <CardRow>
+      <ItemContent>
+        <ItemTitle>
+          {title}
+          <Badge variant={writes ? 'secondary' : 'outline'}>
+            {writes ? 'reads and posts' : 'reads only'}
+          </Badge>
+        </ItemTitle>
+        <ItemDescription>
+          {grant.vouchedBy ? `Confirmed by ${grant.vouchedBy}` : 'Registered itself'}
+          {' · '}
+          {grant.lastUsedAt
+            ? `Last used ${new Date(grant.lastUsedAt).toLocaleString()}`
+            : `Connected ${new Date(grant.createdAt).toLocaleDateString()}`}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        {confirming ? (
+          <>
+            <Button variant="destructive" onClick={onDisconnect}>
+              Disconnect {label}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirming(false)}>
+              Keep
+            </Button>
+          </>
+        ) : (
+          <Button variant="ghost" onClick={() => setConfirming(true)}>
+            Disconnect
+          </Button>
+        )}
+      </ItemActions>
+    </CardRow>
   );
 }

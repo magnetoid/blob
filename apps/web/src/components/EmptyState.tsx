@@ -21,12 +21,13 @@ import { Empty, EmptyContent, EmptyDescription, EmptyMedia, EmptyTitle } from '.
  * distances, so the gap goes.
  *
  * In a console card it is the card's notice instead — the card's padding, a title in the
- * card's type rather than a page's (`.console-card > .empty-state`, the one place a
- * caller's context changes it).
+ * card's type rather than a page's (`[data-slot=card-content] > .empty-state`, the one
+ * place a caller's context changes it). That is the part of shadcn's Card that holds a
+ * console card's children, which is where the console's cards draw them now.
  */
 const ROOT = [
   'empty-state mx-auto my-[60px] max-w-[520px] flex-none gap-0 px-[24px] py-0',
-  '[.console-card>&]:mt-[16px] [.console-card>&]:mb-0 [.console-card>&]:px-[16px] [.console-card>&]:py-[24px]',
+  '[[data-slot=card-content]>&]:mt-[16px] [[data-slot=card-content]>&]:mb-0 [[data-slot=card-content]>&]:px-[16px] [[data-slot=card-content]>&]:py-[24px]',
 ].join(' ');
 
 /**
@@ -50,11 +51,11 @@ const MARK =
   'empty-state-mark mb-[18px] size-[44px] rounded-(--blob-radius-lg) bg-(--blob-accent-wash-soft) text-(length:--blob-text-lg) font-semibold text-(--blob-accent)';
 
 const TITLE =
-  'empty-state-title text-(length:--blob-text-lg) font-semibold tracking-[-0.015em] [.console-card>.empty-state_&]:text-(length:--text-title)';
+  'empty-state-title text-(length:--blob-text-lg) font-semibold tracking-[-0.015em] [[data-slot=card-content]>.empty-state_&]:text-(length:--text-title)';
 
 const BODY = [
   'empty-state-body mt-[8px] text-(length:--blob-text-base) leading-[1.6] text-pretty text-(--text-3)',
-  '[.console-card>.empty-state_&]:mt-[4px] [.console-card>.empty-state_&]:text-(length:--text-row) [.console-card>.empty-state_&]:text-(--text-4)',
+  '[[data-slot=card-content]>.empty-state_&]:mt-[4px] [[data-slot=card-content]>.empty-state_&]:text-(length:--text-row) [[data-slot=card-content]>.empty-state_&]:text-(--text-4)',
 ].join(' ');
 
 /** Whatever follows the body — a retry, a way back — sits one step below it, a button or

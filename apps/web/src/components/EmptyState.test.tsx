@@ -62,6 +62,22 @@ describe('EmptyState', () => {
     expect(screen.getByRole('button', { name: 'Retry' }).closest('[data-legacy]')).not.toBeNull();
   });
 
+  it("keys its card variant on shadcn's card, where a console card's children now sit", () => {
+    // A console card's rows and notices are children of shadcn's content part, not of a
+    // `.console-card`, so the variant that draws a notice at the card's measure names that part.
+    const { container } = render(
+      <div data-slot="card-content">
+        <EmptyState title="Nothing yet">Connect one and it will appear here.</EmptyState>
+      </div>,
+    );
+    const root = container.querySelector<HTMLElement>('.empty-state')!;
+    expect(root.className).toContain('[[data-slot=card-content]>&]:py-[24px]');
+    expect(root.querySelector('[data-slot="empty-title"]')!.className).toContain(
+      '[[data-slot=card-content]>.empty-state_&]:text-(length:--text-title)',
+    );
+    expect(root.className).not.toContain('console-card');
+  });
+
   it("keeps a caller's class beside its own", () => {
     const { container } = render(<EmptyState title="Nothing" className="call-empty" />);
     const root = container.querySelector<HTMLElement>('.empty-state')!;

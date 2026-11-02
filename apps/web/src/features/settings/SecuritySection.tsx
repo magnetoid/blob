@@ -20,9 +20,22 @@ import { createPasskey, forgetPasskey, isCancel, passkeysSupported } from '../..
 import { useFetch } from '../../lib/useFetch.ts';
 import { formatRelative } from '../messages/messageFormatting.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
-import { Card, CardNotice } from '../console/Card.tsx';
+import { Card, CardNotice, CardRow, CardRows } from '../console/Card.tsx';
 import { clearSsoParams, ssoMessage } from '../auth/sso.ts';
 import { describeAgent, describeEvent, describeMethod } from './devices.ts';
+import { Alert, AlertDescription } from '../../components/ui/alert.tsx';
+import { Button } from '../../components/ui/button.tsx';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '../../components/ui/field.tsx';
+import { Input } from '../../components/ui/input.tsx';
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from '../../components/ui/item.tsx';
+import { Switch } from '../../components/ui/switch.tsx';
 
 export function SecuritySection({ onError }: ConsoleSectionProps) {
   // Bumped whenever something here changes what the other cards show: a password
@@ -31,7 +44,7 @@ export function SecuritySection({ onError }: ConsoleSectionProps) {
   const changed = () => setVersion((n) => n + 1);
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <PasswordCard onError={onError} onChanged={changed} />
       <PasskeysCard onError={onError} version={version} onChanged={changed} />
       <SingleSignOnCard onError={onError} version={version} onChanged={changed} />
@@ -94,49 +107,47 @@ function PasswordCard({
           : 'You sign in another way. Set a password to have one more.'
       }
     >
-      <form className="console-form" onSubmit={submit}>
-        <div className="console-form-grid">
+      <form className="flex flex-col gap-4" onSubmit={submit}>
+        <FieldGroup className="grid max-w-190 grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-x-5 gap-y-4">
           {hasPassword && (
-            <label className="field">
-              <span className="field-label">Current password</span>
-              <input
-                className="input"
+            <Field data-invalid={fieldError ? true : undefined}>
+              <FieldLabel htmlFor="current-password">Current password</FieldLabel>
+              <Input
+                id="current-password"
                 type="password"
                 autoComplete="current-password"
                 value={current}
                 onChange={(e) => setCurrent(e.target.value)}
                 aria-invalid={fieldError ? true : undefined}
+                aria-describedby={fieldError ? 'current-password-error' : undefined}
               />
-            </label>
+              {fieldError && <FieldError id="current-password-error">{fieldError}</FieldError>}
+            </Field>
           )}
-          <label className="field">
-            <span className="field-label">New password</span>
-            <input
-              className="input"
+          <Field>
+            <FieldLabel htmlFor="new-password">New password</FieldLabel>
+            <Input
+              id="new-password"
               type="password"
               autoComplete="new-password"
               minLength={10}
               value={next}
               onChange={(e) => setNext(e.target.value)}
             />
-          </label>
-        </div>
-        <p className="pref-hint">
-          At least 10 characters. Every other device is signed out, in every workspace; assistants
-          you have connected stay connected.
-        </p>
-        <div className="console-form-actions">
-          <button className="btn btn-primary" type="submit" disabled={!usable}>
+          </Field>
+        </FieldGroup>
+        <FieldDescription>
+          At least 10 characters. Every other device is signed out, in every workspace;
+          assistants you have connected stay connected.
+        </FieldDescription>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={!usable}>
             {busy ? 'Saving…' : hasPassword ? 'Change password' : 'Set password'}
-          </button>
+          </Button>
           {/* Always here, beside the button; only the words come and go, which is what
               gets them announced. */}
-          <span aria-live="polite">
-            {fieldError ? (
-              <span className="error-text">{fieldError}</span>
-            ) : done ? (
-              <span className="pref-hint">Password changed. Other devices are signed out.</span>
-            ) : null}
+          <span aria-live="polite" className="text-sm text-muted-foreground">
+            {done ? 'Password changed. Other devices are signed out.' : null}
           </span>
         </div>
       </form>
@@ -201,117 +212,119 @@ function PasskeysCard({
       title="Passkeys"
       description="Sign in with your fingerprint, face or device PIN instead of typing a password. A passkey is yours in every workspace here."
       footer={
-        <button
-          className="btn"
+        <Button
+          variant="outline"
           disabled={!supported || busy !== null}
           title={supported ? undefined : 'This browser cannot make passkeys.'}
           onClick={() => void add()}
         >
           {busy === 'add' ? 'Adding…' : 'Add a passkey'}
-        </button>
+        </Button>
       }
     >
-      {error && <p className="error-text">Could not load your passkeys.</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>Could not load your passkeys.</AlertDescription>
+        </Alert>
+      )}
       {!error && data === null && <CardNotice>Loading…</CardNotice>}
       {data !== null && passkeys.length === 0 && (
         <CardNotice>
           None yet. Add one and this device can sign you in without your password.
         </CardNotice>
       )}
-      {passkeys.map((passkey) => (
-        <div key={passkey.id} className="pref-row" data-passkey={passkey.id}>
-          {renaming?.id === passkey.id ? (
-            <form
-              className="console-inline-form grow"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const name = renaming.name.trim();
-                if (!name) return;
-                setRenaming(null);
-                void run(
-                  'rename',
-                  () => api.passkeys.rename(passkey.id, name),
-                  'It could not be renamed.',
-                );
-              }}
-            >
-              <input
-                className="input"
-                aria-label="Passkey name"
-                value={renaming.name}
-                maxLength={60}
-                onChange={(e) => setRenaming({ id: passkey.id, name: e.target.value })}
-              />
-              <button className="btn btn-primary" type="submit">
-                Save
-              </button>
-              <button className="btn btn-ghost" type="button" onClick={() => setRenaming(null)}>
-                Cancel
-              </button>
-            </form>
-          ) : (
-            <>
-              <div className="grow min-0">
-                <div className="pref-label">{passkey.name}</div>
-                <div className="pref-hint">
-                  {[
-                    passkey.backedUp ? 'synced to your other devices' : 'on one device only',
-                    passkey.createdAt
-                      ? `added ${new Date(passkey.createdAt).toLocaleDateString()}`
-                      : null,
-                    passkey.lastUsedAt
-                      ? `last used ${formatRelative(passkey.lastUsedAt)}`
-                      : 'not used yet',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </div>
-              </div>
-              <button
-                className="btn btn-ghost"
-                disabled={busy !== null}
-                aria-label={`Rename ${passkey.name}`}
-                onClick={() => setRenaming({ id: passkey.id, name: passkey.name })}
-              >
-                Rename
-              </button>
-              <button
-                className="btn btn-ghost"
-                disabled={busy !== null}
-                aria-label={`Remove ${passkey.name}`}
-                onClick={() => setRemoving(passkey)}
-              >
-                Remove
-              </button>
-            </>
-          )}
-        </div>
-      ))}
       {passkeys.length > 0 && (
-        <div className="pref-row">
-          <div className="grow">
-            <div className="pref-label">Ask for a passkey after my password</div>
-            <div className="pref-hint">
+        <CardRows>
+          {passkeys.map((passkey) => (
+            <CardRow key={passkey.id} data-passkey={passkey.id}>
+              {renaming?.id === passkey.id ? (
+                <form
+                  className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const name = renaming.name.trim();
+                    if (!name) return;
+                    setRenaming(null);
+                    void run(
+                      'rename',
+                      () => api.passkeys.rename(passkey.id, name),
+                      'It could not be renamed.',
+                    );
+                  }}
+                >
+                  <Input
+                    className="min-w-40 flex-1"
+                    aria-label="Passkey name"
+                    value={renaming.name}
+                    maxLength={60}
+                    onChange={(e) => setRenaming({ id: passkey.id, name: e.target.value })}
+                  />
+                  <Button type="submit">Save</Button>
+                  <Button variant="ghost" type="button" onClick={() => setRenaming(null)}>
+                    Cancel
+                  </Button>
+                </form>
+              ) : (
+                <>
+                  <ItemContent>
+                    <ItemTitle>{passkey.name}</ItemTitle>
+                    <ItemDescription>
+                      {[
+                        passkey.backedUp ? 'synced to your other devices' : 'on one device only',
+                        passkey.createdAt
+                          ? `added ${new Date(passkey.createdAt).toLocaleDateString()}`
+                          : null,
+                        passkey.lastUsedAt
+                          ? `last used ${formatRelative(passkey.lastUsedAt)}`
+                          : 'not used yet',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Button
+                      variant="ghost"
+                      disabled={busy !== null}
+                      aria-label={`Rename ${passkey.name}`}
+                      onClick={() => setRenaming({ id: passkey.id, name: passkey.name })}
+                    >
+                      Rename
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      disabled={busy !== null}
+                      aria-label={`Remove ${passkey.name}`}
+                      onClick={() => setRemoving(passkey)}
+                    >
+                      Remove
+                    </Button>
+                  </ItemActions>
+                </>
+              )}
+            </CardRow>
+          ))}
+        </CardRows>
+      )}
+      {passkeys.length > 0 && (
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor="passkey-two-step">Ask for a passkey after my password</FieldLabel>
+            <FieldDescription>
               Then a password alone no longer signs in as you, in any workspace here. Signing in
               with a passkey alone still works.
-            </div>
-          </div>
-          <button
-            className="toggle"
-            aria-pressed={data?.twoStep ?? false}
+            </FieldDescription>
+          </FieldContent>
+          <Switch
+            id="passkey-two-step"
             aria-label="Ask for a passkey after my password"
+            checked={data?.twoStep ?? false}
             disabled={busy !== null}
-            onClick={() =>
-              void run(
-                'two-step',
-                () => api.passkeys.setTwoStep(!(data?.twoStep ?? false)),
-                'That could not be changed.',
-              )
+            onCheckedChange={(on) =>
+              void run('two-step', () => api.passkeys.setTwoStep(on), 'That could not be changed.')
             }
-          >
-            <span />
-          </button>
-        </div>
+          />
+        </Field>
       )}
 
       <DialogPresence when={removing}>
@@ -384,50 +397,72 @@ function SingleSignOnCard({
     }
   }
 
+  const rows = (data?.identities.length ?? 0) + (data?.available.length ?? 0);
+
   return (
     <Card
       title="Single sign-on"
       description="Sign in with your organisation’s account instead of a password here."
     >
-      {outcome && <p className="pref-hint">{outcome}</p>}
-      {error && <p className="error-text">Could not load single sign-on.</p>}
+      {outcome && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {outcome}
+        </p>
+      )}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>Could not load single sign-on.</AlertDescription>
+        </Alert>
+      )}
       {!error && data === null && <CardNotice>Loading…</CardNotice>}
-      {data?.identities.map((identity) => (
-        <div key={identity.providerId} className="pref-row">
-          <div className="grow min-0">
-            <div className="pref-label">{identity.name}</div>
-            <div className="pref-hint">
-              {[
-                identity.linkedAt
-                  ? `linked ${new Date(identity.linkedAt).toLocaleDateString()}`
-                  : 'linked',
-                identity.lastUsedAt
-                  ? `last used ${formatRelative(identity.lastUsedAt)}`
-                  : 'not used yet',
-              ].join(' · ')}
-            </div>
-          </div>
-          <button
-            className="btn btn-ghost"
-            disabled={busy !== null}
-            aria-label={`Unlink ${identity.name}`}
-            onClick={() => setUnlinking(identity)}
-          >
-            Unlink
-          </button>
-        </div>
-      ))}
-      {data?.available.map((provider) => (
-        <div key={provider.slug} className="pref-row">
-          <div className="grow min-0">
-            <div className="pref-label">{provider.name}</div>
-            <div className="pref-hint">Not linked</div>
-          </div>
-          <button className="btn" disabled={busy !== null} onClick={() => void link(provider.slug)}>
-            {busy === provider.slug ? 'Opening…' : `Link ${provider.name}`}
-          </button>
-        </div>
-      ))}
+      {rows > 0 && (
+        <CardRows>
+          {data?.identities.map((identity) => (
+            <CardRow key={identity.providerId}>
+              <ItemContent>
+                <ItemTitle>{identity.name}</ItemTitle>
+                <ItemDescription>
+                  {[
+                    identity.linkedAt
+                      ? `linked ${new Date(identity.linkedAt).toLocaleDateString()}`
+                      : 'linked',
+                    identity.lastUsedAt
+                      ? `last used ${formatRelative(identity.lastUsedAt)}`
+                      : 'not used yet',
+                  ].join(' · ')}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button
+                  variant="ghost"
+                  disabled={busy !== null}
+                  aria-label={`Unlink ${identity.name}`}
+                  onClick={() => setUnlinking(identity)}
+                >
+                  Unlink
+                </Button>
+              </ItemActions>
+            </CardRow>
+          ))}
+          {data?.available.map((provider) => (
+            <CardRow key={provider.slug}>
+              <ItemContent>
+                <ItemTitle>{provider.name}</ItemTitle>
+                <ItemDescription>Not linked</ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button
+                  variant="outline"
+                  disabled={busy !== null}
+                  onClick={() => void link(provider.slug)}
+                >
+                  {busy === provider.slug ? 'Opening…' : `Link ${provider.name}`}
+                </Button>
+              </ItemActions>
+            </CardRow>
+          ))}
+        </CardRows>
+      )}
 
       <DialogPresence when={unlinking}>
         {(identity) => (
@@ -496,51 +531,61 @@ function DevicesCard({
       description="Every browser holding a session for you, in every workspace. Sign out any you do not recognise."
       footer={
         others.length > 0 ? (
-          <button
-            className="btn"
+          <Button
+            variant="outline"
             disabled={busy !== null}
             onClick={() => void act('others', () => api.auth.logoutOthers())}
           >
             Sign out everywhere else
-          </button>
+          </Button>
         ) : undefined
       }
     >
-      {error && <p className="error-text">Could not load your sessions.</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>Could not load your sessions.</AlertDescription>
+        </Alert>
+      )}
       {!error && sessions === null && <CardNotice>Loading…</CardNotice>}
-      {sessions?.map((session) => {
-        const how = describeMethod(session.method);
-        return (
-          <div key={session.id} className="pref-row">
-            <div className="grow min-0">
-              <div className="pref-label">
-                {describeAgent(session.userAgent)}
-                {session.current && ' — this device'}
-              </div>
-              <div className="pref-hint">
-                {[
-                  workspaces.size > 1 ? session.workspace : null,
-                  how ? `signed in ${how}` : null,
-                  session.ip,
-                  `last seen ${formatRelative(session.lastSeenAt)}`,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </div>
-            </div>
-            {!session.current && (
-              <button
-                className="btn btn-ghost"
-                disabled={busy !== null}
-                aria-label={`Sign out ${describeAgent(session.userAgent)}`}
-                onClick={() => void act(session.id, () => api.auth.endSession(session.id))}
-              >
-                Sign out
-              </button>
-            )}
-          </div>
-        );
-      })}
+      {sessions !== null && sessions.length > 0 && (
+        <CardRows>
+          {sessions.map((session) => {
+            const how = describeMethod(session.method);
+            return (
+              <CardRow key={session.id}>
+                <ItemContent>
+                  <ItemTitle>
+                    {describeAgent(session.userAgent)}
+                    {session.current && ' — this device'}
+                  </ItemTitle>
+                  <ItemDescription>
+                    {[
+                      workspaces.size > 1 ? session.workspace : null,
+                      how ? `signed in ${how}` : null,
+                      session.ip,
+                      `last seen ${formatRelative(session.lastSeenAt)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </ItemDescription>
+                </ItemContent>
+                {!session.current && (
+                  <ItemActions>
+                    <Button
+                      variant="ghost"
+                      disabled={busy !== null}
+                      aria-label={`Sign out ${describeAgent(session.userAgent)}`}
+                      onClick={() => void act(session.id, () => api.auth.endSession(session.id))}
+                    >
+                      Sign out
+                    </Button>
+                  </ItemActions>
+                )}
+              </CardRow>
+            );
+          })}
+        </CardRows>
+      )}
     </Card>
   );
 }
@@ -556,26 +601,34 @@ function ActivityCard({ version }: { version: number }) {
         data?.keepDays ?? 90
       } days.`}
     >
-      {error && <p className="error-text">Could not load your activity.</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>Could not load your activity.</AlertDescription>
+        </Alert>
+      )}
       {!error && data === null && <CardNotice>Loading…</CardNotice>}
       {data !== null && events.length === 0 && <CardNotice>Nothing yet.</CardNotice>}
-      {events.map((event) => (
-        <div key={event.id} className="pref-row" data-kind={event.kind}>
-          <div className="grow min-0">
-            <div className="pref-label">{describeEvent(event)}</div>
-            <div className="pref-hint">
-              {[
-                describeAgent(event.userAgent),
-                event.workspace,
-                event.ip,
-                new Date(event.createdAt).toLocaleString(),
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </div>
-          </div>
-        </div>
-      ))}
+      {events.length > 0 && (
+        <CardRows>
+          {events.map((event) => (
+            <CardRow key={event.id} data-kind={event.kind}>
+              <ItemContent>
+                <ItemTitle>{describeEvent(event)}</ItemTitle>
+                <ItemDescription>
+                  {[
+                    describeAgent(event.userAgent),
+                    event.workspace,
+                    event.ip,
+                    new Date(event.createdAt).toLocaleString(),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </ItemDescription>
+              </ItemContent>
+            </CardRow>
+          ))}
+        </CardRows>
+      )}
     </Card>
   );
 }

@@ -5,7 +5,7 @@
  * to, ended from here.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { api, type AgentMemory, type MyAgent } from '../../lib/api.ts';
 import { useStore } from '../../lib/store.ts';
 import { MyAgentsSection } from './MyAgentsSection.tsx';
@@ -42,6 +42,9 @@ beforeEach(() => {
     channelTitle: (channel: { name: string | null }) => `#${channel.name}`,
   } as never);
   vi.spyOn(api.agents, 'mine').mockResolvedValue({ agents: [AGENT] });
+  // What the page asks for beyond the test's own subject, so none of it reaches the network.
+  vi.spyOn(api.agents, 'notes').mockResolvedValue({ notes: [] });
+  vi.spyOn(api.agents, 'memory').mockResolvedValue({ memories: [] });
   vi.spyOn(api.agents, 'usage').mockResolvedValue({
     days: 7,
     currency: 'EUR',
@@ -146,5 +149,81 @@ describe('what your agents spent', () => {
     // Every row is the reader's own: no "Ana's" on each one.
     expect(row.textContent).not.toMatch(/Ana/);
     expect(api.agents.usage).toHaveBeenCalledWith(7);
+  });
+});
+
+/** The rows of the "Your agents" card. */
+async function agentRows() {
+  const card = (await screen.findByRole('heading', { name: 'Your agents' })).closest<HTMLElement>(
+    '[data-slot="card"]',
+  )!;
+  await within(card).findAllByRole('listitem');
+  return within(card).getAllByRole('listitem');
+}
+
+describe('connecting an agent', () => {
+  it('registers it under a name of three letters or more, and hands over its setup', async () => {
+    const attach = vi.spyOn(api.agents, 'attach').mockResolvedValue({
+      agent: { ...AGENT, name: 'Rex' },
+      botToken: 'tok-1',
+      signingSecret: 'sig-1',
+    } as never);
+    render(<MyAgentsSection onError={vi.fn()} isOwner={false} />);
+
+    const name = await screen.findByRole('textbox', { name: 'Agent name' });
+    const get = screen.getByRole<HTMLButtonElement>('button', { name: 'Get a token' });
+    fireEvent.change(name, { target: { value: 'Re' } });
+    expect(get.disabled).toBe(true);
+
+    fireEvent.change(name, { target: { value: 'Rex' } });
+    expect(get.disabled).toBe(false);
+    fireEvent.keyDown(name, { key: 'Enter' });
+    await waitFor(() => expect(attach).toHaveBeenCalledWith('Rex'));
+
+    // The setup is the old stylesheet's markup, so it sits in an island of its own.
+    const command = await screen.findByText(/export BLOB_BOT_TOKEN=tok-1/);
+    expect(command.closest('[data-legacy]')).not.toBeNull();
+    expect((name as HTMLInputElement).value).toBe('');
+  });
+});
+
+describe('your agents', () => {
+  it('lists each with whether it is connected, and nothing else until one is added', async () => {
+    render(<MyAgentsSection onError={vi.fn()} isOwner={false} />);
+    const [row] = await agentRows();
+    expect(within(row!).getByText('Pip')).toBeTruthy();
+    expect(within(row!).getByText('connected')).toBeTruthy();
+  });
+
+  it('opens an agent’s channels under it, and adds it to one', async () => {
+    vi.spyOn(api.agents, 'channels')
+      .mockResolvedValueOnce({ channels: [{ id: 'c1', name: 'general', joined: false }] } as never)
+      .mockResolvedValue({ channels: [{ id: 'c1', name: 'general', joined: true }] } as never);
+    const join = vi.spyOn(api.agents, 'joinChannel').mockResolvedValue({ ok: true } as never);
+    render(<MyAgentsSection onError={vi.fn()} isOwner={false} />);
+
+    const toggle = await screen.findByRole('button', { name: 'Channels', expanded: false });
+    fireEvent.click(toggle);
+    expect(await screen.findByText('#general')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Hide channels', expanded: true })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() => expect(join).toHaveBeenCalledWith('p1', 'c1'));
+    // Asked for again, so the channel now offers the way back out instead of Add.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Add' })).toBeNull());
+  });
+
+  it('removes an agent only on the second press, and names it', async () => {
+    const detach = vi.spyOn(api.agents, 'detach').mockResolvedValue({ ok: true } as never);
+    render(<MyAgentsSection onError={vi.fn()} isOwner={false} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    expect(detach).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Pip' }));
+    await waitFor(() => expect(detach).toHaveBeenCalledWith('p1'));
   });
 });

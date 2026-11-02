@@ -16,7 +16,15 @@
  * cancelling; a lone control in the stack takes `self-start`, or it is as wide as the card.
  */
 
-import { Children, createContext, useContext, type HTMLAttributes, type ReactNode } from 'react';
+import {
+  Children,
+  createContext,
+  useContext,
+  type ComponentProps,
+  type HTMLAttributes,
+  type ReactNode,
+} from 'react';
+import { cn } from 'cn';
 import {
   Card as CardRoot,
   CardAction,
@@ -26,6 +34,8 @@ import {
   CardHeader,
   CardTitle,
 } from '../../components/ui/card.tsx';
+import { FieldGroup } from '../../components/ui/field.tsx';
+import { Item, ItemGroup } from '../../components/ui/item.tsx';
 
 /** Whether the card something is drawn in has a title — see `CardHeading`. */
 const InTitledCard = createContext(false);
@@ -128,4 +138,62 @@ export function CardHeading({
  */
 export function CardNotice({ children }: { children: ReactNode }) {
   return <p className="px-4 py-6 text-center text-sm text-pretty text-muted-foreground">{children}</p>;
+}
+
+/**
+ * A list of things a card holds — passkeys, tokens, agents — one `CardRow` each.
+ *
+ * It runs from one edge of the card to the other and the rows are ruled from each other,
+ * which is how these lists have always read; the card's own padding comes back inside each
+ * row, so a row's words line up with the title above it. What a row says is data — a name,
+ * an address — so it is read whole rather than cut to a line with an ellipsis, and a row
+ * whose buttons do not fit beside its words lets them drop to a line of their own, at the
+ * end of it.
+ */
+export function CardRows({ className, ...rest }: ComponentProps<typeof ItemGroup>) {
+  return (
+    <ItemGroup
+      className={cn(
+        '-mx-(--card-spacing) gap-0',
+        // Item clamps a title and a description to a line or two. The clamp only works on a
+        // `-webkit-box`, so the description is made a block; the title is a flex row (its
+        // badges sit in it) and only has to stop clipping. `line-clamp-none` would do both
+        // by making the title a block too.
+        '**:data-[slot=item-title]:flex-wrap **:data-[slot=item-title]:overflow-visible **:data-[slot=item-description]:block **:data-[slot=item-description]:overflow-visible',
+        '**:data-[slot=item-content]:min-w-40 **:data-[slot=item-actions]:ml-auto **:data-[slot=item-actions]:flex-wrap',
+        className,
+      )}
+      {...rest}
+    />
+  );
+}
+
+/** One row of `CardRows`: an `Item` with the rule under it and the card's padding on it. */
+export function CardRow({ className, ...rest }: ComponentProps<typeof Item>) {
+  return (
+    <Item
+      // shadcn's list has the role and its item has none, which leaves a list with no list
+      // items in it for a screen reader.
+      role="listitem"
+      className={cn(
+        'rounded-none border-0 border-b border-border px-(--card-spacing) last:border-b-0',
+        className,
+      )}
+      {...rest}
+    />
+  );
+}
+
+/**
+ * The settings a card holds: a label and what it means on the left, its control on the
+ * right — a `Field` each — ruled from one another. Inside the card's padding, where a
+ * list runs to its edges.
+ */
+export function CardFields({ className, ...rest }: ComponentProps<typeof FieldGroup>) {
+  return (
+    <FieldGroup
+      className={cn('gap-0 divide-y divide-border *:py-4 *:first:pt-0 *:last:pb-0', className)}
+      {...rest}
+    />
+  );
 }
