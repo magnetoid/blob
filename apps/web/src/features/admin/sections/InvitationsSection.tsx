@@ -1,10 +1,25 @@
 /** Who has been invited, and who has not arrived yet. */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { api, type AdminInvite } from "../../../lib/api.ts";
 import { useStore } from "../../../lib/store.ts";
+import { Alert, AlertDescription } from "../../../components/ui/alert.tsx";
+import { Badge } from "../../../components/ui/badge.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import { Checkbox } from "../../../components/ui/checkbox.tsx";
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../../../components/ui/field.tsx";
+import { Input } from "../../../components/ui/input.tsx";
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from "../../../components/ui/item.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../components/ui/native-select.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
-import { CardNotice } from "../../console/Card.tsx";
+import { CardNotice, CardRow, CardRows } from "../../console/Card.tsx";
+import { CopyField } from "../../console/CopyField.tsx";
 import { useAdminAction } from '../../console/hooks.ts';
 
 export function InvitationsSection({
@@ -32,6 +47,7 @@ export function InvitationsSection({
   const [link, setLink] = useState<string | null>(null);
   /** Whether the invitation actually went by email: null when nobody asked it to. */
   const [emailed, setEmailed] = useState<boolean | null>(null);
+  const fields = useId();
 
   const load = useCallback(() => {
     void api.admin
@@ -50,7 +66,7 @@ export function InvitationsSection({
   return (
     <>
       <form
-        className="console-inline-form"
+        className="flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
           void act(async () => {
@@ -66,136 +82,128 @@ export function InvitationsSection({
           });
         }}
       >
-        <label className="field">
-          <span className="field-label">{role === "guest" ? "Email" : "Email (optional)"}</span>
-          <input
-            className="input"
-            type="email"
-            value={email}
-            required={role === "guest"}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={role === "guest" ? "A guest is invited by address" : "Leave blank for a shareable link"}
-          />
-        </label>
-        <label className="field">
-          <span className="field-label">Joins as</span>
-          <select
-            className="input"
-            value={role}
-            onChange={(e) => setRole(e.target.value as "member" | "admin" | "guest")}
-          >
-            <option value="member">member</option>
-            <option value="guest">guest</option>
-            {isOwner && <option value="admin">admin</option>}
-          </select>
-        </label>
-        <button
-          className="btn btn-primary"
+        <div className="grid max-w-3xl gap-x-5 gap-y-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor={`${fields}-email`}>
+              {role === "guest" ? "Email" : "Email (optional)"}
+            </FieldLabel>
+            <Input
+              id={`${fields}-email`}
+              type="email"
+              value={email}
+              required={role === "guest"}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={role === "guest" ? "A guest is invited by address" : "Leave blank for a shareable link"}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${fields}-role`}>Joins as</FieldLabel>
+            <NativeSelect
+              id={`${fields}-role`}
+              value={role}
+              onChange={(e) => setRole(e.target.value as "member" | "admin" | "guest")}
+            >
+              <NativeSelectOption value="member">member</NativeSelectOption>
+              <NativeSelectOption value="guest">guest</NativeSelectOption>
+              {isOwner && <NativeSelectOption value="admin">admin</NativeSelectOption>}
+            </NativeSelect>
+          </Field>
+        </div>
+
+        {role === "guest" && (
+          <FieldSet aria-describedby={`${fields}-guests`}>
+            <FieldLegend variant="label">Channels the guest may see</FieldLegend>
+            <FieldDescription id={`${fields}-guests`}>
+              A guest sees these channels and the people in them — no others, no directory,
+              no agents.
+            </FieldDescription>
+            {offerable.map((channel) => (
+              <Field key={channel.id} orientation="horizontal">
+                <Checkbox
+                  id={`${fields}-${channel.id}`}
+                  checked={guestChannels.includes(channel.id)}
+                  onCheckedChange={(on) =>
+                    setGuestChannels((chosen) =>
+                      on
+                        ? [...chosen, channel.id]
+                        : chosen.filter((id) => id !== channel.id),
+                    )
+                  }
+                />
+                <FieldLabel htmlFor={`${fields}-${channel.id}`} className="font-normal">
+                  #{channel.name}
+                  {channel.kind === "private" ? " · private" : ""}
+                </FieldLabel>
+              </Field>
+            ))}
+          </FieldSet>
+        )}
+
+        <Button
+          className="self-start"
           type="submit"
           disabled={role === "guest" && guestChannels.length === 0}
         >
           Create invitation
-        </button>
+        </Button>
       </form>
 
-      {role === "guest" && (
-        <fieldset className="guest-channels">
-          <legend className="field-label">Channels the guest may see</legend>
-          <p className="pref-hint">
-            A guest sees these channels and the people in them — no others, no directory,
-            no agents.
-          </p>
-          {offerable.map((channel) => (
-            <label key={channel.id} className="guest-channel">
-              <input
-                type="checkbox"
-                checked={guestChannels.includes(channel.id)}
-                onChange={(e) =>
-                  setGuestChannels((chosen) =>
-                    e.target.checked
-                      ? [...chosen, channel.id]
-                      : chosen.filter((id) => id !== channel.id),
-                  )
-                }
-              />
-              <span>
-                #{channel.name}
-                {channel.kind === "private" ? " · private" : ""}
-              </span>
-            </label>
-          ))}
-        </fieldset>
-      )}
-
       {link && emailed === false && (
-        <p className="error-text">
-          The email did not go out — this server cannot reach a mail server, so the link
-          below is the only copy. Send it to them yourself, or set SMTP_HOST and
-          MAIL_FROM and try again.
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>
+            The email did not go out — this server cannot reach a mail server, so the link
+            below is the only copy. Send it to them yourself, or set SMTP_HOST and
+            MAIL_FROM and try again.
+          </AlertDescription>
+        </Alert>
       )}
       {link && emailed === true && (
-        <p className="pref-hint">
+        <p className="text-sm text-muted-foreground">
           Emailed. The link is here too, in case it does not arrive.
         </p>
       )}
 
-      {link && (
-        <div className="draft-chip console-copy">
-          <span className="grow ellipsis">{link}</span>
-          <button
-            className="btn btn-ghost"
-            onClick={() => void navigator.clipboard.writeText(link)}
-          >
-            Copy
-          </button>
-        </div>
-      )}
+      {link && <CopyField label="Invitation link" value={link} />}
 
       {invites.length === 0 ? (
         <CardNotice>No invitations yet.</CardNotice>
       ) : (
-      <div className="console-list">
-        {invites.map((invite) => (
-          <div
-            className="admin-row"
-            key={invite.id}
-            data-inactive={invite.status !== "pending"}
-          >
-            <div className="grow min-0">
-              <div className="admin-row-title">
-                {invite.email ?? "Shareable link"}
-                <span
-                  className="role-pill"
-                  data-muted={invite.status !== "pending"}
-                >
-                  {invite.status}
-                </span>
-                {invite.role !== "member" && (
-                  <span className="role-pill">{invite.role}</span>
-                )}
-              </div>
-              <div className="admin-row-meta">
-                Created by {invite.createdByName ?? "someone"}{" "}
-                {formatRelative(invite.createdAt)}
-                {invite.acceptedByName &&
-                  ` · accepted by ${invite.acceptedByName}`}
-              </div>
-            </div>
-            {invite.status === "pending" && (
-              <button
-                className="btn"
-                aria-label={`Revoke the invitation to ${invite.email}`}
-                onClick={() =>
-                  void act(() => api.admin.revokeInvite(invite.id))
-                }
-              >
-                Revoke
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+        <CardRows>
+          {invites.map((invite) => (
+            <CardRow key={invite.id}>
+              <ItemContent>
+                {/* An invitation that is over goes grey and its badge says how; a pending
+                    one is the one to read. */}
+                <ItemTitle className={invite.status !== "pending" ? "text-muted-foreground" : undefined}>
+                  {invite.email ?? "Shareable link"}
+                  <Badge variant={invite.status === "pending" ? "secondary" : "outline"}>
+                    {invite.status}
+                  </Badge>
+                  {invite.role !== "member" && <Badge variant="outline">{invite.role}</Badge>}
+                </ItemTitle>
+                <ItemDescription>
+                  Created by {invite.createdByName ?? "someone"}{" "}
+                  {formatRelative(invite.createdAt)}
+                  {invite.acceptedByName &&
+                    ` · accepted by ${invite.acceptedByName}`}
+                </ItemDescription>
+              </ItemContent>
+              {invite.status === "pending" && (
+                <ItemActions>
+                  <Button
+                    variant="outline"
+                    aria-label={`Revoke the invitation to ${invite.email ?? "a shareable link"}`}
+                    onClick={() =>
+                      void act(() => api.admin.revokeInvite(invite.id))
+                    }
+                  >
+                    Revoke
+                  </Button>
+                </ItemActions>
+              )}
+            </CardRow>
+          ))}
+        </CardRows>
       )}
     </>
   );

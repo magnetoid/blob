@@ -26,7 +26,7 @@ import { AccountsSection } from "./AccountsSection.tsx";
 export function PeopleHub(props: ConsoleSectionProps) {
   if (props.detailId) {
     return (
-      <div className="console-stack">
+      <div className="flex flex-col gap-6">
         <Card>
           <PeopleSection {...props} />
         </Card>
@@ -35,7 +35,7 @@ export function PeopleHub(props: ConsoleSectionProps) {
   }
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card title="Members" description="Everyone here, and what they can do.">
         <PeopleSection {...props} />
       </Card>
@@ -59,7 +59,11 @@ export function PeopleHub(props: ConsoleSectionProps) {
           title="Accounts"
           description="Every account on this server — the server admin's view."
         >
-          <AccountsSection {...props} />
+          {/* Accounts is still drawn in the legacy stylesheet (it is the server's page,
+              converted with the rest of them), so it sits in an island. */}
+          <div data-legacy>
+            <AccountsSection {...props} />
+          </div>
         </Card>
       )}
     </div>

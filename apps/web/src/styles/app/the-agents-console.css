@@ -117,10 +117,6 @@
   border-bottom: 1px solid var(--hairline-soft);
 }
 
-.admin-row[data-inactive='true'] {
-  opacity: 0.6;
-}
-
 .admin-plugin-card {
   overflow: hidden;
 }
@@ -823,40 +819,3 @@ select.chip {
   vertical-align: -1px;
 }
 
-.token-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.token-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 9px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--blob-radius-md);
-  background: var(--surface);
-}
-
-.token-row input[type='color'] {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 1px solid var(--hairline);
-  border-radius: var(--blob-radius-sm);
-  background: none;
-  cursor: pointer;
-  flex: none;
-}
-
-.token-name {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--blob-font-mono);
-  font-size: var(--blob-text-xs);
-  color: var(--text-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}

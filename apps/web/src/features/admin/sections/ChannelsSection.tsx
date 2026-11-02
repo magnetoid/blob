@@ -5,7 +5,10 @@ import { api, type AdminChannel } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../../components/Dialog.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
-import { Card, CardNotice } from "../../console/Card.tsx";
+import { Badge } from "../../../components/ui/badge.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from "../../../components/ui/item.tsx";
+import { Card, CardNotice, CardRow, CardRows } from "../../console/Card.tsx";
 import { useAdminAction } from '../../console/hooks.ts';
 
 export function ChannelsSection({
@@ -45,64 +48,58 @@ export function ChannelsSection({
   if (channels === null && failed) return null;
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card>
         {channels === null ? (
           <CardNotice>Loading…</CardNotice>
         ) : channels.length === 0 ? (
           <CardNotice>No channels yet.</CardNotice>
         ) : (
-          <div className="console-list">
+          <CardRows>
             {channels.map((channel) => (
-              <div
-                className="admin-row"
-                key={channel.id}
-                data-inactive={channel.archivedAt !== null}
-              >
-                <div className="grow min-0">
-                  <div className="admin-row-title">
+              <CardRow key={channel.id}>
+                <ItemContent>
+                  {/* A closed channel's name goes grey and its badge says why, rather than
+                      the whole row being dimmed, which took its meta line below readable. */}
+                  <ItemTitle className={channel.archivedAt ? "text-muted-foreground" : undefined}>
                     {channel.name ? `#${channel.name}` : "Direct message"}
-                    {channel.kind !== "public" && (
-                      <span className="role-pill">{channel.kind}</span>
-                    )}
-                    {channel.archivedAt && (
-                      <span className="role-pill" data-muted>
-                        archived
-                      </span>
-                    )}
-                  </div>
-                  <div className="admin-row-meta">
+                    {channel.kind !== "public" && <Badge variant="outline">{channel.kind}</Badge>}
+                    {channel.archivedAt && <Badge variant="secondary">archived</Badge>}
+                  </ItemTitle>
+                  <ItemDescription>
                     {channel.memberCount} members · {channel.messageCount} messages
                     {channel.lastMessageAt
                       ? ` · active ${formatRelative(channel.lastMessageAt)}`
                       : " · never used"}
-                  </div>
-                </div>
-                {channel.kind !== "dm" &&
-                  channel.kind !== "group_dm" &&
-                  (channel.archivedAt ? (
-                    // Archiving used to be permanent by omission: nothing anywhere set
-                    // `archived_at` back to null, so a channel closed by mistake stayed
-                    // closed and its history stayed readable but unwritable for ever.
-                    <button
-                      className="btn"
-                      aria-label={`Reopen #${channel.name}`}
-                      onClick={() => void act(() => api.admin.unarchiveChannel(channel.id))}
-                    >
-                      Reopen
-                    </button>
-                  ) : (
-                    <button
-                      className="btn"
-                      aria-label={`Archive #${channel.name}`}
-                      onClick={() => setArchiving(channel)}
-                    >
-                      Archive
-                    </button>
-                  ))}
-              </div>
+                  </ItemDescription>
+                </ItemContent>
+                {channel.kind !== "dm" && channel.kind !== "group_dm" && (
+                  <ItemActions>
+                    {channel.archivedAt ? (
+                      // Archiving used to be permanent by omission: nothing anywhere set
+                      // `archived_at` back to null, so a channel closed by mistake stayed
+                      // closed and its history stayed readable but unwritable for ever.
+                      <Button
+                        variant="outline"
+                        aria-label={`Reopen #${channel.name}`}
+                        onClick={() => void act(() => api.admin.unarchiveChannel(channel.id))}
+                      >
+                        Reopen
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        aria-label={`Archive #${channel.name}`}
+                        onClick={() => setArchiving(channel)}
+                      >
+                        Archive
+                      </Button>
+                    )}
+                  </ItemActions>
+                )}
+              </CardRow>
             ))}
-          </div>
+          </CardRows>
         )}
       </Card>
 

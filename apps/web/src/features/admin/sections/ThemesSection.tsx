@@ -6,7 +6,7 @@
  * saved until you press Save, and Cancel puts the previous palette back.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import type { Theme } from "@blob/shared";
 import { api, ApiError } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
@@ -21,7 +21,50 @@ import {
   themeChoices,
 } from "../../../lib/theme.ts";
 import { themeContrastIssues } from "../../../lib/themeContrast.ts";
-import { Card } from "../../console/Card.tsx";
+import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert.tsx";
+import { Badge } from "../../../components/ui/badge.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import { Field, FieldLabel } from "../../../components/ui/field.tsx";
+import { Input } from "../../../components/ui/input.tsx";
+import {
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "../../../components/ui/item.tsx";
+import { Label } from "../../../components/ui/label.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../components/ui/native-select.tsx";
+import { Card, CardRow, CardRows } from "../../console/Card.tsx";
+
+/**
+ * The platform's colour input has no shadcn part, so it is drawn to sit with the other
+ * controls: a bordered square that is the swatch itself, with the browser's own frame
+ * round the colour taken off (`-webkit-` is Chrome and Safari, `-moz-` is Firefox).
+ * Touch gets the same 44px as every other control.
+ */
+const COLOUR_INPUT = [
+  "size-8 shrink-0 cursor-pointer rounded-md border border-input bg-transparent p-0.5 outline-none",
+  "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:size-11",
+  "[&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-0",
+  "[&::-moz-color-swatch]:rounded-sm [&::-moz-color-swatch]:border-0",
+].join(" ");
+
+/**
+ * The colour a theme is known by. It is the theme's own data, so it rides in as a custom
+ * property for the class to read — `bg-(--swatch)` — and the node carries nothing else:
+ * the look is the class's, and the colour is the only thing the row has to say.
+ */
+function Swatch({ color }: { color: string }) {
+  const vars = { "--swatch": color } as CSSProperties;
+  return (
+    <span
+      aria-hidden="true"
+      style={vars}
+      className="size-7 shrink-0 rounded-md bg-(--swatch) inset-ring-1 inset-ring-foreground/15"
+    />
+  );
+}
 
 export function ThemesSection({
   onError,
@@ -39,6 +82,7 @@ export function ThemesSection({
   const [baseTokens, setBaseTokens] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Theme | null>(null);
+  const fields = useId();
 
   useEffect(() => {
     void api.themes
@@ -137,7 +181,7 @@ export function ThemesSection({
 
   if (editing) {
     return (
-      <div className="console-stack">
+      <div className="flex flex-col gap-6">
         <Card
           description={
             <>
@@ -145,20 +189,33 @@ export function ThemesSection({
               until you save. Colours you leave alone keep the built-in value.
             </>
           }
+          footer={
+            <>
+              <Button variant="outline" onClick={stopEdit}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void save()}
+                disabled={saving || contrastIssues.length > 0}
+              >
+                {saving ? "Saving…" : "Save"}
+              </Button>
+            </>
+          }
         >
-          <div className="console-inline-form">
-            <label className="field">
-              <span className="field-label">Theme name</span>
-              <input
-                className="input"
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor={`${fields}-name`}>Theme name</FieldLabel>
+              <Input
+                id={`${fields}-name`}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-            </label>
-            <label className="field">
-              <span className="field-label">Mode</span>
-              <select
-                className="input"
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={`${fields}-mode`}>Mode</FieldLabel>
+              <NativeSelect
+                id={`${fields}-mode`}
                 value={mode}
                 onChange={(e) => {
                   const next = e.target.value as "light" | "dark";
@@ -166,72 +223,69 @@ export function ThemesSection({
                   previewEditor(next, tokens, true);
                 }}
               >
-                <option value="light">light</option>
-                <option value="dark">dark</option>
-              </select>
-            </label>
-            <button
-              className="btn btn-primary"
-              onClick={() => void save()}
-              disabled={saving || contrastIssues.length > 0}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <button className="btn" onClick={stopEdit}>
-              Cancel
-            </button>
+                <NativeSelectOption value="light">light</NativeSelectOption>
+                <NativeSelectOption value="dark">dark</NativeSelectOption>
+              </NativeSelect>
+            </Field>
           </div>
           {contrastIssues.length > 0 && (
-            <div className="theme-contrast-warning" role="alert">
-              <strong>
+            <Alert variant="destructive">
+              <AlertTitle>
                 Contrast needs attention before this theme can be saved.
-              </strong>
-              <ul>
-                {contrastIssues.map((issue) => (
-                  <li key={issue}>{issue}</li>
-                ))}
-              </ul>
-            </div>
+              </AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc pl-4">
+                  {contrastIssues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
           )}
         </Card>
 
         {editableGroups.map(([group, groupTokens]) => (
           <Card key={group} title={group}>
-            <div className="token-grid">
+            <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
               {groupTokens.map((token) => {
                 const inputId = `theme-${token.slice(2)}`;
+                // Without its dashes: the words beside the swatch, and the field's name.
+                const shown = token.replace(/^--/, "");
                 return (
-                  <div className="token-row" key={token}>
+                  <div className="flex items-center gap-2" key={token}>
                     <input
                       id={inputId}
                       type="color"
+                      className={COLOUR_INPUT}
                       value={
                         toHex(tokens[token] ?? "") ??
                         baseTokens[token] ??
                         "#000000"
                       }
                       onChange={(e) => setToken(token, e.target.value)}
-                      aria-label={token}
                     />
-                    <label className="token-name" htmlFor={inputId}>
-                      {token.replace(/^--/, "")}
-                    </label>
+                    <Label
+                      htmlFor={inputId}
+                      className="min-w-0 flex-1 font-mono text-xs font-normal wrap-anywhere"
+                    >
+                      {shown}
+                    </Label>
                     {tokens[token] && (
-                      <button
+                      <Button
                         type="button"
-                        className="btn btn-ghost"
+                        variant="ghost"
+                        size="icon-sm"
                         title="Reset to the built-in value"
-                        aria-label={`Reset ${token} to the built-in value`}
-                        onClick={(e) => {
-                          e.preventDefault();
+                        aria-label={`Reset ${shown} to the built-in value`}
+                        onClick={() => {
                           const next = { ...tokens };
                           delete next[token];
                           setTokens(next);
                           previewEditor(mode, next);
                         }}
                       >
-                        ↺
-                      </button>
+                        <span aria-hidden="true">↺</span>
+                      </Button>
                     )}
                   </div>
                 );
@@ -244,74 +298,61 @@ export function ThemesSection({
   }
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card
         title="Themes"
         description="Presets ship with the app and cannot be edited — duplicate one to start from it. People choose their own light and dark palettes in Preferences."
       >
-        <div className="console-list">
+        <CardRows>
           {themes.map((theme) => (
-            <div className="admin-row" key={theme.id}>
-              {/* The one inline style left: the colour is the theme's own data. */}
-              <span
-                className="theme-swatch"
-                style={{
-                  background:
-                    theme.tokens["--primary"] ??
-                    B0_HEX[theme.mode]["--primary"],
-                }}
-              />
-              <div className="grow min-0">
-                <div className="admin-row-title">
+            <CardRow key={theme.id}>
+              <ItemMedia>
+                <Swatch
+                  color={theme.tokens["--primary"] ?? B0_HEX[theme.mode]["--primary"]}
+                />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle>
                   {theme.name}
-                  <span
-                    className="role-pill"
-                    data-muted={theme.mode === "light" ? undefined : true}
-                  >
-                    {theme.mode}
-                  </span>
-                  {theme.isPreset && (
-                    <span className="role-pill" data-muted>
-                      preset
-                    </span>
-                  )}
-                </div>
-                <div className="admin-row-meta">
+                  <Badge variant="outline">{theme.mode}</Badge>
+                  {theme.isPreset && <Badge variant="secondary">preset</Badge>}
+                </ItemTitle>
+                <ItemDescription>
                   {Object.keys(theme.tokens).length === 0
                     ? "The built-in palette, unchanged"
                     : `${Object.keys(theme.tokens).length} tokens overridden`}
-                </div>
-              </div>
-              <div className="admin-row-actions">
-                <button
-                  className="btn btn-ghost"
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button
+                  variant="ghost"
                   aria-label={`Duplicate ${theme.name}`}
                   onClick={() => startEdit(theme, true)}
                 >
                   Duplicate
-                </button>
+                </Button>
                 {!theme.isPreset && (
                   <>
-                    <button
-                      className="btn"
+                    <Button
+                      variant="outline"
                       aria-label={`Edit ${theme.name}`}
                       onClick={() => startEdit(theme, false)}
                     >
                       Edit
-                    </button>
-                    <button
-                      className="btn"
+                    </Button>
+                    <Button
+                      variant="outline"
                       aria-label={`Delete ${theme.name}`}
                       onClick={() => setDeleting(theme)}
                     >
                       Delete
-                    </button>
+                    </Button>
                   </>
                 )}
-              </div>
-            </div>
+              </ItemActions>
+            </CardRow>
           ))}
-        </div>
+        </CardRows>
       </Card>
 
       <DialogPresence when={deleting}>

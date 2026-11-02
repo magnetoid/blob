@@ -258,8 +258,3 @@
 .console-cell-actions > .btn + .btn {
   margin-left: var(--space-1);
 }
-
-/* An emoji's picture: a column as wide as the picture. */
-.admin-table :is(th, td).console-cell-emoji {
-  width: 44px;
-}

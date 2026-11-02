@@ -54,10 +54,11 @@ describe('inline styles keep leaving the components', () => {
    * into the stylesheet (ListSkeleton), and the home ask lost its wrapper. 41 on
    * 2026-10-21: Channel details' Save and Cancel became `.field-actions`. 36 on
    * 2026-11-02: the settings console moved onto shadcn's kit, and a palette's colours
-   * became custom properties on its tile. Lower this, never raise it.
+   * became custom properties on its tile. 35 on 2026-11-02: the Workspace pages moved onto
+   * shadcn's kit, and a theme's swatch became a custom property. Lower this, never raise it.
    */
   it('is at most the last committed count', () => {
-    expect(occurrences('style={{', ['.tsx'])).toBeLessThanOrEqual(36);
+    expect(occurrences('style={{', ['.tsx'])).toBeLessThanOrEqual(35);
   });
 });
 

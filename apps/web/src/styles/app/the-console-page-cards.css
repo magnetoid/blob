@@ -155,11 +155,6 @@
   margin-bottom: var(--space-3);
 }
 
-/* A text field in a card is as wide as what goes in it, not as wide as the card. */
-.console-input {
-  max-width: 420px;
-}
-
 .console-input-number,
 .console-card .pref-row > .input.console-input-number {
   width: 110px;
@@ -202,21 +197,6 @@
 .console-list-item > .admin-row {
   padding: 0;
   border-bottom: 0;
-}
-
-/* A row that is off — a deactivated person, an archived channel — was dimmed with
-   opacity, which took its meta line to about 2.5:1. The name goes grey instead and the
-   pill beside it says why; the text stays readable. */
-.console-list > .admin-row[data-inactive='true'] {
-  opacity: 1;
-}
-
-.console-list > .admin-row[data-inactive='true'] .admin-row-title {
-  color: var(--text-3);
-}
-
-.console-list > .admin-row[data-inactive='true'] .avatar {
-  opacity: 0.6;
 }
 
 /* A real table, flush likewise. It scrolls inside its own box — sideways on a phone,
@@ -392,15 +372,6 @@
 .console-copy {
   width: 100%;
   margin: 0;
-}
-
-/* The tiny swatch that says which accent a palette carries. */
-.theme-swatch {
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--blob-radius-md);
-  box-shadow: inset 0 0 0 1px rgb(var(--shadow-ink) / 12%);
 }
 
 /* What the frame (`features/console/ConsoleShell.tsx`) declared for the page under it,

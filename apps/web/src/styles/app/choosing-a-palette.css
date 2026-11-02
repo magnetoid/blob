@@ -1,23 +1,7 @@
 /* ─── choosing a palette ──────────────────────────────────────────────────── */
 /* The tiles that show a palette are shadcn's radio group now (`features/settings/
-   PreferencesCard.tsx`); what is left is the warning the theme editor shows. */
-.theme-contrast-warning {
-  max-width: 680px;
-  margin: 0 0 18px;
-  padding: 12px 14px;
-  border-radius: var(--blob-radius-md);
-  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
-  color: var(--text);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent);
-  font-size: var(--text-meta);
-}
-
-.theme-contrast-warning ul {
-  margin: 7px 0 0;
-  padding-left: 18px;
-  color: var(--text-2);
-}
-
+   PreferencesCard.tsx`) and the theme editor's warning is an Alert, so what is left is not
+   about palettes at all: the thread composer's also-send row, which had nowhere better. */
 .thread-also-send {
   display: flex;
   align-items: center;

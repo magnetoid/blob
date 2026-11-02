@@ -9,13 +9,28 @@
  * ticket, same presigned PUT, same rate limit. The emoji endpoint only names the result.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { api, ApiError, type WorkspaceEmoji } from "../../../lib/api.ts";
 import { uploadFile } from "../../../lib/attachments.ts";
 import { Card, CardNotice } from "../../console/Card.tsx";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../../components/Dialog.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import { Field, FieldDescription, FieldLabel } from "../../../components/ui/field.tsx";
+import { Input } from "../../../components/ui/input.tsx";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../components/ui/table.tsx";
+
+/** A table that runs to the card's edges: the first and last cell of a row give the card's
+ * own padding back, so the words line up with the title above them. */
+const TABLE_ROW = "*:first:pl-(--card-spacing) *:last:pr-(--card-spacing)";
 
 /** Mirrors the server's rule, which mirrors what `:name:` in a body can match. */
 const NAME_RE = /^[a-z0-9_+-]{2,32}$/;
@@ -30,6 +45,7 @@ export function EmojiSection({
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const fields = useId();
 
   const load = useCallback(() => api.admin.customEmoji(), []);
   const { data, reload } = useAdminData(
@@ -69,7 +85,7 @@ export function EmojiSection({
   }
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card
         title="Add an emoji"
         description={
@@ -80,44 +96,41 @@ export function EmojiSection({
           </>
         }
         footer={
-          <button
-            className="btn btn-primary"
-            disabled={!usable}
-            onClick={() => void submit()}
-          >
+          <Button disabled={!usable} onClick={() => void submit()}>
             {busy ? "Adding…" : "Add"}
-          </button>
+          </Button>
         }
       >
-        <div className="console-form-grid">
-          <label className="field">
-            <span className="field-label">Name</span>
-            <input
-              className="input"
+        <div className="grid max-w-3xl gap-x-5 gap-y-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor={`${fields}-name`}>Name</FieldLabel>
+            <Input
+              id={`${fields}-name`}
               value={name}
               placeholder="party-parrot"
+              aria-invalid={name !== "" && !NAME_RE.test(cleaned) ? true : undefined}
+              aria-describedby={name && !NAME_RE.test(cleaned) ? `${fields}-name-hint` : undefined}
               onChange={(event) => setName(event.target.value)}
             />
             {name && !NAME_RE.test(cleaned) && (
-              <span className="pref-hint">
+              <FieldDescription id={`${fields}-name-hint`}>
                 Two to thirty-two characters: lowercase letters, numbers,
                 underscore, plus and hyphen.
-              </span>
+              </FieldDescription>
             )}
-          </label>
+          </Field>
 
-          <label className="field">
-            <span className="field-label">Image</span>
-            <input
+          <Field>
+            <FieldLabel htmlFor={`${fields}-image`}>Image</FieldLabel>
+            <Input
+              id={`${fields}-image`}
               ref={fileRef}
-              className="input"
               type="file"
               name="emoji"
-              aria-label="Choose an emoji image"
               accept="image/*"
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
-          </label>
+          </Field>
         </div>
       </Card>
 
@@ -125,43 +138,47 @@ export function EmojiSection({
         {emoji.length === 0 ? (
           <CardNotice>None yet.</CardNotice>
         ) : (
-          <div className="console-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th scope="col" className="console-cell-emoji">
+          <div className="-mx-(--card-spacing)">
+            <Table>
+              <TableHeader>
+                <TableRow className={TABLE_ROW}>
+                  <TableHead scope="col" className="w-10">
                     <span className="sr-only">Image</span>
-                  </th>
-                  <th scope="col">Name</th>
-                  <th scope="col">Added by</th>
-                  <th scope="col">
+                  </TableHead>
+                  <TableHead scope="col">Name</TableHead>
+                  <TableHead scope="col">Added by</TableHead>
+                  <TableHead scope="col">
                     <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {emoji.map((item: WorkspaceEmoji) => (
-                  <tr key={item.name}>
-                    <td className="console-cell-emoji">
+                  <TableRow key={item.name} className={TABLE_ROW}>
+                    <TableCell>
                       <img src={item.url} alt="" width={24} height={24} />
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <code>:{item.name}:</code>
-                    </td>
-                    <td className="muted">{item.createdByName ?? "—"}</td>
-                    <td className="console-cell-actions">
-                      <button
-                        className="btn btn-ghost"
-                        aria-label={`Remove :${item.name}:`}
-                        onClick={() => setRemoving(item.name)}
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {item.createdByName ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <Button
+                          variant="ghost"
+                          aria-label={`Remove :${item.name}:`}
+                          onClick={() => setRemoving(item.name)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </Card>

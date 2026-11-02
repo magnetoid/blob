@@ -9,6 +9,7 @@
 import { useCallback } from 'react';
 import { api, ApiError, type MediaServerStatus } from '../../../../lib/api.ts';
 import { useStore } from '../../../../lib/store.ts';
+import { Button } from '../../../../components/ui/button.tsx';
 import { Card, CardNotice } from '../../../console/Card.tsx';
 import { useAdminData } from '../../../console/hooks.ts';
 
@@ -63,7 +64,7 @@ export function MediaServerPanel({
   if (!data.configured) {
     return (
       <Card title="Media server">
-        <p className="pref-hint">
+        <p className="max-w-[68ch] text-sm text-pretty text-muted-foreground">
           Calls run on LiveKit, an open-source media server this stack can start for you. To
           turn them on, set <code>COMPOSE_PROFILES=meetups</code> and <code>LIVEKIT_URL</code>,{' '}
           <code>LIVEKIT_API_KEY</code>, <code>LIVEKIT_API_SECRET</code> on the server, give
@@ -78,42 +79,43 @@ export function MediaServerPanel({
     <Card
       title="Media server"
       footer={
-        <button className="btn" onClick={reload}>
+        <Button variant="outline" onClick={reload}>
           Check again
-        </button>
+        </Button>
       }
     >
-      <div className="call-server" data-state={data.reachable ? 'up' : 'down'}>
-        <dl className="call-server-facts">
-          <dt>Status</dt>
-          <dd>
-            <span className="call-server-dot" aria-hidden="true" />
-            {data.reachable
-              ? data.latencyMs === null
-                ? 'Answering'
-                : `Answering in ${data.latencyMs} ms`
-              : data.error === null
-                ? 'Not answering'
-                : `Not answering — ${data.error}`}
-          </dd>
-          <dt>Browsers connect to</dt>
-          <dd>{data.url}</dd>
-          {data.reachable && (
-            <>
-              <dt>Open now</dt>
-              <dd>
-                {data.openRooms} {data.openRooms === 1 ? 'call' : 'calls'} open
-              </dd>
-            </>
-          )}
-          <dt>Room events</dt>
-          <dd>
-            {data.lastEventAt
-              ? `Last reported ${new Date(data.lastEventAt).toLocaleString()}`
-              : `LiveKit has not reported yet. Its webhook should point at ${data.webhookUrl}; until it does, who is in a call updates once a minute.`}
-          </dd>
-        </dl>
-      </div>
+      <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-sm">
+        <dt className="text-muted-foreground">Status</dt>
+        <dd className="wrap-anywhere">
+          <span
+            aria-hidden="true"
+            className={`mr-1.5 inline-block size-2 rounded-full ${data.reachable ? 'bg-(--blob-accent)' : 'bg-destructive'}`}
+          />
+          {data.reachable
+            ? data.latencyMs === null
+              ? 'Answering'
+              : `Answering in ${data.latencyMs} ms`
+            : data.error === null
+              ? 'Not answering'
+              : `Not answering — ${data.error}`}
+        </dd>
+        <dt className="text-muted-foreground">Browsers connect to</dt>
+        <dd className="wrap-anywhere">{data.url}</dd>
+        {data.reachable && (
+          <>
+            <dt className="text-muted-foreground">Open now</dt>
+            <dd className="wrap-anywhere">
+              {data.openRooms} {data.openRooms === 1 ? 'call' : 'calls'} open
+            </dd>
+          </>
+        )}
+        <dt className="text-muted-foreground">Room events</dt>
+        <dd className="wrap-anywhere">
+          {data.lastEventAt
+            ? `Last reported ${new Date(data.lastEventAt).toLocaleString()}`
+            : `LiveKit has not reported yet. Its webhook should point at ${data.webhookUrl}; until it does, who is in a call updates once a minute.`}
+        </dd>
+      </dl>
     </Card>
   );
 }

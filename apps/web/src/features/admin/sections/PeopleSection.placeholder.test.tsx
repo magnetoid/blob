@@ -57,7 +57,7 @@ describe('people an import brought over', () => {
   it('says they have not joined, and offers an invitation instead of Reactivate', async () => {
     useStore.setState({ currentUser: { ...useStore.getState().currentUser, id: 'me' } as never });
     render(<PeopleSection onError={vi.fn()} isOwner />);
-    const pat = (await screen.findByText('Pat Lee')).closest('.admin-row') as HTMLElement;
+    const pat = (await screen.findByText('Pat Lee')).closest('[role="listitem"]') as HTMLElement;
     expect(pat.textContent).toContain('not joined yet');
     expect(pat.textContent).not.toContain('deactivated');
     expect(screen.queryByRole('button', { name: 'Reactivate Pat Lee' })).toBeNull();
@@ -68,7 +68,7 @@ describe('people an import brought over', () => {
     // An app, or an address the export did not have, is a name and nothing to invite —
     // and its made-up address is not shown as if it were one.
     expect(screen.queryByRole('button', { name: 'Invite deploy-bot' })).toBeNull();
-    const app = screen.getByText('deploy-bot').closest('.admin-row') as HTMLElement;
+    const app = screen.getByText('deploy-bot').closest('[role="listitem"]') as HTMLElement;
     expect(app.textContent).toContain('from Slack');
     expect(app.textContent).toContain('no address');
     expect(app.textContent).not.toContain('app@example.com');

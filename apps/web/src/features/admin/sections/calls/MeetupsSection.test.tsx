@@ -45,8 +45,7 @@ describe('Admin → Video meetups', () => {
 
   it('switches meetups off, saving both kinds so the huddle half is kept, with no GET', async () => {
     render(<MeetupsSection onError={vi.fn()} isOwner={false} />);
-    const toggle = await screen.findByRole('button', { name: 'Allow video meetups' });
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    const toggle = await screen.findByRole('switch', { name: 'Allow video meetups', checked: true });
     fireEvent.click(toggle);
     await waitFor(() =>
       expect(setCallSettings).toHaveBeenCalledWith({
@@ -61,8 +60,7 @@ describe('Admin → Video meetups', () => {
 
   it('updates the controls when a calls.settings frame arrives, with no refetch', async () => {
     render(<MeetupsSection onError={vi.fn()} isOwner={false} />);
-    const toggle = await screen.findByRole('button', { name: 'Allow video meetups' });
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    const toggle = await screen.findByRole('switch', { name: 'Allow video meetups', checked: true });
 
     // What the store's own `calls.settings` case does when the frame arrives — a second
     // admin's save, or the same one's save landing back over the socket. Not a fetch.
@@ -72,7 +70,7 @@ describe('Admin → Video meetups', () => {
       });
     });
 
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
     expect(callSettings).not.toHaveBeenCalled();
   });
 
@@ -85,7 +83,7 @@ describe('Admin → Video meetups', () => {
 
     mediaServer.mockClear();
     render(<MeetupsSection onError={vi.fn()} isOwner={false} />);
-    await screen.findByRole('button', { name: 'Allow video meetups' });
+    await screen.findByRole('switch', { name: 'Allow video meetups' });
     expect(mediaServer).not.toHaveBeenCalled();
     expect(screen.getByText('Calls are available on this server.')).toBeTruthy();
   });
