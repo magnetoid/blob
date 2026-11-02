@@ -70,7 +70,12 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
       data-slot="tabs-content"
-      className={cn("flex-1 text-sm outline-none", className)}
+      // Base UI makes an open panel a tab stop (`tabIndex: 0`), so it needs the kit's ring
+      // to show where focus is; `outline-none` alone left a stop with no indicator.
+      className={cn(
+        "flex-1 rounded-lg text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        className
+      )}
       {...props}
     />
   )

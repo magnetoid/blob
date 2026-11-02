@@ -12,7 +12,7 @@
 import { useCallback, useId, useRef, useState } from "react";
 import { api, ApiError, type WorkspaceEmoji } from "../../../lib/api.ts";
 import { uploadFile } from "../../../lib/attachments.ts";
-import { Card, CardNotice } from "../../console/Card.tsx";
+import { Card, CardNotice, CardTable } from "../../console/Card.tsx";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../../components/Dialog.tsx";
@@ -20,17 +20,12 @@ import { Button } from "../../../components/ui/button.tsx";
 import { Field, FieldDescription, FieldLabel } from "../../../components/ui/field.tsx";
 import { Input } from "../../../components/ui/input.tsx";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "../../../components/ui/table.tsx";
-
-/** A table that runs to the card's edges: the first and last cell of a row give the card's
- * own padding back, so the words line up with the title above them. */
-const TABLE_ROW = "*:first:pl-(--card-spacing) *:last:pr-(--card-spacing)";
 
 /** Mirrors the server's rule, which mirrors what `:name:` in a body can match. */
 const NAME_RE = /^[a-z0-9_+-]{2,32}$/;
@@ -138,48 +133,46 @@ export function EmojiSection({
         {emoji.length === 0 ? (
           <CardNotice>None yet.</CardNotice>
         ) : (
-          <div className="-mx-(--card-spacing)">
-            <Table>
-              <TableHeader>
-                <TableRow className={TABLE_ROW}>
-                  <TableHead scope="col" className="w-10">
-                    <span className="sr-only">Image</span>
-                  </TableHead>
-                  <TableHead scope="col">Name</TableHead>
-                  <TableHead scope="col">Added by</TableHead>
-                  <TableHead scope="col">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
+          <CardTable label="Custom emoji">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col" className="w-10">
+                  <span className="sr-only">Image</span>
+                </TableHead>
+                <TableHead scope="col">Name</TableHead>
+                <TableHead scope="col">Added by</TableHead>
+                <TableHead scope="col">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {emoji.map((item: WorkspaceEmoji) => (
+                <TableRow key={item.name}>
+                  <TableCell>
+                    <img src={item.url} alt="" width={24} height={24} />
+                  </TableCell>
+                  <TableCell>
+                    <code>:{item.name}:</code>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {item.createdByName ?? "—"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end">
+                      <Button
+                        variant="ghost"
+                        aria-label={`Remove :${item.name}:`}
+                        onClick={() => setRemoving(item.name)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {emoji.map((item: WorkspaceEmoji) => (
-                  <TableRow key={item.name} className={TABLE_ROW}>
-                    <TableCell>
-                      <img src={item.url} alt="" width={24} height={24} />
-                    </TableCell>
-                    <TableCell>
-                      <code>:{item.name}:</code>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {item.createdByName ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end">
-                        <Button
-                          variant="ghost"
-                          aria-label={`Remove :${item.name}:`}
-                          onClick={() => setRemoving(item.name)}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </CardTable>
         )}
       </Card>
 

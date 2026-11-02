@@ -24,7 +24,6 @@ import { Field, FieldDescription, FieldLabel } from "../../../components/ui/fiel
 import { Input } from "../../../components/ui/input.tsx";
 import { ItemActions, ItemContent, ItemMedia, ItemTitle } from "../../../components/ui/item.tsx";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -32,15 +31,11 @@ import {
   TableRow,
 } from "../../../components/ui/table.tsx";
 import type { ConsoleSectionProps } from "../../console/ConsoleShell.tsx";
-import { Card, CardHeading, CardNotice, CardRow, CardRows } from "../../console/Card.tsx";
+import { Card, CardHeading, CardNotice, CardRow, CardRows, CardTable } from "../../console/Card.tsx";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 /** Mirrors the server's rule, which mirrors what a message body can reference. */
 const HANDLE_RE = /^[a-z0-9][a-z0-9-]{1,31}$/;
-
-/** A table that runs to the card's edges: the first and last cell of a row give the card's
- * own padding back, so the words line up with the title above them. */
-const TABLE_ROW = "*:first:pl-(--card-spacing) *:last:pr-(--card-spacing)";
 
 export function GroupsSection({ onError, detailId }: ConsoleSectionProps) {
   if (detailId) return <GroupMembers groupId={detailId} onError={onError} />;
@@ -138,83 +133,79 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
       {groups.length === 0 ? (
         <CardNotice>None yet.</CardNotice>
       ) : (
-        // Edge to edge, as the lists are: the card's padding comes back on the first and
-        // last cell of each row.
-        <div className="-mx-(--card-spacing)">
-          <Table>
-            <TableHeader>
-              <TableRow className={TABLE_ROW}>
-                <TableHead scope="col">Handle</TableHead>
-                <TableHead scope="col">Name</TableHead>
-                <TableHead scope="col" className="text-right">
-                  People
-                </TableHead>
-                <TableHead scope="col">
-                  <span className="sr-only">Actions</span>
-                </TableHead>
+        <CardTable label="User groups">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Handle</TableHead>
+              <TableHead scope="col">Name</TableHead>
+              <TableHead scope="col" className="text-right">
+                People
+              </TableHead>
+              <TableHead scope="col">
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groups.map((group) => (
+              <TableRow key={group.id}>
+                <TableCell>
+                  <code>@{group.handle}</code>
+                </TableCell>
+                <TableCell className="whitespace-normal">
+                  {renaming?.id === group.id ? (
+                    <RenameGroupForm
+                      group={group}
+                      renameDraft={renameDraft}
+                      setRenameDraft={setRenameDraft}
+                      setRenaming={setRenaming}
+                      act={act}
+                    />
+                  ) : (
+                    group.name
+                  )}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{group.memberCount}</TableCell>
+                <TableCell>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      aria-label={`Members of @${group.handle}`}
+                      onClick={() =>
+                        navigate(
+                          pathForRoute({
+                            view: "admin",
+                            section: "groups",
+                            detailId: group.id,
+                          }),
+                        )
+                      }
+                    >
+                      Members
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      aria-label={`Rename @${group.handle}`}
+                      onClick={() => {
+                        setRenaming(group);
+                        setRenameDraft(group.name);
+                      }}
+                    >
+                      Rename
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      aria-label={`Delete @${group.handle}`}
+                      onClick={() => setRemoving(group)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {groups.map((group) => (
-                <TableRow key={group.id} className={TABLE_ROW}>
-                  <TableCell>
-                    <code>@{group.handle}</code>
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    {renaming?.id === group.id ? (
-                      <RenameGroupForm
-                        group={group}
-                        renameDraft={renameDraft}
-                        setRenameDraft={setRenameDraft}
-                        setRenaming={setRenaming}
-                        act={act}
-                      />
-                    ) : (
-                      group.name
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{group.memberCount}</TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        aria-label={`Members of @${group.handle}`}
-                        onClick={() =>
-                          navigate(
-                            pathForRoute({
-                              view: "admin",
-                              section: "groups",
-                              detailId: group.id,
-                            }),
-                          )
-                        }
-                      >
-                        Members
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        aria-label={`Rename @${group.handle}`}
-                        onClick={() => {
-                          setRenaming(group);
-                          setRenameDraft(group.name);
-                        }}
-                      >
-                        Rename
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        aria-label={`Delete @${group.handle}`}
-                        onClick={() => setRemoving(group)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+            ))}
+          </TableBody>
+        </CardTable>
       )}
 
       <DialogPresence when={removing}>

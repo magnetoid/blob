@@ -53,7 +53,7 @@ describe('user groups', () => {
 
   it('are a table: a column for what each is called, and a row that names its group', async () => {
     render(<GroupsSection onError={vi.fn()} isOwner />);
-    const table = await screen.findByRole('table');
+    const table = await screen.findByRole('table', { name: 'User groups' });
     expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
       'Handle',
       'Name',
@@ -71,13 +71,13 @@ describe('user groups', () => {
     vi.spyOn(api.admin, 'groups').mockResolvedValue({ groups: [] });
     render(<GroupsSection onError={vi.fn()} isOwner />);
     expect(await screen.findByText('None yet.')).toBeTruthy();
-    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('table', { name: 'User groups' })).toBeNull();
   });
 
   it('send a handle without its @ or capitals, and hold Create until it would be accepted', async () => {
     const create = vi.spyOn(api.admin, 'createGroup').mockResolvedValue({ group: GROUP } as never);
     render(<GroupsSection onError={vi.fn()} isOwner />);
-    await screen.findByRole('table');
+    await screen.findByRole('table', { name: 'User groups' });
     const createButton = screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement;
     expect(createButton.disabled).toBe(true);
 
@@ -96,7 +96,7 @@ describe('user groups', () => {
 
   it('say what a handle may be, as the hint of the field that is wrong', async () => {
     render(<GroupsSection onError={vi.fn()} isOwner />);
-    await screen.findByRole('table');
+    await screen.findByRole('table', { name: 'User groups' });
     const handle = screen.getByRole('textbox', { name: 'Handle' });
     expect(handle.getAttribute('aria-invalid')).toBeNull();
 

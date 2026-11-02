@@ -4,8 +4,9 @@
  * landmark, a one-field card's title can be that field's label, a heading inside a card
  * takes its level from whether the card has a title, and what closes a card comes last. */
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
-import { Card, CardFields, CardHeading, CardNotice, CardRow, CardRows } from './Card.tsx';
+import { cleanup, render, screen, within } from '@testing-library/react';
+import { Card, CardFields, CardHeading, CardNotice, CardRow, CardRows, CardTable } from './Card.tsx';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
 
 afterEach(cleanup);
 
@@ -233,5 +234,60 @@ describe('settings a card holds', () => {
     expect(group.getAttribute('data-slot')).toBe('field-group');
     expect(group.classList.contains('divide-y')).toBe(true);
     expect(cardOf(group)).toBe(cardOf(screen.getByRole('heading', { name: 'Notifications' })));
+  });
+});
+
+// Records in columns — groups, emoji — run from one edge of the card to the other, like a
+// list, and are named for a screen reader because the card's title is not on the table.
+describe('a table a card holds', () => {
+  function drawn() {
+    render(
+      <Card title="Groups">
+        <CardTable label="User groups">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Handle</TableHead>
+              <TableHead scope="col">People</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell>@platform</TableCell>
+              <TableCell>3</TableCell>
+            </TableRow>
+          </TableBody>
+        </CardTable>
+      </Card>,
+    );
+    return screen.getByRole('table', { name: 'User groups' });
+  }
+
+  it('is named by its label, which is a caption a screen reader reads and the page does not draw', () => {
+    const table = drawn();
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
+      'Handle',
+      'People',
+    ]);
+    const caption = table.querySelector('caption')!;
+    expect(caption.textContent).toBe('User groups');
+    expect(caption.classList.contains('sr-only')).toBe(true);
+    expect(cardOf(table)).toBe(cardOf(screen.getByRole('heading', { name: 'Groups' })));
+  });
+
+  it('runs to the card’s edges and gives the padding back to the first and last cell of a row', () => {
+    const table = drawn();
+    // Past the padding to the edges, around the table's own scrolling box.
+    expect(table.closest('[data-slot="table-container"]')!.parentElement!.classList.contains('-mx-(--card-spacing)')).toBe(true);
+    expect(table.classList.contains('[&_tr>:first-child]:pl-(--card-spacing)')).toBe(true);
+    expect(table.classList.contains('[&_tr>:last-child]:pr-(--card-spacing)')).toBe(true);
+  });
+
+  it('wears a caller’s class beside its own', () => {
+    render(
+      <CardTable label="Emoji" className="emoji">
+        <TableBody />
+      </CardTable>,
+    );
+    expect(screen.getByRole('table', { name: 'Emoji' }).classList.contains('emoji')).toBe(true);
   });
 });

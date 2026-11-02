@@ -104,4 +104,15 @@ describe('Admin → Calls', () => {
     const panel = screen.getByRole('tabpanel', { name: 'Video meetups' });
     expect(tab.getAttribute('aria-controls')).toBe(panel.id);
   });
+
+  // Base UI makes an open panel a tab stop, so Tab from the tabs lands on it. A stop with
+  // `outline-none` and nothing in its place shows nobody where they are (WCAG 2.4.7); the
+  // class is what the kit's other controls draw their focus with.
+  it('is a tab stop that shows where focus is when it lands there', () => {
+    at('/admin/calls/huddles');
+    const panel = screen.getByRole('tabpanel', { name: 'Huddles' });
+    expect(panel.getAttribute('tabindex')).toBe('0');
+    expect(panel.classList.contains('focus-visible:ring-3')).toBe(true);
+    expect(panel.classList.contains('focus-visible:ring-ring/50')).toBe(true);
+  });
 });

@@ -36,6 +36,7 @@ import {
 } from '../../components/ui/card.tsx';
 import { FieldGroup } from '../../components/ui/field.tsx';
 import { Item, ItemGroup } from '../../components/ui/item.tsx';
+import { Table, TableCaption } from '../../components/ui/table.tsx';
 
 /** Whether the card something is drawn in has a title — see `CardHeading`. */
 const InTitledCard = createContext(false);
@@ -182,6 +183,38 @@ export function CardRow({ className, ...rest }: ComponentProps<typeof Item>) {
       )}
       {...rest}
     />
+  );
+}
+
+/**
+ * A table of records a card holds — groups, emoji — for the lists whose rows are cells
+ * under column headings rather than a title and a line, which `CardRows` is for.
+ *
+ * It runs from one edge of the card to the other, like the list does, and the card's own
+ * padding comes back on the first and last cell of every row, so the words line up with the
+ * title above. It scrolls sideways inside its own box rather than widening the card. A
+ * table is named: `label` is its caption, there for a screen reader and not drawn, since the
+ * card's title says it to everyone else.
+ */
+export function CardTable({
+  label,
+  className,
+  children,
+  ...rest
+}: { label: string } & ComponentProps<typeof Table>) {
+  return (
+    <div className="-mx-(--card-spacing)">
+      <Table
+        className={cn(
+          '[&_tr>:first-child]:pl-(--card-spacing) [&_tr>:last-child]:pr-(--card-spacing)',
+          className,
+        )}
+        {...rest}
+      >
+        <TableCaption className="sr-only">{label}</TableCaption>
+        {children}
+      </Table>
+    </div>
   );
 }
 

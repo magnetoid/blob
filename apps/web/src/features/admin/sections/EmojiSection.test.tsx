@@ -39,7 +39,7 @@ function png() {
 describe('adding an emoji', () => {
   it('holds Add until there is a name that will be accepted and an image', async () => {
     render(<EmojiSection onError={vi.fn()} />);
-    await screen.findByRole('table');
+    await screen.findByRole('table', { name: 'Custom emoji' });
     const add = screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement;
     expect(add.disabled).toBe(true);
 
@@ -52,7 +52,7 @@ describe('adding an emoji', () => {
   it('uploads the image, then names it with the colons and capitals taken off', async () => {
     const named = vi.spyOn(api.admin, 'addCustomEmoji').mockResolvedValue({ emoji: PARROT } as never);
     render(<EmojiSection onError={vi.fn()} />);
-    await screen.findByRole('table');
+    await screen.findByRole('table', { name: 'Custom emoji' });
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: ':Dance:' } });
     fireEvent.change(screen.getByLabelText('Image'), { target: { files: [png()] } });
@@ -69,7 +69,7 @@ describe('adding an emoji', () => {
 
   it('says what a name may be as the hint of the field that is wrong', async () => {
     render(<EmojiSection onError={vi.fn()} />);
-    await screen.findByRole('table');
+    await screen.findByRole('table', { name: 'Custom emoji' });
     const name = screen.getByRole('textbox', { name: 'Name' });
     expect(name.getAttribute('aria-invalid')).toBeNull();
 
@@ -88,7 +88,7 @@ describe('adding an emoji', () => {
     vi.spyOn(api.admin, 'addCustomEmoji').mockRejectedValue(new ApiError(409, 'conflict', 'That name is taken.'));
     const onError = vi.fn();
     render(<EmojiSection onError={onError} />);
-    await screen.findByRole('table');
+    await screen.findByRole('table', { name: 'Custom emoji' });
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'dance' } });
     fireEvent.change(screen.getByLabelText('Image'), { target: { files: [png()] } });
@@ -102,7 +102,7 @@ describe('adding an emoji', () => {
 describe('the emoji already there', () => {
   it('are a table: the picture, its name, who added it, and a Remove that names it', async () => {
     render(<EmojiSection onError={vi.fn()} />);
-    const table = await screen.findByRole('table');
+    const table = await screen.findByRole('table', { name: 'Custom emoji' });
     expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
       'Image',
       'Name',
@@ -120,7 +120,7 @@ describe('the emoji already there', () => {
     vi.spyOn(api.admin, 'customEmoji').mockResolvedValue({ emoji: [] });
     render(<EmojiSection onError={vi.fn()} />);
     expect(await screen.findByText('None yet.')).toBeTruthy();
-    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('table', { name: 'Custom emoji' })).toBeNull();
   });
 
   it('are removed only after asking, by name', async () => {
