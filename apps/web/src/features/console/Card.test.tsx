@@ -105,6 +105,20 @@ describe('a console card', () => {
     const card = cardOf(screen.getByRole('heading', { name: 'Skills' }));
     expect(card?.classList.contains('janus-part')).toBe(true);
     expect(card?.classList.contains('rounded-xl')).toBe(true);
+    // Clipped, not hidden: `hidden` would make the card a scroll container that focusing
+    // a control near its edge could scroll sideways.
+    expect(card?.classList.contains('overflow-clip')).toBe(true);
+    expect(card?.classList.contains('overflow-hidden')).toBe(false);
+  });
+
+  // A title can be data — a handle, an app's name — and one unbroken word must wrap
+  // inside the header's grid column rather than widen it past the card.
+  it('lets a long title and description wrap rather than widen the card', () => {
+    render(<Card title="@some-long-handle-with-no-break-in-it" description="https://x.test/a/very/long/path" />);
+    const title = screen.getByRole('heading', { name: '@some-long-handle-with-no-break-in-it' });
+    expect(title.classList.contains('min-w-0')).toBe(true);
+    expect(title.classList.contains('wrap-anywhere')).toBe(true);
+    expect(screen.getByText('https://x.test/a/very/long/path').classList.contains('min-w-0')).toBe(true);
   });
 });
 

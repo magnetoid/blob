@@ -311,10 +311,13 @@ describe('the console nav', () => {
         </Sidebar>
       </SidebarProvider>,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Open the section menu' }));
+    const trigger = screen.getByRole('button', { name: 'Open the section menu' });
+    fireEvent.click(trigger);
     await screen.findByRole('dialog');
 
     fireEvent.click(screen.getByRole('button', { name: 'Audit log' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // Back on the button that opened it, not on <body> with the sheet that held the row.
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 });

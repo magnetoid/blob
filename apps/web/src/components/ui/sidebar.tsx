@@ -186,8 +186,13 @@ function Sidebar({
           side={side}
           // Back to the trigger that opened it. The dialog's own default is whatever had
           // focus before it opened, and Safari does not focus a button that is clicked,
-          // so there it was the page. Opened some other way, the default stands.
-          finalFocus={() => openerRef.current ?? true}
+          // so there it was the page. Opened some other way, the default stands — so the
+          // opener is spent here, on the close it was recorded for.
+          finalFocus={() => {
+            const opener = openerRef.current
+            openerRef.current = null
+            return opener ?? true
+          }}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>{label}</SheetTitle>

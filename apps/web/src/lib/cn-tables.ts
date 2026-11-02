@@ -25,7 +25,7 @@ const DZ = (s: string): Int32Array => {
     }
     return out
 }
-const GROUP_COUNT = 169
+const GROUP_COUNT = 170
 const customValidatorNames: string[] = []
 const edgeStart = PS(U("D040000420013000021400000200004200000212002120000130002200210082010020000000302000600000022003014000012005020000200300203002001000"))
 const labelStart = PS(U(":111841115111111191146581131;3156644111118523331321111221441111115222631311111117116163411111111324511111123441361443432252455117"))
@@ -62,7 +62,7 @@ const nodeVlist = (() => {
     for (let i = 0; i < A.length; i++) out[A[i]!] = V[i]!
     return out
 })()
-const SETS = "container | block contents flow-root hidden inline inline-block inline-flex inline-grid inline-table table table-caption table-cell table-column table-column-group table-footer-group table-header-group table-row table-row-group| not-sr-only sr-only|isolat e ion-auto|object- contain cover fill none scale-down|overflow- auto clip hidden scroll visible|overflow-x- auto clip hidden scroll visible|overflow-y- auto clip hidden scroll visible| absolute fixed relative static sticky| collapse invisible visible|justify- around baseline between center center-safe end end-safe evenly normal start stretch|justify-self- auto center center-safe end end-safe start stretch|items- baseline baseline-last center center-safe end end-safe start stretch|self- auto baseline baseline-last center center-safe end end-safe start stretch|place-content- around baseline between center center-safe end end-safe evenly start stretch|place-items- baseline center center-safe end end-safe start stretch| italic not-italic| proportional-nums tabular-nums| no-underline overline| capitalize lowercase normal-case uppercase|truncate |whitespace- break-spaces normal nowrap pre pre-line pre-wrap|mix-blend- color color-burn color-dodge darken difference exclusion hard-light hue lighten luminosity multiply normal overlay plus-darker plus-lighter saturation screen soft-light|caption- bottom top|appearance- auto none|field-sizing- content fixed|pointer-events- auto none|resize  -none -x -y|select- all auto none text| normal size| baseline bottom middle sub super text-bottom text-top top| accordion-down accordion-up bounce caret-blink collapsible-down collapsible-up in none out ping pulse spin| auto square video| auto fr max min px|none | auto full px|clip- border content padding text| gradient-to-b gradient-to-bl gradient-to-br gradient-to-l gradient-to-r gradient-to-t gradient-to-tl gradient-to-tr none|blend- color color-burn color-dodge darken difference exclusion hard-light hue lighten luminosity multiply normal overlay saturation screen soft-light|to- b bl br l r t tl tr| dashed dotted double hidden none solid|auto | alias all-scroll auto cell col-resize context-menu copy crosshair default e-resize ew-resize grab grabbing help move n-resize ne-resize nesw-resize no-drop none not-allowed ns-resize nw-resize nwse-resize pointer progress row-resize s-resize se-resize sw-resize text vertical-text w-resize wait zoom-in zoom-out|initial | in in-out initial linear out| col col-reverse row row-reverse| nowrap wrap wrap-reverse| auto initial none| black bold extrabold extralight light medium normal semibold thin|px | none subgrid| auto dvh dvw fit full lh lvh lvw max min px screen svh svw| loose none normal px relaxed snug tight|through |item | decimal disc none| auto px| auto dvh dvw fit full lh lvh lvw max min none px screen svh svw| auto dvh dvw fit full lvh lvw max min none prose px svh svw| auto dvh dvw fit full lvh lvw max min none px screen svh svw| first last none| bottom bottom-left bottom-right center left left-bottom left-top right right-bottom right-top top top-left top-right| 2xl 3xl 4xl full lg md none sm xl|full | inner none| auto dvh dvw fit full lvh lvw max min px svh svw|base | center end justify left right start| clip ellipsis| balance nowrap pretty wrap| normal tight tighter wide wider widest| cpu gpu none| all colors none opacity shadow transform| full px| auto dvh dvw fit full lvh lvw max min px screen svh svw".split('|').map((s) => {
+const SETS = "container | block contents flow-root hidden inline inline-block inline-flex inline-grid inline-table table table-caption table-cell table-column table-column-group table-footer-group table-header-group table-row table-row-group| not-sr-only sr-only|isolat e ion-auto|object- contain cover fill none scale-down|overflow- auto clip hidden scroll visible|overflow-x- auto clip hidden scroll visible|overflow-y- auto clip hidden scroll visible| absolute fixed relative static sticky| collapse invisible visible|justify- around baseline between center center-safe end end-safe evenly normal start stretch|justify-self- auto center center-safe end end-safe start stretch|items- baseline baseline-last center center-safe end end-safe start stretch|self- auto baseline baseline-last center center-safe end end-safe start stretch|place-content- around baseline between center center-safe end end-safe evenly start stretch|place-items- baseline center center-safe end end-safe start stretch| italic not-italic| proportional-nums tabular-nums| no-underline overline| capitalize lowercase normal-case uppercase|truncate |whitespace- break-spaces normal nowrap pre pre-line pre-wrap|wrap- anywhere break-word normal|mix-blend- color color-burn color-dodge darken difference exclusion hard-light hue lighten luminosity multiply normal overlay plus-darker plus-lighter saturation screen soft-light|caption- bottom top|appearance- auto none|field-sizing- content fixed|pointer-events- auto none|resize  -none -x -y|select- all auto none text| normal size| baseline bottom middle sub super text-bottom text-top top| accordion-down accordion-up bounce caret-blink collapsible-down collapsible-up in none out ping pulse spin| auto square video| auto fr max min px|none | auto full px|clip- border content padding text| gradient-to-b gradient-to-bl gradient-to-br gradient-to-l gradient-to-r gradient-to-t gradient-to-tl gradient-to-tr none|blend- color color-burn color-dodge darken difference exclusion hard-light hue lighten luminosity multiply normal overlay saturation screen soft-light|to- b bl br l r t tl tr| dashed dotted double hidden none solid|auto | alias all-scroll auto cell col-resize context-menu copy crosshair default e-resize ew-resize grab grabbing help move n-resize ne-resize nesw-resize no-drop none not-allowed ns-resize nw-resize nwse-resize pointer progress row-resize s-resize se-resize sw-resize text vertical-text w-resize wait zoom-in zoom-out|initial | in in-out initial linear out| col col-reverse row row-reverse| nowrap wrap wrap-reverse| auto initial none| black bold extrabold extralight light medium normal semibold thin|px | none subgrid| auto dvh dvw fit full lh lvh lvw max min px screen svh svw| loose none normal px relaxed snug tight|through |item | decimal disc none| auto px| auto dvh dvw fit full lh lvh lvw max min none px screen svh svw| auto dvh dvw fit full lvh lvw max min none prose px svh svw| auto dvh dvw fit full lvh lvw max min none px screen svh svw| first last none| bottom bottom-left bottom-right center left left-bottom left-top right right-bottom right-top top top-left top-right| 2xl 3xl 4xl full lg md none sm xl|full | inner none| auto dvh dvw fit full lvh lvw max min px svh svw|base | center end justify left right start| clip ellipsis| balance nowrap pretty wrap| normal tight tighter wide wider widest| cpu gpu none| all colors none opacity shadow transform| full px| auto dvh dvw fit full lvh lvw max min px screen svh svw".split('|').map((s) => {
     const tails = s.split(' ')
     const prefix = tails.shift()!
     for (let i = 0; i < tails.length; i++) {
@@ -70,14 +70,14 @@ const SETS = "container | block contents flow-root hidden inline inline-block in
     }
     return tails
 })
-const AA = DZ("000000000000000000000000000002422262200644<4222622002642824242262422024244222222822222222266242222424442424000244242422")
-const AG = DZ("ì2222222222222222222222222222ġ222222ĘĕĘė4Ėć222222þ2ý2622224222222À½2222222222242À¹222222262222220222422MP22222222")
-const AS = DZ("02222222222222222222222222222222222222229<9<222C0F222200202O000RQTUX22223245000082YB000000K1h0000Y\\[=l2OK1p222sv2220orq")
-const litAnchor = new Int32Array(571)
-const litGroup = new Int32Array(571)
-const litPool = new Int32Array(571)
+const AA = DZ("0000000000000000000000000000002422262200644<4222622002642824242262422024244222222822222222266242222424442424000244242422")
+const AG = DZ("ì22222222222222222222222222222ģ222222ĚėĚę4Ęĉ222222Ā2ÿ2622224222222À½2222222222242Â»222222262222220222422OR22222222")
+const AS = DZ("022222222222222222222222222222222222222229<9<222C0F222200202O000RQTUX22223245000082YB000000K1h0000Y\\[=l2OK1p222sv2220orq")
+const litAnchor = new Int32Array(574)
+const litGroup = new Int32Array(574)
+const litPool = new Int32Array(574)
 let poolText = ''
-const poolOffsets = new Int32Array(670)
+const poolOffsets = new Int32Array(676)
 {
     const tailRef = new Map()
     let nextRef = 0
@@ -102,7 +102,7 @@ const poolOffsets = new Int32Array(670)
 // conflict adjacency (engine builds claim bitmask CSR at init)
 const adjGid = DZ("0F2H8>4264B2<:2:2222<6PH")
 const adjStart = PS(U("1::32:442:44:44>22222121"))
-const adjTgt = DZ("2Š22222ŋ132Œ222222222űd2>2ê2ïòU^7òµcæ2·Ì82Ú222ã176â2á1æ2ã9T2º222Ã132Â2Á1Æ2Ã5Ö2»132Â222222212563232££:ª2")
+const adjTgt = DZ("2Ţ22222ō132Ŕ222222222ųd2>2ì2ñôU^7ô·cè2·Ì82Ü222å176ä2ã1è2å9T2¼222Å132Ä2Ã1È2Å5Ø2½132Ä222222212563232¥£:ª2")
 const patGid = U("")
 const patTgt = U("W")
 const postfixLookupGroups = U("1")

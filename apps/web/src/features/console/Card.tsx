@@ -53,18 +53,26 @@ export function Card({
   children?: ReactNode;
 } & Omit<HTMLAttributes<HTMLDivElement>, 'title'>) {
   return (
-    <CardRoot className={className} {...rest}>
+    // `overflow-clip` in place of the generated `overflow-hidden`: both keep a flush list's
+    // hover inside the rounded corners, but `hidden` makes the card a scroll container,
+    // which focusing a control near its edge can scroll sideways.
+    <CardRoot className={className ? `overflow-clip ${className}` : 'overflow-clip'} {...rest}>
       {(title !== undefined || description !== undefined || actions !== undefined) && (
         <CardHeader>
           {title !== undefined && (
-            // The title is the heading's content; `render` only names the element.
+            // The title is the heading's content; `render` only names the element. A title
+            // may be data — `@some-long-handle` — so one unbroken word wraps (`min-w-0`,
+            // `wrap-anywhere`) rather than widening the header's column past the card.
             // eslint-disable-next-line jsx-a11y/heading-has-content
-            <CardTitle render={<h2 />} className="flex flex-wrap items-center gap-2">
+            <CardTitle render={<h2 />} className="flex min-w-0 flex-wrap items-center gap-2 wrap-anywhere">
               {title}
             </CardTitle>
           )}
           {description !== undefined && (
-            <CardDescription id={descriptionId} className="max-w-[68ch] text-pretty">
+            <CardDescription
+              id={descriptionId}
+              className="max-w-[68ch] min-w-0 text-pretty wrap-break-word"
+            >
               {description}
             </CardDescription>
           )}

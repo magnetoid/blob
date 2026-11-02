@@ -156,6 +156,10 @@ describe('the section menu on a narrow screen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Audit log' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(window.location.pathname).toBe('/admin/audit');
+    // Focus is in the page, on the button that opened the menu — not dropped on <body>
+    // with the sheet it was in.
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    expect(screen.getByRole('main').contains(document.activeElement)).toBe(true);
   });
 
   it('closes the sheet on Escape and puts focus back on the trigger', async () => {

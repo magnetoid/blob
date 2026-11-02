@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /**
- * The app's forty icons are Lucide's, drawn at Blob's four sizes with Blob's strokes.
+ * The app's thirty-nine icons are Lucide's, drawn at Blob's four sizes with Blob's strokes.
  *
  * What a caller relies on is the name, the `size` role and the weight that goes with it,
  * and that an icon is decoration unless it says otherwise — not which paths are inside. So
@@ -31,8 +31,10 @@ function draw(Icon: AnyIcon, props: Omit<SVGProps<SVGSVGElement>, 'size'> & { si
 }
 
 describe('the icon set', () => {
-  it('is the forty names the app already imports', () => {
-    expect(icons).toHaveLength(40);
+  // Thirty-nine since the consoles' menu button became the Sidebar's own trigger and
+  // MenuIcon lost its last caller.
+  it('is the thirty-nine names the app already imports', () => {
+    expect(icons).toHaveLength(39);
     expect(icons.every(([name]) => name.endsWith('Icon'))).toBe(true);
   });
 
@@ -61,7 +63,7 @@ describe('the icon set', () => {
       return glyph;
     });
     expect(glyphs.every(Boolean)).toBe(true);
-    expect(new Set(glyphs).size).toBe(40);
+    expect(new Set(glyphs).size).toBe(39);
   });
 
   it('carries the weight with the size, and the few optical corrections on top', () => {
