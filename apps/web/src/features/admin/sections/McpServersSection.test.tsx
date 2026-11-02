@@ -92,7 +92,7 @@ function connectForm() {
   return within(
     screen
       .getByRole("heading", { name: "Connect a server" })
-      .closest("section")!,
+      .closest('[data-slot="card"]')!,
   );
 }
 

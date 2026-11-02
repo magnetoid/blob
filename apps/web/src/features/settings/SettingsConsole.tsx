@@ -6,7 +6,6 @@
  */
 
 import type { ComponentType } from 'react';
-import { MenuIcon } from '../../components/Icon.tsx';
 import { useStore } from '../../lib/store.ts';
 import type { SettingsSection } from '../../lib/router.ts';
 import { ConsoleShell } from '../console/ConsoleShell.tsx';
@@ -55,11 +54,6 @@ export function SettingsConsole({
       viewer={viewer}
       title={entry.label}
       description={entry.description}
-      toggle={{
-        className: 'icon-btn admin-nav-toggle',
-        label: 'Open the section menu',
-        icon: <MenuIcon size="lg" />,
-      }}
       onFeedback={onFeedback}
     >
       {(onError) => (

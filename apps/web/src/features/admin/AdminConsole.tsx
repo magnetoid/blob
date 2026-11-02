@@ -14,7 +14,6 @@
  */
 
 import type { ComponentType } from 'react';
-import { MenuIcon } from '../../components/Icon.tsx';
 import { useStore } from '../../lib/store.ts';
 import type { AdminSection } from '../../lib/router.ts';
 import { Card } from '../console/Card.tsx';
@@ -61,11 +60,9 @@ function framed(
   return function Framed(props: ConsoleSectionProps) {
     if (drawsItsDetailPage && props.detailId) return <Part {...props} />;
     return (
-      <div className="console-stack">
-        <Card>
-          <Part {...props} />
-        </Card>
-      </div>
+      <Card>
+        <Part {...props} />
+      </Card>
     );
   };
 }
@@ -129,11 +126,6 @@ export function AdminConsole({
       viewer={viewer}
       title={entry.label}
       description={entry.description}
-      toggle={{
-        className: 'icon-btn admin-nav-toggle',
-        label: 'Console sections',
-        icon: <MenuIcon size="lg" />,
-      }}
       // An error belongs to the page — section and detail — that produced it.
       resetKey={`${section}/${detailId ?? ''}`}
       onFeedback={onFeedback}

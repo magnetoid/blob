@@ -705,63 +705,6 @@
 }
 
 @media (max-width: 900px) {
-  /* The nav becomes a drawer rather than a squeezed column: at this width a 264px rail
-     leaves nothing for the tables it is there to navigate. */
-  .admin-shell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .admin-nav {
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: var(--z-drawer);
-    width: min(300px, 85vw);
-    transform: translateX(-100%);
-    /* Hidden, not merely moved. A transform leaves every control in the tab order, so
-       a closed drawer would hand a keyboard user a dozen invisible buttons to walk
-       through — and this nav comes before the page in the DOM, so they would meet
-       "Back to workspace" before anything they can see. */
-    visibility: hidden;
-    transition:
-      transform var(--dur-panel) var(--ease-standard),
-      visibility var(--dur-panel) var(--ease-standard);
-    box-shadow: var(--elev-3);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .admin-nav {
-      transition: none;
-    }
-  }
-
-  .admin-shell[data-nav='open'] .admin-nav {
-    transform: none;
-    visibility: visible;
-  }
-
-  .admin-nav-scrim {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-scrim);
-    background: var(--backdrop);
-  }
-
-  .admin-shell[data-nav='open'] .admin-nav-scrim {
-    display: block;
-  }
-
-  .admin-nav-toggle {
-    display: inline-flex;
-  }
-
-  .admin-shell {
-    --console-gutter: var(--space-6);
-  }
-
-  .admin-page {
-    padding-top: var(--space-6);
-  }
-
   .admin-app-form,
   .admin-app-permissions {
     grid-template-columns: 1fr;
@@ -797,33 +740,9 @@
   }
 }
 
-/* The page's gutter, stepped: 40px at a desk, 32 once the window is narrower than the
-   column plus the nav, 24 in drawer mode (above), and 16 on a phone — where a card goes
-   the full width inside it and its own padding comes down with it. */
-@media (max-width: 1200px) and (min-width: 901px) {
-  .admin-shell {
-    --console-gutter: var(--space-8);
-  }
-}
-
+/* On a phone a card goes the full width of the page, and its own padding comes down
+   with it. */
 @media (max-width: 600px) {
-  .admin-shell {
-    --console-gutter: var(--space-4);
-  }
-
-  .admin-page {
-    padding-top: var(--space-5);
-    padding-bottom: var(--space-10);
-  }
-
-  .admin-page-header {
-    padding-bottom: var(--space-5);
-  }
-
-  .admin-page-body {
-    margin-top: var(--space-6);
-  }
-
   .console-stack {
     gap: var(--space-4);
   }

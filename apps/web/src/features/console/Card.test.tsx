@@ -1,13 +1,16 @@
 // @vitest-environment happy-dom
-/** The card every console page is read in. What these pin is the markup app.css keys on
- * and the semantics a screen reader gets: the title is a heading, the card is not a
- * landmark, a one-field card's title can be that field's label, and a heading inside a
- * card takes its level from whether the card has a title. */
+/** The card every console page is read in. What these pin is the semantics a screen
+ * reader gets and the order of a card's parts: the title is a heading, the card is not a
+ * landmark, a one-field card's title can be that field's label, a heading inside a card
+ * takes its level from whether the card has a title, and what closes a card comes last. */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { Card, CardHeading, CardNotice } from './Card.tsx';
 
 afterEach(cleanup);
+
+/** The card around something drawn in it: shadcn's, which marks each of its parts. */
+const cardOf = (node: Element) => node.closest('[data-slot="card"]');
 
 describe('a console card', () => {
   it('titles itself with a heading, and says what it is for under it', () => {
@@ -17,9 +20,15 @@ describe('a console card', () => {
       </Card>,
     );
     const heading = screen.getByRole('heading', { level: 2, name: 'Server name' });
-    expect(heading.className).toBe('console-card-title');
-    expect(screen.getByText('Shown in the top bar.').className).toBe('console-card-desc');
-    expect(heading.closest('.console-card-header')).toBeTruthy();
+    const description = screen.getByText('Shown in the top bar.');
+    // Title then description, together, ahead of what the card holds.
+    expect(heading.parentElement).toBe(description.parentElement);
+    expect(heading.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      description.compareDocumentPosition(screen.getByRole('textbox')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(cardOf(heading)).toBe(cardOf(screen.getByRole('textbox')));
   });
 
   // A named section is a landmark, and a page of eight landmarks is a list nobody can
@@ -58,31 +67,44 @@ describe('a console card', () => {
         <p>rows</p>
       </Card>,
     );
-    expect(screen.getByRole('button', { name: 'Install' }).closest('.console-card-actions')).toBeTruthy();
+    const heading = screen.getByRole('heading', { name: 'Agents' });
+    const install = screen.getByRole('button', { name: 'Install' });
+    // Beside the title, in the header the title is in.
+    expect(heading.parentElement?.contains(install)).toBe(true);
+    expect(install.compareDocumentPosition(screen.getByText('rows')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The footer is the card's last part, so it can run to the card's edges.
     const save = screen.getByRole('button', { name: 'Save' });
-    expect(save.closest('footer')?.className).toBe('console-card-footer');
-    // The footer is the card's last child, so it can run to the card's edges.
-    const card = save.closest('.console-card');
-    expect(card?.lastElementChild?.tagName).toBe('FOOTER');
+    const card = cardOf(save);
+    expect(card?.lastElementChild?.contains(save)).toBe(true);
+    expect(card?.lastElementChild?.contains(screen.getByText('rows'))).toBe(false);
   });
 
   // A list or a table on its own needs no title — its rows say what it is — and an
   // empty header would still take the card's first slot and its spacing.
   it('draws no header when there is nothing to put in one', () => {
-    const { container } = render(
+    render(
       <Card>
         <p>just rows</p>
       </Card>,
     );
-    expect(container.querySelector('.console-card-header')).toBeNull();
-    expect(container.querySelector('.console-card')?.firstElementChild?.textContent).toBe(
-      'just rows',
-    );
+    const card = cardOf(screen.getByText('just rows'));
+    expect(card?.firstElementChild?.textContent).toBe('just rows');
+    expect(screen.queryByRole('heading')).toBeNull();
+  });
+
+  // And the other way round: a card that is only its title and actions — a page's one
+  // switch in its header — ends with the header, not with an empty part taking a gap.
+  it('draws no content part when it holds nothing', () => {
+    render(<Card title="Members" actions={<button>Invite</button>}>{false}</Card>);
+    const card = cardOf(screen.getByRole('heading', { name: 'Members' }));
+    expect(card?.children).toHaveLength(1);
   });
 
   it('keeps its own classes beside a caller’s', () => {
-    const { container } = render(<Card className="janus-part" title="Skills" />);
-    expect(container.querySelector('section')?.className).toBe('console-card janus-part');
+    render(<Card className="janus-part" title="Skills" />);
+    const card = cardOf(screen.getByRole('heading', { name: 'Skills' }));
+    expect(card?.classList.contains('janus-part')).toBe(true);
+    expect(card?.classList.contains('rounded-xl')).toBe(true);
   });
 });
 
@@ -95,9 +117,7 @@ describe('a heading for a part of a card', () => {
         <CardHeading>New group</CardHeading>
       </Card>,
     );
-    expect(screen.getByRole('heading', { level: 3, name: 'New group' }).className).toBe(
-      'section-label',
-    );
+    expect(screen.getByRole('heading', { level: 3, name: 'New group' })).toBeTruthy();
   });
 
   it('takes the title’s level in a card that has none', () => {
@@ -119,17 +139,34 @@ describe('a heading for a part of a card', () => {
     );
     expect(screen.getByRole('heading', { level: 2, name: 'New group' })).toBeTruthy();
   });
+
+  // A caller that still draws it in the legacy style says so with its own class.
+  it('wears a caller’s class in place of its own', () => {
+    render(
+      <Card title="Activity">
+        <CardHeading className="section-label">Deliveries</CardHeading>
+      </Card>,
+    );
+    expect(screen.getByRole('heading', { level: 3, name: 'Deliveries' }).className).toBe(
+      'section-label',
+    );
+  });
 });
 
 describe('the notice a card shows in place of its rows', () => {
   it('is one paragraph, the same for nothing yet and still loading', () => {
-    const { container } = render(
+    render(
       <>
         <CardNotice>Loading…</CardNotice>
         <CardNotice>No webhooks yet.</CardNotice>
       </>,
     );
-    const notices = [...container.querySelectorAll('p.console-notice')];
-    expect(notices.map((notice) => notice.textContent)).toEqual(['Loading…', 'No webhooks yet.']);
+    const notices = [screen.getByText('Loading…'), screen.getByText('No webhooks yet.')];
+    for (const notice of notices) {
+      expect(notice.tagName).toBe('P');
+      // Muted, from the theme: a workspace palette repaints it.
+      expect(notice.className).toBe(notices[0]!.className);
+      expect(notice.className).toContain('text-muted-foreground');
+    }
   });
 });

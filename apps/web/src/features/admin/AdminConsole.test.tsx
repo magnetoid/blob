@@ -30,12 +30,12 @@ afterEach(() => {
 describe('a People part at its old URL', () => {
   it('sits in the card the People page would give it', () => {
     render(<AdminConsole section="invitations" onFeedback={vi.fn()} />);
-    expect(screen.getByText('invitations-part').closest('.console-card')).toBeTruthy();
+    expect(screen.getByText('invitations-part').closest('[data-slot="card"]')).toBeTruthy();
   });
 
   it('is not framed again when it is a detail page that draws its own', () => {
     render(<AdminConsole section="groups" detailId="g1" onFeedback={vi.fn()} />);
-    expect(screen.getByText('groups-part:g1').closest('.console-card')).toBeNull();
+    expect(screen.getByText('groups-part:g1').closest('[data-slot="card"]')).toBeNull();
   });
 });
 
@@ -50,7 +50,9 @@ describe('the console’s nav', () => {
     const node = screen.getByRole('navigation', { name: 'Console sections' });
     return {
       headings: within(node).queryAllByRole('heading').map((h) => h.textContent),
-      rows: [...node.querySelectorAll('.channel-name')].map((n) => n.textContent ?? ''),
+      rows: within(node)
+        .getAllByRole('listitem')
+        .map((item) => within(item).getByRole('button').textContent ?? ''),
     };
   }
 

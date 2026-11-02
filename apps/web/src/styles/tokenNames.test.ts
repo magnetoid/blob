@@ -158,6 +158,8 @@ describe('styles/index.css', () => {
    * `EmojiPicker`'s grid is still legacy markup, in a `data-legacy` island, and none of its
    * class names is one of Tailwind's. `Icon.tsx` is not here: it draws Lucide's glyphs and
    * carries no utility; nor is `Menu.tsx`, whose panel wears the classes its callers pass.
+   * The consoles come in the same way, a file at a time: `features/console/` still holds
+   * lists and tables that are legacy markup until the sections that draw them are converted.
    */
   const CONVERTED = [
     'components/ui',
@@ -170,6 +172,13 @@ describe('styles/index.css', () => {
     'components/Avatar.tsx',
     'components/EmptyState.tsx',
     'components/ListSkeleton.tsx',
+    'features/console/ConsoleShell.tsx',
+    'features/console/ConsoleNav.tsx',
+    'features/console/Card.tsx',
+    'features/console/CopyField.tsx',
+    'features/admin/AdminConsole.tsx',
+    'features/settings/SettingsConsole.tsx',
+    'features/server/ServerConsole.tsx',
   ];
 
   it('scans only converted paths', () => {

@@ -28,6 +28,13 @@
 @source "../components/Avatar.tsx";
 @source "../components/EmptyState.tsx";
 @source "../components/ListSkeleton.tsx";
+@source "../features/console/ConsoleShell.tsx";
+@source "../features/console/ConsoleNav.tsx";
+@source "../features/console/Card.tsx";
+@source "../features/console/CopyField.tsx";
+@source "../features/admin/AdminConsole.tsx";
+@source "../features/settings/SettingsConsole.tsx";
+@source "../features/server/ServerConsole.tsx";
 @import "./theme.css";
 @import "./tokens.css" layer(legacy);
 @import "./app.css" layer(legacy);

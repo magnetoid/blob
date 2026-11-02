@@ -82,7 +82,7 @@ afterEach(() => {
 });
 
 function card(title: string) {
-  return within(screen.getByRole('heading', { name: title }).closest('section')!);
+  return within(screen.getByRole('heading', { name: title }).closest('[data-slot="card"]')!);
 }
 
 describe('what was spent', () => {

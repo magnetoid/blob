@@ -27,7 +27,7 @@ afterEach(() => {
 
 function card(title: string) {
   return within(
-    screen.getByRole("heading", { name: title }).closest("section")!,
+    screen.getByRole("heading", { name: title }).closest('[data-slot="card"]')!,
   );
 }
 

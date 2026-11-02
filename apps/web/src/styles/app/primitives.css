@@ -189,7 +189,6 @@
 
 /* Where the rows beneath are inset, the label lines up with them. */
 .sidebar .section-label,
-.admin-nav .section-label,
 .pinned-panel .section-label,
 .shortcut-help .section-label {
   padding-left: 10px;

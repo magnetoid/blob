@@ -64,43 +64,6 @@
   line-height: 1.3;
 }
 
-.console-card-desc {
-  margin: var(--space-1) 0 0;
-  max-width: 68ch;
-  font-size: var(--text-meta);
-  line-height: 1.5;
-  color: var(--text-4);
-  text-wrap: pretty;
-}
-
-.console-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* What closes a card: a Save, a "Load older", a note that belongs after the rows. A
-   strip of its own, so the action is found in the same place on every card. */
-.console-card > .console-card-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2) var(--space-3);
-  margin: var(--space-5) calc(-1 * var(--card-pad-x)) calc(-1 * var(--card-pad-y));
-  padding: var(--space-3) var(--card-pad-x);
-  border-top: 1px solid var(--hairline-soft);
-  /* Half a step toward the muted surface: enough to read as the card's foot, not so
-     much that a one-field card looks like two. */
-  background: color-mix(in oklab, var(--surface-muted) 50%, var(--surface));
-}
-
-/* A note in the footer reads first and pushes the actions to the end. */
-.console-card-footer > :is(p, span):first-child {
-  margin: 0 auto 0 0;
-}
-
 /* A heading inside a card, for a part of it: "New group", "Where you're signed in". */
 .console-card > .section-label {
   padding: 0;
@@ -128,11 +91,6 @@
 
 .console-card > :is(.pref-row, .pref-block):last-child {
   padding-bottom: 0;
-}
-
-/* A footer's rule is the last row's rule. */
-.console-card > :is(.pref-row, .pref-block) + .console-card-footer {
-  margin-top: 0;
 }
 
 /* The control goes under its label when both do not fit beside each other — decided by
@@ -301,17 +259,6 @@
   border-top: 1px solid var(--hairline-soft);
 }
 
-/* The one empty-or-loading line every card uses, where the rows would have been. */
-.console-notice {
-  margin: 0;
-  padding: var(--space-6) var(--space-4);
-  text-align: center;
-  font-size: var(--text-row);
-  line-height: 1.5;
-  color: var(--text-4);
-  text-wrap: pretty;
-}
-
 /* Search, filters and counts at the top of a list. */
 .console-toolbar {
   display: flex;
@@ -456,6 +403,19 @@
   box-shadow: inset 0 0 0 1px rgb(var(--shadow-ink) / 12%);
 }
 
+/* What the frame (`features/console/ConsoleShell.tsx`) declared for the page under it,
+   while lists and tables drawn in this stylesheet still read them. */
+.admin-page {
+  /* The wash a row takes under the pointer, mixed toward --surface-hover rather than
+     being it: every row of a long list turning the full hover step read as a stripe,
+     not a highlight. --surface-row-hover is no use on a card — in dark it is darker
+     than --surface, so a hovered row would sink instead of lifting. */
+  --console-row-hover: color-mix(in oklab, var(--surface-hover) 60%, var(--surface));
+  /* A table's header row, which is sticky: the height it is drawn at and the scroll
+     padding its box keeps clear under it are one number, so they cannot drift apart. */
+  --table-head-height: 32px;
+}
+
 /* The console's inputs show focus as a ring, the way the nav's filter does, rather than
    as a one-pixel change of hue. */
 .admin-page :is(.input, .agentic-textarea):focus {
@@ -536,10 +496,4 @@
 
 .console-subrow + .console-subrow {
   border-top: 1px solid var(--hairline-soft);
-}
-
-/* Off-canvas below, inert above: a fixed element that is never revealed. */
-.admin-nav-toggle,
-.admin-nav-scrim {
-  display: none;
 }
