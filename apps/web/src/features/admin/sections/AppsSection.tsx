@@ -49,7 +49,9 @@ export function AppsSection({
   detailId?: string;
 }) {
   return detailId ? (
-    <AppSettings pluginId={detailId} onError={onError} />
+    // Keyed by the app: the router changes the id without remounting this section, and what
+    // one app's page holds — a secret shown once, a panel left open — is not the next one's.
+    <AppSettings key={detailId} pluginId={detailId} onError={onError} />
   ) : (
     <AppsList onError={onError} />
   );
@@ -149,8 +151,8 @@ function AppsList({ onError }: { onError: (message: string | null) => void }) {
           the install dialog closes. */}
       {secretNotice && (
         <Card
-          title="New credentials"
-          description={`${secretNotice.pluginName} — these credentials are shown once. Rotate them later if you lose them.`}
+          title={`New credentials for ${secretNotice.pluginName}`}
+          description="These credentials are shown once. Rotate them later if you lose them."
         >
           {secretNotice.signingSecret && (
             <CopyField label="Signing secret" value={secretNotice.signingSecret} />
@@ -492,9 +494,10 @@ function RunsThisWeek({ days }: { days: { date: string; runs: number }[] }) {
         {days.map((day) => (
           <div key={day.date} className="flex h-full min-h-0 flex-col items-center justify-end gap-1.5">
             {/* The height is the day's share of the busiest day, so it is data and rides
-                in a custom property. */}
+                in a custom property: the bar fills what the label leaves of its column
+                (`flex-1`) and is scaled from the bottom by that share. */}
             <div
-              className="min-h-0.5 w-full origin-bottom scale-y-(--bar-scale) rounded-t-sm bg-primary transition-transform duration-(--dur-open) ease-(--ease-standard) motion-reduce:transition-none"
+              className="min-h-0.5 w-full flex-1 origin-bottom scale-y-(--bar-scale) rounded-t-sm bg-primary transition-transform duration-(--dur-open) ease-(--ease-standard) motion-reduce:transition-none"
               style={
                 {
                   "--bar-scale": day.runs / max,

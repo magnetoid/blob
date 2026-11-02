@@ -7,7 +7,7 @@
  * a runner is a lot of requests to answer a question nobody is looking at.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { api, ApiError, type AgentDeployment as Deployment } from '../../../../lib/api.ts';
 import { Badge } from '../../../../components/ui/badge.tsx';
 import { Button } from '../../../../components/ui/button.tsx';
@@ -31,6 +31,8 @@ export function AgentDeployment({ pluginId, agentName, repo, gitRef, onError }: 
   // One at a time. Configuration and a terminal are two ways of doing the same job, and
   // both open at once is a tall row where neither is the thing being read.
   const [panel, setPanel] = useState<'config' | 'terminal' | null>(null);
+  const ids = useId();
+  const panelIds = { config: `${ids}-config`, terminal: `${ids}-terminal`, logs: `${ids}-logs` };
 
   const fail = useCallback(
     (err: unknown, fallback: string) => {
@@ -116,12 +118,14 @@ export function AgentDeployment({ pluginId, agentName, repo, gitRef, onError }: 
         {/* Two halves of setting an agent up, side by side because that is what they
             are: the values it declares it needs, and the session for everything that is
             not a value. Neither replaces the other — a device-code login is not a field,
-            and an API key is not worth opening a shell for. The names stay put and
-            `aria-expanded` says which is open. */}
+            and an API key is not worth opening a shell for. The names stay put,
+            `aria-expanded` says which is open, and `aria-controls` points at its panel only
+            while the panel is there. */}
         <Button
           variant="outline"
           disabled={busy}
           aria-expanded={panel === 'config'}
+          aria-controls={panel === 'config' ? panelIds.config : undefined}
           onClick={() => setPanel((p) => (p === 'config' ? null : 'config'))}
         >
           Config
@@ -130,6 +134,7 @@ export function AgentDeployment({ pluginId, agentName, repo, gitRef, onError }: 
           variant="outline"
           disabled={busy}
           aria-expanded={panel === 'terminal'}
+          aria-controls={panel === 'terminal' ? panelIds.terminal : undefined}
           onClick={() => setPanel((p) => (p === 'terminal' ? null : 'terminal'))}
         >
           Terminal
@@ -138,6 +143,7 @@ export function AgentDeployment({ pluginId, agentName, repo, gitRef, onError }: 
           variant="outline"
           disabled={busy}
           aria-expanded={logs !== null}
+          aria-controls={logs !== null ? panelIds.logs : undefined}
           onClick={() => void showLogs()}
         >
           Logs
@@ -161,12 +167,16 @@ export function AgentDeployment({ pluginId, agentName, repo, gitRef, onError }: 
         </Button>
       </div>
 
-      {panel === 'config' && <AgentConfig pluginId={pluginId} onError={onError} />}
+      {panel === 'config' && (
+        <div id={panelIds.config}>
+          <AgentConfig pluginId={pluginId} onError={onError} />
+        </div>
+      )}
 
       {panel === 'terminal' && (
         // The terminal is the conversation's own (`features/agentic/`), drawn by its own
         // stylesheet, and it is also where xterm.js is mounted — so it stays an island.
-        <div data-legacy>
+        <div id={panelIds.terminal} data-legacy>
           <AgentTerminal
             pluginId={pluginId}
             agentName={agentName}
@@ -176,7 +186,7 @@ export function AgentDeployment({ pluginId, agentName, repo, gitRef, onError }: 
       )}
 
       {logs !== null && (
-        <pre className="m-0 max-h-75 overflow-auto rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+        <pre id={panelIds.logs} className="m-0 max-h-75 overflow-auto rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
           {logs}
         </pre>
       )}

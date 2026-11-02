@@ -19,6 +19,7 @@ const installPlugin = vi.fn();
 const setPluginEnabled = vi.fn();
 const updateSettings = vi.fn();
 const settings = vi.fn();
+const rotatePluginSecret = vi.fn();
 
 vi.mock('../../../lib/api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../lib/api.ts')>();
@@ -36,6 +37,15 @@ vi.mock('../../../lib/api.ts', async (importOriginal) => {
         installPlugin,
         setPluginEnabled,
         updateSettings,
+        // An app's own page asks for these on arrival.
+        rotatePluginSecret,
+        appChannels: vi.fn(async () => ({ channels: [] })),
+        pluginRuns: vi.fn(async () => ({ runs: [] })),
+        pluginDeliveries: vi.fn(async () => ({ deliveries: [] })),
+        agentMemory: vi.fn(async () => ({ memories: [] })),
+        agentNotes: vi.fn(async () => ({ notes: [] })),
+        agentFollows: vi.fn(async () => ({ channels: [] })),
+        mcpServers: vi.fn(async () => ({ servers: [] })),
       },
     },
   };
@@ -92,6 +102,7 @@ beforeEach(() => {
   setPluginEnabled.mockReset();
   updateSettings.mockReset();
   settings.mockReset();
+  rotatePluginSecret.mockReset();
   settings.mockResolvedValue({ settings: { agentsEnabled: true } });
   plugins.mockResolvedValue({
     plugins: [
@@ -162,7 +173,10 @@ describe('the agents console', () => {
     });
     setPluginEnabled.mockResolvedValue({});
     render(<AppsSection onError={vi.fn()} />);
-    const row = within(await screen.findByRole('row', { name: /Sleeper/ }));
+    const sleeper = await screen.findByRole('row', { name: /Sleeper/ });
+    // Grey, like every other row that is off — and an enabled one is not.
+    expect(sleeper.className).toContain('text-muted-foreground');
+    const row = within(sleeper);
     expect(row.getByText('disabled')).toBeTruthy();
     // Only an agent that dials in has a connection to report.
     expect(row.queryByText('online')).toBeNull();
@@ -175,7 +189,9 @@ describe('the agents console', () => {
   it('turns an enabled agent off from its row', async () => {
     setPluginEnabled.mockResolvedValue({});
     render(<AppsSection onError={vi.fn()} />);
-    const row = within(await screen.findByRole('row', { name: /Scout/ }));
+    const scout = await screen.findByRole('row', { name: /Scout/ });
+    expect(scout.className).not.toContain('text-muted-foreground');
+    const row = within(scout);
     fireEvent.click(row.getByRole('button', { name: 'Disable Scout' }));
     await waitFor(() => expect(setPluginEnabled).toHaveBeenCalledWith('p1', false));
   });
@@ -296,7 +312,11 @@ describe('the agents console', () => {
     expect(token.value).toBe('bot_tok_123');
     expect(token.readOnly).toBe(true);
     expect((screen.getByRole('textbox', { name: 'Signing secret' }) as HTMLInputElement).value).toBe('whsec_456');
-    expect(screen.getByText(/these credentials are shown once/)).toBeTruthy();
+    // Whose they are is the title; the sentence under it is the one it always was.
+    expect(screen.getByRole('heading', { name: 'New credentials for Desktop Claude' })).toBeTruthy();
+    expect(
+      screen.getByText('These credentials are shown once. Rotate them later if you lose them.'),
+    ).toBeTruthy();
     // And the steps that use them: Janus is the first way in.
     expect(screen.getByTestId('janus-setup')).toBeTruthy();
     // The dialog has done its work.
@@ -335,9 +355,31 @@ describe('the agents console', () => {
   it('draws a bar for every day of the week, and says them all to a reader', async () => {
     render(<AppsSection onError={vi.fn()} />);
     expect(await screen.findByRole('heading', { name: 'Runs this week' })).toBeTruthy();
-    expect(screen.getAllByTitle(/^\d+ on 2026-09-0\d$/)).toHaveLength(7);
+    const bars = screen.getAllByTitle(/^\d+ on 2026-09-0\d$/);
+    expect(bars).toHaveLength(7);
+    // happy-dom lays nothing out, so the height is pinned in the classes: a bar in the
+    // column (bar above its label, end-aligned) with neither would be 2px tall, and its
+    // scale would shrink that to nothing.
+    for (const bar of bars) expect(bar.className).toMatch(/\bflex-1\b|\bh-full\b/);
     // The bars are a picture; the same numbers are its name.
     const chart = screen.getByRole('img', { name: / 6$/ });
     expect(chart.getAttribute('aria-label')?.split(', ')).toHaveLength(7);
+  });
+
+  it('does not carry a secret from one app’s page to the next', async () => {
+    rotatePluginSecret.mockResolvedValue({ signingSecret: 'whsec_for_scout' });
+    const { rerender } = render(<AppsSection onError={vi.fn()} detailId="p1" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Rotate secret' }));
+    const field = (await screen.findByRole('textbox', { name: 'Signing secret' })) as HTMLInputElement;
+    expect(field.value).toBe('whsec_for_scout');
+    // Whose it is.
+    expect(screen.getByRole('heading', { name: 'New credentials for Scout' })).toBeTruthy();
+
+    // The router changes the id; it does not remount the section.
+    rerender(<AppsSection onError={vi.fn()} detailId="p2" />);
+    expect(await screen.findByRole('heading', { name: 'Janus' })).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Signing secret' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: /New credentials/ })).toBeNull();
   });
 });

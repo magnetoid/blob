@@ -95,6 +95,37 @@ describe('the panels', () => {
     expect(screen.queryByText('terminal in Helper')).toBeNull();
   });
 
+  it('points each button at its panel while the panel is there, and at nothing otherwise', async () => {
+    vi.spyOn(api.admin, 'deploymentLogs').mockResolvedValue({ logs: 'booted in 2s' });
+    show();
+    await screen.findByText('running');
+    const panelOf = (button: HTMLElement) => {
+      const id = button.getAttribute('aria-controls');
+      return id ? document.getElementById(id) : null;
+    };
+    const config = screen.getByRole('button', { name: 'Config' });
+    const terminal = screen.getByRole('button', { name: 'Terminal' });
+    const logs = screen.getByRole('button', { name: 'Logs' });
+    for (const button of [config, terminal, logs]) expect(button.getAttribute('aria-controls')).toBeNull();
+
+    fireEvent.click(config);
+    expect(panelOf(config)?.textContent).toBe('the configuration');
+    expect(terminal.getAttribute('aria-controls')).toBeNull();
+
+    fireEvent.click(terminal);
+    expect(config.getAttribute('aria-controls')).toBeNull();
+    expect(panelOf(terminal)?.textContent).toContain('terminal in Helper');
+
+    fireEvent.click(logs);
+    await screen.findByText('booted in 2s');
+    expect(panelOf(logs)?.textContent).toBe('booted in 2s');
+    // Both open at once, each to its own.
+    expect(panelOf(terminal)).not.toBe(panelOf(logs));
+
+    fireEvent.click(logs);
+    expect(logs.getAttribute('aria-controls')).toBeNull();
+  });
+
   it('draws the terminal in a legacy island, and puts it away from its own close', async () => {
     show();
     await screen.findByText('running');

@@ -26,6 +26,9 @@ afterEach(() => {
 beforeEach(() => {
   vi.spyOn(api.admin, 'agentFollows').mockResolvedValue({ channels: [] });
   vi.spyOn(api.admin, 'mcpServers').mockResolvedValue({ servers: [] });
+  // And what it remembers and the notes it kept, which every page of an app asks for.
+  vi.spyOn(api.admin, 'agentMemory').mockResolvedValue({ memories: [] });
+  vi.spyOn(api.admin, 'agentNotes').mockResolvedValue({ notes: [] });
 });
 
 const ME = { id: 'u1', kind: 'human', displayName: 'Marko', deactivated: false };
@@ -425,7 +428,7 @@ describe('the credentials an app is given', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Issue token' }));
     const field = (await screen.findByRole('textbox', { name: 'Bot token' })) as HTMLInputElement;
     expect(field.value).toBe('bot_issued');
-    expect(screen.getByRole('heading', { name: 'New credentials' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'New credentials for Assistant' })).toBeTruthy();
     expect(screen.getByTestId('janus-setup')).toBeTruthy();
   });
 });

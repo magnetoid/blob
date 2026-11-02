@@ -355,7 +355,7 @@ export function AppSettings({ pluginId, onError }: Props) {
           again: the server keeps only their hashes. */}
       {(secretNotice?.signingSecret || secretNotice?.botToken) && (
         <Card
-          title="New credentials"
+          title={`New credentials for ${secretNotice.pluginName}`}
           description="Shown once. Rotate again later if you lose them."
         >
           {secretNotice.signingSecret && (
