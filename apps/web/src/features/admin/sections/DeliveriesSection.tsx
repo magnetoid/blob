@@ -1,12 +1,20 @@
 /** Every app's recent deliveries, and a way to send a failed one again. */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   api,
   type AdminWorkspaceDelivery,
 } from '../../../lib/api.ts';
+import { Badge } from '../../../components/ui/badge.tsx';
+import { Button } from '../../../components/ui/button.tsx';
+import {
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from '../../../components/ui/item.tsx';
 import { formatRelative } from '../../messages/messageFormatting.ts';
-import { Card, CardNotice } from '../../console/Card.tsx';
+import { Card, CardNotice, CardRow, CardRows } from '../../console/Card.tsx';
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 export function DeliveriesSection({
@@ -22,7 +30,6 @@ export function DeliveriesSection({
     'Could not load deliveries.',
   );
   const act = useAdminAction(onError, reload);
-  const [openId, setOpenId] = useState<string | null>(null);
   const deliveries = data?.deliveries ?? [];
 
   // No data and no request in flight means the load failed. The error above says so, and
@@ -31,26 +38,20 @@ export function DeliveriesSection({
   if (data === null && !loading) return null;
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card>
         {data === null ? (
           <CardNotice>Loading…</CardNotice>
         ) : deliveries.length === 0 ? (
           <CardNotice>No delivery attempts recorded yet.</CardNotice>
         ) : (
-          <div className="console-list">
+          <CardRows aria-label="Deliveries">
             {deliveries.map((delivery) => (
               <DeliveryRow
                 key={delivery.id}
                 delivery={delivery}
-                open={openId === delivery.id}
-                onToggle={() =>
-                  setOpenId((current) =>
-                    current === delivery.id ? null : delivery.id,
-                  )
-                }
                 onReplay={() =>
-                  void act(() =>
+                  act(() =>
                     api.admin.replayPluginDelivery(
                       delivery.pluginId,
                       delivery.id,
@@ -59,7 +60,7 @@ export function DeliveriesSection({
                 }
               />
             ))}
-          </div>
+          </CardRows>
         )}
       </Card>
     </div>
@@ -68,55 +69,68 @@ export function DeliveriesSection({
 
 function DeliveryRow({
   delivery,
-  open,
-  onToggle,
   onReplay,
 }: {
   delivery: AdminWorkspaceDelivery;
-  open: boolean;
-  onToggle: () => void;
-  onReplay: () => void;
+  /** Resolves when the replay has been asked for, whatever the answer was. */
+  onReplay: () => Promise<void>;
 }) {
   const canReplay =
     delivery.status === 'failed' || delivery.status === 'dead';
+  // One replay at a time per row. The ref is what makes a double tap one send: state is
+  // not read until the next render, and two presses can land before it.
+  const inFlight = useRef(false);
+  const [replaying, setReplaying] = useState(false);
+
+  async function replay() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setReplaying(true);
+    try {
+      await onReplay();
+    } finally {
+      inFlight.current = false;
+      setReplaying(false);
+    }
+  }
+
   return (
-    <div className="admin-row">
-      <div className="grow min-0">
-        <button
-          type="button"
-          className="console-row-toggle"
-          onClick={onToggle}
-          aria-expanded={open}
-        >
-          <div className="admin-row-title">
-            {delivery.pluginName}
-            <span className="role-pill" data-muted>
-              {delivery.event}
-            </span>
-            <span
-              className="role-pill"
-              data-muted={delivery.status !== 'delivered'}
-            >
-              {delivery.status}
-            </span>
-          </div>
-          <div className="admin-row-meta">
-            {delivery.attempts} attempts · created{' '}
-            {formatRelative(delivery.createdAt)}
-            {delivery.deliveredAt &&
-              ` · delivered ${formatRelative(delivery.deliveredAt)}`}
-            {delivery.lastStatusCode && ` · HTTP ${delivery.lastStatusCode}`}
-            {delivery.lastError && ` · ${delivery.lastError}`}
-          </div>
-        </button>
-        {open && canReplay && (
-          <div className="console-row-more">
-            <button className="btn" type="button" onClick={onReplay}>
-              Replay
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+    <CardRow>
+      <ItemContent>
+        <ItemTitle>
+          {delivery.pluginName}
+          <Badge variant="outline">{delivery.event}</Badge>
+          <Badge variant={delivery.status === 'delivered' ? 'secondary' : 'outline'}>
+            {delivery.status}
+          </Badge>
+        </ItemTitle>
+        {/* A last error can be one unbroken token — an address — so it wraps anywhere. */}
+        <ItemDescription className="wrap-anywhere">
+          {delivery.attempts} attempts · created{' '}
+          {formatRelative(delivery.createdAt)}
+          {delivery.deliveredAt &&
+            ` · delivered ${formatRelative(delivery.deliveredAt)}`}
+          {delivery.lastStatusCode && ` · HTTP ${delivery.lastStatusCode}`}
+          {delivery.lastError && ` · ${delivery.lastError}`}
+        </ItemDescription>
+      </ItemContent>
+      {/* Only where there is something to send again, and said for which: every failed row
+          has one. It used to open the row first, onto a panel holding only this button. */}
+      {canReplay && (
+        <ItemActions>
+          <Button
+            variant="outline"
+            aria-label={`Replay ${delivery.event} to ${delivery.pluginName}`}
+            // Busy, not gone: a button disabled under the pointer would drop focus to the
+            // page while the request runs.
+            disabled={replaying}
+            focusableWhenDisabled
+            onClick={() => void replay()}
+          >
+            Replay
+          </Button>
+        </ItemActions>
+      )}
+    </CardRow>
   );
 }

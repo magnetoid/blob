@@ -38,20 +38,6 @@
   border-bottom: 1px solid var(--hairline-soft);
 }
 
-/* A settings row whose control sits under its label rather than beside it — the DND
-   window, keyword alerts, group mutes. Same rhythm and divider as .pref-row, without
-   the flex that would lay its children out in a line. Three copies of this lived as
-   inline styles, one of which had already drifted to 12px. */
-.pref-block {
-  padding: 17px 0;
-  border-bottom: 1px solid var(--hairline-soft);
-}
-
-/* Nothing follows the last one, so a rule under it would underline the page. */
-.pref-block:last-child {
-  border-bottom: 0;
-}
-
 .pref-label {
   font-size: var(--blob-text-base);
   font-weight: 500;
@@ -153,9 +139,8 @@
   background: var(--surface-hover-deep);
 }
 
-.btn-primary:active:not(:disabled),
-.btn-danger:active:not(:disabled) {
-  /* These two invert on hover, so a deeper neutral would read as releasing. */
+.btn-primary:active:not(:disabled) {
+  /* It is filled, so a deeper neutral would read as releasing. */
   filter: brightness(0.94);
 }
 

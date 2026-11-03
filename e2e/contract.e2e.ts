@@ -64,7 +64,7 @@ test('two people, one conversation, every part of it', async ({ browser }) => {
   // ── …and invites a second by link ───────────────────────────────────────────
   await olga.goto('/admin/invitations');
   await olga.getByRole('button', { name: 'Create invitation' }).click();
-  const link = (await olga.locator('.console-copy .ellipsis').first().innerText()).trim();
+  const link = (await olga.getByRole('textbox', { name: 'Invitation link' }).first().inputValue()).trim();
   expect(link).toMatch(/\/join\//);
 
   const max = await newPerson(browser);

@@ -3,7 +3,7 @@
  * The names are the app's and the drawing is Lucide's — the set shadcn ships with, so an
  * icon in a shadcn component and one in a legacy row are the same family. Each export is
  * a thin wrapper that a caller uses exactly as before; only the paths changed hands. Named
- * imports, so the build keeps the forty glyphs used here and none of Lucide's others.
+ * imports, so the build keeps the thirty-nine glyphs used here and none of Lucide's others.
  *
  * Four sizes, named by role rather than by number. There were seven — 13, 14, 15, 16,
  * 17, 18 and 19 — and five stroke weights between 1.7 and 2.2, chosen a call site at a
@@ -41,7 +41,6 @@ import {
   LucideLifeBuoy,
   LucideLock,
   LucideMaximize2,
-  LucideMenu,
   LucideMessageCircle,
   LucideMic,
   LucideMicOff,
@@ -150,8 +149,6 @@ export const DecisionIcon = (p: IconProps) => <Glyph glyph={LucideFlag} {...p} /
 export const CloseIcon = (p: IconProps) => <Glyph glyph={LucideX} boost={0.4} {...p} />;
 
 export const ChevronLeftIcon = (p: IconProps) => <Glyph glyph={LucideChevronLeft} {...p} />;
-
-export const MenuIcon = (p: IconProps) => <Glyph glyph={LucideMenu} {...p} />;
 
 /** A four-pointed spark: the mark on everything the workspace summarised for you.
  *

@@ -20,6 +20,8 @@ import { useCallback } from "react";
 import { api, ApiError, type JanusOverview } from "../../../../lib/api.ts";
 import { navigate } from "../../../../lib/router.ts";
 import { useFetch } from "../../../../lib/useFetch.ts";
+import { ChevronLeftIcon } from "../../../../components/Icon.tsx";
+import { Button } from "../../../../components/ui/button.tsx";
 import type { ConsoleSectionProps } from "../../../console/ConsoleShell.tsx";
 import { Card, CardNotice } from "../../../console/Card.tsx";
 import { useAdminData } from "../../../console/hooks.ts";
@@ -70,7 +72,7 @@ export function JanusSection({ onError, isOwner }: ConsoleSectionProps) {
 
   if (!listed) {
     return (
-      <div className="console-stack">
+      <div className="flex flex-col gap-6">
         <Card>
           <CardNotice>
             {listing
@@ -101,16 +103,14 @@ export function JanusSection({ onError, isOwner }: ConsoleSectionProps) {
   const overviewPending = !overview && reading;
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       {/* The same way back an app's own page has. The row in the nav is one click away,
           but somebody who arrived here from the Apps list's Configure is in the middle of
           that list's job and should not have to find their way back to it. */}
-      <button
-        className="btn btn-ghost console-back"
-        onClick={() => navigate("/admin/apps")}
-      >
-        ← All apps
-      </button>
+      <Button variant="ghost" className="self-start" onClick={() => navigate("/admin/apps")}>
+        <ChevronLeftIcon size="sm" />
+        All apps
+      </Button>
 
       {/* Above the workspace half rather than instead of it: a row can outlive the
           settings that put it there, and an admin looking at an agent that has stopped

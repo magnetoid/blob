@@ -146,9 +146,16 @@ describe('Blob design tokens', () => {
  * legacy import with no layer only changes who wins a tie.
  */
 describe('styles/index.css', () => {
-  /** Comments go first: the file's own prose names `@source` and `@layer`. */
+  /**
+   * Comments go first: the file's own prose names `@source` and `@layer`. A quoted string
+   * is kept whole, since a glob such as `**\/*.test.ts` has a `/*` and a `*\/` in it and is
+   * not a comment.
+   */
   const indexCss = () =>
-    readFileSync(join(STYLES, 'index.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    readFileSync(join(STYLES, 'index.css'), 'utf8').replace(
+      /"[^"\n]*"|\/\*[\s\S]*?\*\//g,
+      (match) => (match.startsWith('"') ? match : ''),
+    );
 
   /**
    * Directories and files Tailwind may scan, relative to `src/`. A phase that converts a
@@ -158,6 +165,13 @@ describe('styles/index.css', () => {
    * `EmojiPicker`'s grid is still legacy markup, in a `data-legacy` island, and none of its
    * class names is one of Tailwind's. `Icon.tsx` is not here: it draws Lucide's glyphs and
    * carries no utility; nor is `Menu.tsx`, whose panel wears the classes its callers pass.
+   * The consoles came in the same way, a file at a time, until `features/admin` was converted
+   * whole — every section, the workspace console and the pages the server's console draws —
+   * and is one entry; its tests are excluded in `index.css` with `@source not`, since their
+   * strings (`'table'`, `'hidden'`) are not classes. `features/console` and
+   * `features/server` followed when phase 3 closed, the same way. `features/settings/` still
+   * goes one file at a time: `WhatsNewView` is a pane in the chat, not a console page, and
+   * keeps its legacy markup until phase 6.
    */
   const CONVERTED = [
     'components/ui',
@@ -170,6 +184,18 @@ describe('styles/index.css', () => {
     'components/Avatar.tsx',
     'components/EmptyState.tsx',
     'components/ListSkeleton.tsx',
+    'features/console',
+    'features/admin',
+    'features/settings/SettingsConsole.tsx',
+    'features/settings/YouSection.tsx',
+    'features/settings/ProfileCard.tsx',
+    'features/settings/PreferencesCard.tsx',
+    'features/settings/NotificationsCard.tsx',
+    'features/settings/AccountCard.tsx',
+    'features/settings/SecuritySection.tsx',
+    'features/settings/AssistantsSection.tsx',
+    'features/settings/MyAgentsSection.tsx',
+    'features/server',
   ];
 
   it('scans only converted paths', () => {

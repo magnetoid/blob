@@ -26,7 +26,7 @@ import { AccountsSection } from "./AccountsSection.tsx";
 export function PeopleHub(props: ConsoleSectionProps) {
   if (props.detailId) {
     return (
-      <div className="console-stack">
+      <div className="flex flex-col gap-6">
         <Card>
           <PeopleSection {...props} />
         </Card>
@@ -35,7 +35,7 @@ export function PeopleHub(props: ConsoleSectionProps) {
   }
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card title="Members" description="Everyone here, and what they can do.">
         <PeopleSection {...props} />
       </Card>

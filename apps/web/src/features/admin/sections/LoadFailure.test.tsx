@@ -40,7 +40,7 @@ describe('Channels', () => {
     await waitFor(() => expect(onError).toHaveBeenCalledWith('Could not load channels.'));
     expect(screen.queryByText('Loading…')).toBeNull();
     expect(screen.queryByText('No channels yet.')).toBeNull();
-    expect(container.querySelector('.console-card')).toBeNull();
+    expect(container.querySelector('[data-slot="card"]')).toBeNull();
   });
 });
 
@@ -62,7 +62,7 @@ describe('Deliveries', () => {
     const onError = vi.fn();
     const { container } = render(<DeliveriesSection onError={onError} />);
     await waitFor(() => expect(onError).toHaveBeenCalledWith('Could not load deliveries.'));
-    expect(container.querySelector('.console-card')).toBeNull();
+    expect(container.querySelector('[data-slot="card"]')).toBeNull();
     expect(screen.queryByText(/No delivery attempts/)).toBeNull();
   });
 });

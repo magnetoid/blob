@@ -200,9 +200,10 @@ describe('styles/theme.css — preset b0', () => {
   });
 
   it('keeps destructive text readable on the page, a card, and its own 8% tint', () => {
-    // `.role-pill`, `.task-badge`, `.feedback-kind` and `.janus-banner` draw the danger
-    // colour on `color-mix(in srgb, var(--danger) 8%, …)` of themselves, over whatever the
-    // card is. b0's light red is 4.13:1 on that; this holds the one Blob ships to AA.
+    // `.task-badge` and a Security check's `.role-pill` draw the danger colour on
+    // `color-mix(in srgb, var(--danger) 8%, …)` of themselves — the destructive Badge, a
+    // bug ticket's kind, on a tenth of it — over whatever the card is. b0's light red is
+    // 4.13:1 on that; this holds the one Blob ships to AA.
     const { light, darkByOs } = palettes('theme.css');
     for (const [mode, palette] of [
       ['light', light],

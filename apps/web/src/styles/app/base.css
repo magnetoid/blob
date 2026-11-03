@@ -26,7 +26,10 @@
  *
  * The second is approximate in one direction: an island inside a component inside an
  * island is not reached, since a selector cannot ask which ancestor is nearest. Nothing
- * draws that today. `styles/legacyIsland.test.ts` holds every rule to both clauses.
+ * draws that today — the consoles did while their page body was an island, which is why
+ * it is now `data-slot="console-body"` instead and the islands in its cards are reached.
+ * `styles/legacyIsland.test.ts` holds every rule to both clauses, and checks where they
+ * reach.
  * Delete a rule here when the last element it serves has been converted, and this block
  * with the last of them.
  *
@@ -361,11 +364,8 @@ button {
     --tw-exit-rotate: 0 !important;
   }
 
-  .admin-chart-bar,
-  .dashboard-bar,
   .poll-option-bar,
-  .thread-tools-toggle svg,
-  .import-meter-bar::-webkit-progress-value {
+  .thread-tools-toggle svg {
     transition: none;
   }
 }

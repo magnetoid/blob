@@ -14,7 +14,11 @@ import { api, type RetentionPreview, type RetentionView } from '../../../lib/api
 import { WINDOWS, windowLabel } from '../../../lib/retention.ts';
 import { showError } from '../../../lib/toasts.ts';
 import { useFetch } from '../../../lib/useFetch.ts';
-import { Card, CardNotice } from '../../console/Card.tsx';
+import { Button } from '../../../components/ui/button.tsx';
+import { Field, FieldContent, FieldDescription, FieldLabel } from '../../../components/ui/field.tsx';
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from '../../../components/ui/item.tsx';
+import { NativeSelect, NativeSelectOption } from '../../../components/ui/native-select.tsx';
+import { Card, CardFields, CardNotice, CardRow, CardRows } from '../../console/Card.tsx';
 
 function when(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -46,21 +50,20 @@ function WindowSelect({
 }) {
   const custom = value !== null && !WINDOWS.some((w) => w.days === value);
   return (
-    <select
+    <NativeSelect
       id={id}
-      className="input"
       aria-describedby={hintId}
       value={value === null ? '' : String(value)}
       onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))}
     >
-      <option value="">{unset}</option>
-      {custom && <option value={String(value)}>{windowLabel(value)}</option>}
+      <NativeSelectOption value="">{unset}</NativeSelectOption>
+      {custom && <NativeSelectOption value={String(value)}>{windowLabel(value)}</NativeSelectOption>}
       {WINDOWS.map((w) => (
-        <option key={w.days} value={String(w.days)}>
+        <NativeSelectOption key={w.days} value={String(w.days)}>
           {w.label}
-        </option>
+        </NativeSelectOption>
       ))}
-    </select>
+    </NativeSelect>
   );
 }
 
@@ -147,54 +150,55 @@ function WindowsCard({ view, onSaved }: { view: RetentionView; onSaved: () => vo
       title="How long things are kept"
       description="Past the line, a nightly sweep removes a message the way a delete does — its words, reactions, files and preview — and a thread keeps its shape. Tasks and decisions stay. A change waits a day before it counts, so a wrong choice can be put back."
       footer={
-        <button
-          type="button"
-          className="btn btn-primary"
+        // Busy, not gone: a button disabled under the pointer would drop focus to the page
+        // while the window is being saved.
+        <Button
           disabled={!changed || saving}
+          focusableWhenDisabled
           onClick={() => (removes ? setConfirming(true) : void save())}
         >
           {saving ? 'Saving…' : 'Save'}
-        </button>
+        </Button>
       }
     >
-      <div className="pref-row">
-        <div className="grow">
-          <label className="pref-label" htmlFor={messagesId}>
-            Messages
-          </label>
-          <div className="pref-hint" id={messagesHint}>
-            How long a message is kept after it is sent.
-          </div>
-        </div>
-        <WindowSelect
-          id={messagesId}
-          hintId={messagesHint}
-          value={draftMessages}
-          unset="Keep forever"
-          onChange={setMessages}
-        />
-      </div>
-      <div className="pref-row">
-        <div className="grow">
-          <label className="pref-label" htmlFor={filesId}>
-            Files
-          </label>
-          <div className="pref-hint" id={filesHint}>
-            A shorter window removes files sooner and keeps the words. A file never outlives
-            its message.
-          </div>
-        </div>
-        <WindowSelect
-          id={filesId}
-          hintId={filesHint}
-          value={draftFiles}
-          unset="With their messages"
-          onChange={setFiles}
-        />
-      </div>
-      <div className="retention-standing" aria-live="polite">
+      <CardFields>
+        <Field orientation="responsive">
+          <FieldContent>
+            <FieldLabel htmlFor={messagesId}>Messages</FieldLabel>
+            <FieldDescription id={messagesHint}>
+              How long a message is kept after it is sent.
+            </FieldDescription>
+          </FieldContent>
+          <WindowSelect
+            id={messagesId}
+            hintId={messagesHint}
+            value={draftMessages}
+            unset="Keep forever"
+            onChange={setMessages}
+          />
+        </Field>
+        <Field orientation="responsive">
+          <FieldContent>
+            <FieldLabel htmlFor={filesId}>Files</FieldLabel>
+            <FieldDescription id={filesHint}>
+              A shorter window removes files sooner and keeps the words. A file never outlives
+              its message.
+            </FieldDescription>
+          </FieldContent>
+          <WindowSelect
+            id={filesId}
+            hintId={filesHint}
+            value={draftFiles}
+            unset="With their messages"
+            onChange={setFiles}
+          />
+        </Field>
+      </CardFields>
+      {/* What the draft would take, or where the windows stand: said in a live region so a
+          change to either is heard. */}
+      <div aria-live="polite" className="flex flex-col gap-1">
         {changed ? (
-          <p className="pref-hint m-0">
+          <p className="m-0 text-sm text-muted-foreground">
             {!removes
               ? 'Nothing will be removed.'
               : counted
@@ -203,7 +207,7 @@ function WindowsCard({ view, onSaved }: { view: RetentionView; onSaved: () => vo
           </p>
         ) : (
           standing(view).map((line) => (
-            <p key={line} className="pref-hint m-0">
+            <p key={line} className="m-0 text-sm text-muted-foreground">
               {line}
             </p>
           ))
@@ -282,104 +286,104 @@ function HoldsCard({ view, onChanged }: { view: RetentionView; onChanged: () => 
       {nothingHeld ? (
         <CardNotice>Nothing is on hold.</CardNotice>
       ) : (
-        <ul className="hold-list" aria-label="On hold">
+        <CardRows aria-label="On hold">
           {view.heldConversations.map((c) => {
             const label = c.name ? `#${c.name}` : 'A direct message';
             return (
-              <li key={c.id} className="hold-row">
-                <span className="grow">
-                  <span className="pref-label">{label}</span>
-                  <span className="pref-hint block">
+              <CardRow key={c.id}>
+                <ItemContent>
+                  <ItemTitle>{label}</ItemTitle>
+                  <ItemDescription>
                     Since {when(c.heldAt)}
                     {c.heldBy ? `, placed by ${c.heldBy}` : ''}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  className="btn"
-                  aria-label={`Release the hold on ${label}`}
-                  onClick={() => setReleasing({ kind: 'conversation', id: c.id, label })}
-                >
-                  Release
-                </button>
-              </li>
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Button
+                    variant="outline"
+                    aria-label={`Release the hold on ${label}`}
+                    onClick={() => setReleasing({ kind: 'conversation', id: c.id, label })}
+                  >
+                    Release
+                  </Button>
+                </ItemActions>
+              </CardRow>
             );
           })}
           {view.heldPeople.map((p) => (
-            <li key={p.id} className="hold-row">
-              <span className="grow">
-                <span className="pref-label">{p.displayName}</span>
-                <span className="pref-hint block">
+            <CardRow key={p.id}>
+              <ItemContent>
+                <ItemTitle>{p.displayName}</ItemTitle>
+                <ItemDescription>
                   Everything they are in, since {when(p.heldAt)}
                   {p.heldBy ? `, placed by ${p.heldBy}` : ''}
-                </span>
-              </span>
-              <button
-                type="button"
-                className="btn"
-                aria-label={`Release the hold on ${p.displayName}`}
-                onClick={() => setReleasing({ kind: 'person', id: p.id, label: p.displayName })}
-              >
-                Release
-              </button>
-            </li>
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button
+                  variant="outline"
+                  aria-label={`Release the hold on ${p.displayName}`}
+                  onClick={() => setReleasing({ kind: 'person', id: p.id, label: p.displayName })}
+                >
+                  Release
+                </Button>
+              </ItemActions>
+            </CardRow>
           ))}
-        </ul>
+        </CardRows>
       )}
 
-      <div className="pref-row">
-        <label className="grow pref-label" htmlFor={conversationId}>
-          Hold a conversation
-        </label>
-        <select
-          id={conversationId}
-          className="input"
-          value={conversation}
-          onChange={(event) => setConversation(event.target.value)}
-        >
-          <option value="">Choose a channel</option>
-          {conversations.map((c) => (
-            <option key={c.id} value={c.id}>
-              #{c.name}
-              {c.kind === 'private' ? ' (private)' : ''}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="btn"
-          disabled={!conversation || busy}
-          onClick={() => void hold('conversation', conversation, true)}
-        >
-          Hold
-        </button>
-      </div>
-      <div className="pref-row">
-        <label className="grow pref-label" htmlFor={personId}>
-          Hold a person
-        </label>
-        <select
-          id={personId}
-          className="input"
-          value={person}
-          onChange={(event) => setPerson(event.target.value)}
-        >
-          <option value="">Choose someone</option>
-          {folks.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.displayName}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="btn"
-          disabled={!person || busy}
-          onClick={() => void hold('person', person, true)}
-        >
-          Hold
-        </button>
-      </div>
+      <CardFields>
+        <Field orientation="responsive">
+          <FieldLabel htmlFor={conversationId}>Hold a conversation</FieldLabel>
+          <NativeSelect
+            id={conversationId}
+            value={conversation}
+            onChange={(event) => setConversation(event.target.value)}
+          >
+            <NativeSelectOption value="">Choose a channel</NativeSelectOption>
+            {conversations.map((c) => (
+              <NativeSelectOption key={c.id} value={c.id}>
+                #{c.name}
+                {c.kind === 'private' ? ' (private)' : ''}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <Button
+            variant="outline"
+            aria-label="Hold the chosen conversation"
+            disabled={!conversation || busy}
+            focusableWhenDisabled
+            onClick={() => void hold('conversation', conversation, true)}
+          >
+            Hold
+          </Button>
+        </Field>
+        <Field orientation="responsive">
+          <FieldLabel htmlFor={personId}>Hold a person</FieldLabel>
+          <NativeSelect
+            id={personId}
+            value={person}
+            onChange={(event) => setPerson(event.target.value)}
+          >
+            <NativeSelectOption value="">Choose someone</NativeSelectOption>
+            {folks.map((u) => (
+              <NativeSelectOption key={u.id} value={u.id}>
+                {u.displayName}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <Button
+            variant="outline"
+            aria-label="Hold the chosen person"
+            disabled={!person || busy}
+            focusableWhenDisabled
+            onClick={() => void hold('person', person, true)}
+          >
+            Hold
+          </Button>
+        </Field>
+      </CardFields>
 
       <DialogPresence when={releasing}>
         {(release) => (
@@ -404,7 +408,7 @@ export function RetentionSection() {
   const { data, reload } = useFetch(() => api.admin.retention(), [], { onError: showError });
   if (!data) {
     return (
-      <div className="console-stack">
+      <div className="flex flex-col gap-6">
         <Card>
           <CardNotice>Loading…</CardNotice>
         </Card>
@@ -412,7 +416,7 @@ export function RetentionSection() {
     );
   }
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <WindowsCard view={data} onSaved={reload} />
       <HoldsCard view={data} onChanged={reload} />
     </div>

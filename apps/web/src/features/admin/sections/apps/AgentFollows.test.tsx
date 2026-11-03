@@ -30,11 +30,13 @@ describe('the channels an agent follows', () => {
     });
     render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
 
-    const launch = await screen.findByRole('button', { name: 'Helper follows #launch' });
-    await waitFor(() => expect(launch.getAttribute('aria-pressed')).toBe('true'));
-    const general = screen.getByRole('button', { name: 'Helper follows #general' });
-    expect(general.getAttribute('aria-pressed')).toBe('false');
-    expect(screen.queryByRole('button', { name: 'Helper follows #random' })).toBeNull();
+    // One switch for each channel it is in, named for whose follow it is and which channel,
+    // on while it follows it.
+    const launch = await screen.findByRole('switch', { name: 'Helper follows #launch' });
+    await waitFor(() => expect(launch.getAttribute('aria-checked')).toBe('true'));
+    const general = screen.getByRole('switch', { name: 'Helper follows #general' });
+    expect(general.getAttribute('aria-checked')).toBe('false');
+    expect(screen.queryByRole('switch', { name: 'Helper follows #random' })).toBeNull();
     expect(screen.getByText(/not only what mentions it/)).toBeTruthy();
   });
 
@@ -46,14 +48,14 @@ describe('the channels an agent follows', () => {
     const unfollow = vi.spyOn(api.admin, 'unfollowChannel').mockResolvedValue({ channels: [] });
     render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
 
-    const general = await screen.findByRole('button', { name: 'Helper follows #general' });
-    await waitFor(() => expect((general as HTMLButtonElement).disabled).toBe(false));
+    const general = await screen.findByRole('switch', { name: 'Helper follows #general' });
+    await waitFor(() => expect(general.getAttribute('aria-disabled')).toBeNull());
     fireEvent.click(general);
-    await waitFor(() => expect(general.getAttribute('aria-pressed')).toBe('true'));
+    await waitFor(() => expect(general.getAttribute('aria-checked')).toBe('true'));
     expect(follow).toHaveBeenCalledWith('p1', 'c1');
 
     fireEvent.click(general);
-    await waitFor(() => expect(general.getAttribute('aria-pressed')).toBe('false'));
+    await waitFor(() => expect(general.getAttribute('aria-checked')).toBe('false'));
     expect(unfollow).toHaveBeenCalledWith('p1', 'c1');
   });
 
@@ -70,14 +72,29 @@ describe('the channels an agent follows', () => {
     });
     render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
 
-    const choice = await screen.findByLabelText<HTMLSelectElement>('What Helper hears in #launch');
+    const choice = await screen.findByRole<HTMLSelectElement>('combobox', {
+      name: 'What Helper hears in #launch',
+    });
     expect(choice.value).toBe('everything');
     // Only a followed channel has anything to choose.
-    expect(screen.queryByLabelText('What Helper hears in #general')).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'What Helper hears in #general' })).toBeNull();
 
     fireEvent.change(choice, { target: { value: 'unanswered:240' } });
     await waitFor(() => expect(choice.value).toBe('unanswered:240'));
     expect(follow).toHaveBeenCalledWith('p1', 'c2', { hears: 'unanswered', quietMinutes: 240 });
+  });
+
+  it('says what following does, before anyone presses it', async () => {
+    vi.spyOn(api.admin, 'agentFollows').mockResolvedValue({ channels: [] });
+    render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
+    expect(await screen.findByText(/one message every two minutes and forty a day/)).toBeTruthy();
+  });
+
+  it('keeps the switch off until it knows what is followed now', async () => {
+    // Pressing it before the list arrives would follow a channel that is already followed.
+    vi.spyOn(api.admin, 'agentFollows').mockReturnValue(new Promise(() => undefined));
+    render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
+    expect(screen.getByRole('switch', { name: 'Helper follows #general' }).getAttribute('aria-disabled')).toBe('true');
   });
 
   it('says to add it to a channel first when it is in none', async () => {

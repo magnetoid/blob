@@ -10,7 +10,7 @@
  * feature Blob does not have.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const plugins = vi.fn();
 const janus = vi.fn();
@@ -270,7 +270,7 @@ describe('when this stack has no Janus', () => {
 
     render(<JanusSection onError={vi.fn()} isOwner />);
     // Synchronous from here: a `findBy*` waits the flash out and sees nothing wrong.
-    expect(await screen.findByRole('button', { name: '← All apps' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'All apps' })).toBeTruthy();
 
     expect(screen.queryByText(/This workspace has no Janus yet/)).toBeNull();
     expect(screen.queryByText(/not running in this stack/)).toBeNull();
@@ -322,17 +322,17 @@ describe('this workspace', () => {
     expect(screen.queryByText(/^JANUS_AGUI_URL=/)).toBeNull();
     expect(await screen.findByText('#general')).toBeTruthy();
     expect(
-      (screen.getByLabelText('Instructions for Janus') as HTMLTextAreaElement).value,
+      (screen.getByRole('textbox', { name: 'Instructions' }) as HTMLTextAreaElement).value,
     ).toBe('Answer in Serbian.');
   });
 
   it('turns the everywhere switch off through the plugin route', async () => {
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    const toggle = await screen.findByRole('button', {
+    const toggle = await screen.findByRole('switch', {
       name: 'Join every public channel automatically',
+      checked: true,
     });
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(toggle);
 
     await waitFor(() => expect(setPluginEverywhere).toHaveBeenCalledWith('p-janus', false));
@@ -341,7 +341,7 @@ describe('this workspace', () => {
   it('saves the instructions trimmed, and counts against the 4000 the server takes', async () => {
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    const box = await screen.findByLabelText('Instructions for Janus');
+    const box = await screen.findByRole('textbox', { name: 'Instructions' });
     fireEvent.change(box, { target: { value: '  Be brief. Answer in Serbian.\n' } });
     expect(screen.getByText(/\/ 4000/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Save instructions' }));
@@ -371,18 +371,30 @@ describe('this workspace', () => {
 
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    const toggle = await screen.findByRole('button', {
+    const toggle = await screen.findByRole('switch', {
       name: 'Join every public channel automatically',
     });
-    expect((toggle as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByLabelText('Instructions for Janus') as HTMLTextAreaElement).disabled).toBe(true);
+    expect(toggle.getAttribute('aria-disabled')).toBe('true');
+    expect((screen.getByRole('textbox', { name: 'Instructions' }) as HTMLTextAreaElement).disabled).toBe(true);
     // Both controls say it, each where it is: an admin who scrolled to one of them
     // should not have to find the other to learn why it is dead.
     expect(screen.getAllByText(/not the workspace's to instruct/)).toHaveLength(2);
     // Off as well as dead, and now true of the server: the auto-join asks for the seeded
     // identity as well as the flag, so a row that has been given away is seated nowhere
     // new however the flag was left. Drawing it on would be the only honest alternative.
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('stops the instructions box growing at a height, and scrolls inside it', async () => {
+    // Up to 4,000 characters is a box a thousand pixels tall if it follows its content, and
+    // the count and Save are in the footer under it. It still grows from a few lines — and
+    // stops, so they stay in reach.
+    render(<JanusSection onError={vi.fn()} isOwner />);
+
+    const box = await screen.findByRole('textbox', { name: 'Instructions' });
+    expect(box.className).toContain('field-sizing-content');
+    expect(box.className).toContain('max-h-80');
+    expect(box.className).toContain('resize-y');
   });
 
   it('clears the instructions with an explicit null when the box is emptied', async () => {
@@ -390,7 +402,7 @@ describe('this workspace', () => {
     // screen says: this workspace now has nothing standing to tell its agent.
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    fireEvent.change(await screen.findByLabelText('Instructions for Janus'), {
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Instructions' }), {
       target: { value: '   \n ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save instructions' }));
@@ -403,22 +415,20 @@ describe('this workspace', () => {
     // switch that is off and dead, and never the reason sitting beside it.
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    const toggle = await screen.findByRole('button', {
-      name: 'Join every public channel automatically',
-    });
-    const described = (el: Element) =>
-      (el.getAttribute('aria-describedby') ?? '')
-        .split(' ')
-        .filter(Boolean)
-        .map((id) => document.getElementById(id)?.textContent ?? '')
-        .join(' ');
-
-    expect(described(toggle)).toMatch(/Public channels founded from now on/);
+    expect(
+      await screen.findByRole('switch', {
+        name: 'Join every public channel automatically',
+        description: /Public channels founded from now on/,
+      }),
+    ).toBeTruthy();
     // The textarea carries both its reason and the count, which is the other thing
     // somebody typing into it cannot see.
-    const box = screen.getByLabelText('Instructions for Janus');
-    expect(described(box)).toMatch(/Sent with every run/);
-    expect(described(box)).toMatch(/\/ 4000/);
+    expect(
+      screen.getByRole('textbox', { name: 'Instructions', description: /Sent with every run/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('textbox', { name: 'Instructions', description: /\/ 4000/ }),
+    ).toBeTruthy();
   });
 
   it('says nothing about empty channels or an empty log until it has asked', async () => {
@@ -441,7 +451,7 @@ describe('this workspace', () => {
     render(<JanusSection onError={vi.fn()} isOwner />);
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Join every public channel automatically' }),
+      await screen.findByRole('switch', { name: 'Join every public channel automatically' }),
     );
 
     await waitFor(() => expect(plugins).toHaveBeenCalledTimes(2));
@@ -451,7 +461,7 @@ describe('this workspace', () => {
   it('has a way back to the list, the way an app page has', async () => {
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    fireEvent.click(await screen.findByRole('button', { name: '← All apps' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'All apps' }));
 
     expect(window.location.pathname).toBe('/admin/apps');
   });
@@ -496,8 +506,17 @@ describe('every workspace on this server', () => {
 
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    await waitFor(() => expect(screen.getByText('Hadley')).toBeTruthy());
-    expect(screen.getByText('Imba').closest('tr')?.textContent).toContain('this one');
+    const table = await screen.findByRole('table', { name: 'Workspaces' });
+    expect(within(table).getAllByRole('columnheader').map((head) => head.textContent)).toEqual([
+      'Workspace',
+      'Status',
+      'Channels',
+      'Runs 7d',
+    ]);
+    expect(within(table).getByRole('row', { name: /Imba/ }).textContent).toContain('this one');
+    const hadley = within(table).getByRole('row', { name: /Hadley/ });
+    expect(within(hadley).getByText('disabled')).toBeTruthy();
+    expect(within(hadley).queryByText('this one')).toBeNull();
   });
 
   it('is never asked for by an admin who does not own the server', async () => {
@@ -556,13 +575,13 @@ describe('this server', () => {
       answer(serverOverview());
     });
 
-    expect(await screen.findByLabelText('Max turns')).toBeTruthy();
+    expect(await screen.findByRole('spinbutton', { name: 'Max turns' })).toBeTruthy();
   });
 
   it('offers the models Janus listed, and what it runs on now', async () => {
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    const model = (await screen.findByLabelText('Model')) as HTMLSelectElement;
+    const model = (await screen.findByRole('combobox', { name: 'Model' })) as HTMLSelectElement;
     expect(model.tagName).toBe('SELECT');
     expect([...model.options].map((option) => option.value)).toEqual([
       'deepseek-flash',
@@ -570,7 +589,37 @@ describe('this server', () => {
     ]);
     expect(model.value).toBe('deepseek-v4-pro');
     // Read-only, and there to say what the agent can already do.
-    expect(screen.getByText('brainstorming')).toBeTruthy();
+    const skills = screen.getByRole('table', { name: 'Skills' });
+    expect(within(skills).getAllByRole('columnheader').map((head) => head.textContent)).toEqual([
+      'Skill',
+      'What it is for',
+    ]);
+    const row = within(skills).getByRole('row', { name: /brainstorming/ });
+    expect(row.textContent).toContain('work');
+    expect(row.textContent).toContain('Explore intent');
+  });
+
+  it('reads out the four things an operator checks before touching anything', async () => {
+    render(<JanusSection onError={vi.fn()} isOwner />);
+
+    await screen.findByRole('heading', { name: 'Janus itself' });
+    const reading = (label: string) => screen.getByText(label).nextElementSibling!.textContent;
+    expect(reading('Gateway')).toBe('Answering');
+    expect(reading('Version')).toBe('0.17.0');
+    expect(reading('Answers as')).toBe('deepseek-v4-pro');
+    expect(reading('Through')).toBe('deepseek');
+  });
+
+  it('says when the skills could not be read, rather than that there are none', async () => {
+    janus.mockResolvedValue(
+      serverOverview({}, { skills: { data: null, error: 'Janus did not list its skills.' } }),
+    );
+
+    render(<JanusSection onError={vi.fn()} isOwner />);
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Janus did not list its skills.');
+    expect(screen.queryByText('Janus has no skills installed.')).toBeNull();
+    expect(screen.queryByRole('table', { name: 'Skills' })).toBeNull();
   });
 
   it('takes a typed model name when the provider would not list them, and says why', async () => {
@@ -585,7 +634,7 @@ describe('this server', () => {
 
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    const model = (await screen.findByLabelText('Model')) as HTMLInputElement;
+    const model = (await screen.findByRole('textbox', { name: 'Model' })) as HTMLInputElement;
     expect(model.tagName).toBe('INPUT');
     expect(model.value).toBe('deepseek-v4-pro');
     expect(screen.getByText(/401 Unauthorized/)).toBeTruthy();
@@ -597,6 +646,13 @@ describe('this server', () => {
     expect(await screen.findByText(/set, ends a4f2/)).toBeTruthy();
     const field = screen.getByLabelText('API key') as HTMLInputElement;
     expect(field.value).toBe('');
+    // A password field, so what is typed in it is never drawn, and one the browser is told
+    // not to offer to remember. The sentence about the key is read with it.
+    expect(field.type).toBe('password');
+    expect(field.autocomplete).toBe('off');
+    expect(document.getElementById(field.getAttribute('aria-describedby')!)!.textContent).toBe(
+      'DEEPSEEK_API_KEY — set, ends a4f2',
+    );
     // Not "the tail is not the value": nothing anywhere on the page is the value, and the
     // planted fields are ones no Janus sends, so a spread is the only way they could.
     expect(document.body.textContent).not.toContain(PLANTED);
@@ -604,11 +660,58 @@ describe('this server', () => {
 
     // The other two states, on the two providers that carry them. A key of four
     // characters or fewer arrives with no tail at all, and "set" is the whole truth.
-    fireEvent.change(screen.getByLabelText('Provider'), { target: { value: 'local' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Provider' }), { target: { value: 'local' } });
     expect(screen.getByText(/LOCAL_API_KEY/).textContent).toContain('set');
     expect(screen.queryByText(/ends/)).toBeNull();
-    fireEvent.change(screen.getByLabelText('Provider'), { target: { value: 'openai-api' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Provider' }), { target: { value: 'openai-api' } });
     expect(screen.getByText(/OPENAI_API_KEY/).textContent).toContain('not set');
+  });
+
+  it('reads each hint with the field it is about', async () => {
+    render(<JanusSection onError={vi.fn()} isOwner />);
+
+    expect(
+      await screen.findByRole('combobox', {
+        name: 'Model',
+        description: "The provider's own list, fetched when this page loaded.",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('textbox', { name: 'Base URL', description: /Only needed for a provider/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('combobox', { name: 'Reasoning effort', description: /How much of a turn/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('spinbutton', { name: 'Max turns', description: /How many times it may call a tool/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('spinbutton', {
+        name: 'Inactivity timeout',
+        description: /Seconds a run may go quiet/,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('combobox', { name: 'Personality', description: /Janus's own/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('textbox', { name: 'config.yaml', description: /Keys written into this file/ }),
+    ).toBeTruthy();
+  });
+
+  it('keeps config.yaml a box of its own that scrolls inside itself', async () => {
+    // happy-dom draws no layout, so this pins the classes that carry it. A textarea that
+    // sizes to its content (shadcn's default) turns a 200-line config into a box thousands of
+    // pixels tall, with Save at the far end of it; this one is a fixed height the person can
+    // drag taller, up to a cap, and the file scrolls inside it.
+    render(<JanusSection onError={vi.fn()} isOwner />);
+
+    const box = await screen.findByRole('textbox', { name: 'config.yaml' });
+    expect(box.className).toContain('field-sizing-fixed');
+    expect(box.className).not.toContain('field-sizing-content');
+    expect(box.className).toContain('h-65');
+    expect(box.className).toContain('max-h-[70vh]');
+    expect(box.className).toContain('resize-y');
   });
 
   it('saves the one field that changed, and nothing else', async () => {
@@ -619,7 +722,9 @@ describe('this server', () => {
     // body with nothing in it. An untouched form must not be able to send either.
     expect(save.disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'deepseek-flash' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Model' }), {
+      target: { value: 'deepseek-flash' },
+    });
     fireEvent.click(save);
 
     await waitFor(() =>
@@ -664,7 +769,7 @@ describe('this server', () => {
     // `max_turns: "80"` is a 400 from Janus. An input's value is a string, always.
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    fireEvent.change(await screen.findByLabelText('Max turns'), { target: { value: '80' } });
+    fireEvent.change(await screen.findByRole('spinbutton', { name: 'Max turns' }), { target: { value: '80' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save behaviour' }));
 
     await waitFor(() => expect(updateJanus).toHaveBeenCalledWith({ agent: { max_turns: 80 } }));
@@ -676,10 +781,11 @@ describe('this server', () => {
     render(<JanusSection onError={vi.fn()} isOwner />);
     await settle();
 
-    fireEvent.change(screen.getByLabelText('Max turns'), { target: { value: '80' } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Max turns' }), { target: { value: '80' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save behaviour' }));
     await settle();
-    expect(screen.getByText(/Janus is restarting/)).toBeTruthy();
+    // Said politely: it is progress, not a fault.
+    expect(screen.getByText(/Janus is restarting/).closest('[role="status"]')).toBeTruthy();
 
     // Still draining. The overview itself answers 200 — the five Janus routes are each
     // fetched into their own tile, so Janus being gone is `health.error` and not a
@@ -704,7 +810,7 @@ describe('this server', () => {
     await settle();
 
     expect(screen.queryByText(/Janus is restarting/)).toBeNull();
-    expect((screen.getByLabelText('Max turns') as HTMLInputElement).value).toBe('80');
+    expect((screen.getByRole('spinbutton', { name: 'Max turns' }) as HTMLInputElement).value).toBe('80');
   });
 
   it('gives up on a restart that outlasts the drain, and says so', async () => {
@@ -724,6 +830,7 @@ describe('this server', () => {
     await settle(220_000);
 
     expect(screen.getByText(/has not come back/)).toBeTruthy();
+    expect(screen.getByText(/has not come back/).closest('[role="status"]')).toBeTruthy();
     expect(screen.queryByText(/Janus is restarting/)).toBeNull();
     // The readings on the screen are from before the restart, so the one thing that has
     // to be here is a button that asks again — and the banner has to name it, because
@@ -750,12 +857,30 @@ describe('this server', () => {
     expect(screen.queryByText(/Janus is restarting/)).toBeNull();
   });
 
+  it('draws every toolset as a checkbox, and marks one this Janus no longer offers', async () => {
+    render(<JanusSection onError={vi.fn()} isOwner />);
+
+    expect(await screen.findByRole('checkbox', { name: 'web', checked: false })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'janus-cli', checked: true })).toBeTruthy();
+    // Enabled and gone from the offer: drawn anyway, with the reason read along with it.
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'retired-toolset',
+        checked: true,
+        description: 'Enabled, and not offered by this Janus.',
+      }),
+    ).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: 'Save toolsets' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
   it('sends the whole enabled list, including a toolset this Janus no longer offers', async () => {
     // Janus takes the list as the truth and drops what is left out, so a page that sent
     // only the boxes it drew would silently turn off a toolset it never showed.
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    fireEvent.click(await screen.findByLabelText('web'));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'web' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save toolsets' }));
 
     await waitFor(() =>
@@ -776,7 +901,7 @@ describe('this server', () => {
     );
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    fireEvent.change(await screen.findByLabelText('config.yaml'), {
+    fireEvent.change(await screen.findByRole('textbox', { name: 'config.yaml' }), {
       target: { value: 'model: 3\n' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save config.yaml' }));
@@ -799,7 +924,7 @@ describe('this server', () => {
     );
     render(<JanusSection onError={onError} isOwner />);
 
-    fireEvent.change(await screen.findByLabelText('config.yaml'), {
+    fireEvent.change(await screen.findByRole('textbox', { name: 'config.yaml' }), {
       target: { value: 'custom_providers:\n  house:\n    api_key: «redacted»\n' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save config.yaml' }));
@@ -823,7 +948,7 @@ describe('this server', () => {
       await screen.findByText("Only the server's admin can change what Janus runs on."),
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save model' })).toBeNull();
-    expect(screen.queryByLabelText('config.yaml')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'config.yaml' })).toBeNull();
   });
 
   it('tells an admin who does not own the server who can, in the same words as the 403', async () => {
@@ -839,7 +964,7 @@ describe('this server', () => {
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Say hello' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save model' })).toBeNull();
-    expect(screen.queryByLabelText('config.yaml')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'config.yaml' })).toBeNull();
   });
 
   it('draws Janus as not answering, with the controls dead and a Retry', async () => {
@@ -856,8 +981,8 @@ describe('this server', () => {
     render(<JanusSection onError={vi.fn()} isOwner />);
 
     expect(await screen.findByText(/Not answering/)).toBeTruthy();
-    expect((screen.getByLabelText('Model') as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByLabelText('config.yaml') as HTMLTextAreaElement).disabled).toBe(true);
+    expect((screen.getByRole('textbox', { name: 'Model' }) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole('textbox', { name: 'config.yaml' }) as HTMLTextAreaElement).disabled).toBe(true);
 
     const before = janus.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -892,7 +1017,7 @@ describe('this server', () => {
     fireEvent.change(await screen.findByLabelText('API key'), {
       target: { value: 'sk-deepseek-live-key' },
     });
-    fireEvent.change(screen.getByLabelText('Provider'), { target: { value: 'openai-api' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Provider' }), { target: { value: 'openai-api' } });
     expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('');
 
     fireEvent.click(screen.getByRole('button', { name: 'Save model' }));
@@ -909,7 +1034,7 @@ describe('this server', () => {
     // page invented three of the six before the review, so this is pinned by name.
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    const effort = (await screen.findByLabelText('Reasoning effort')) as HTMLSelectElement;
+    const effort = (await screen.findByRole('combobox', { name: 'Reasoning effort' })) as HTMLSelectElement;
     expect([...effort.options].map((option) => option.value)).toEqual([
       'none',
       'minimal',
@@ -934,7 +1059,7 @@ describe('this server', () => {
 
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    const select = (await screen.findByLabelText('Provider')) as HTMLSelectElement;
+    const select = (await screen.findByRole('combobox', { name: 'Provider' })) as HTMLSelectElement;
     expect(select.value).toBe('lmstudio');
     expect([...select.options].map((option) => option.value)).toContain('lmstudio');
     expect(
@@ -948,15 +1073,15 @@ describe('this server', () => {
     // `min={1}` forbade the one value that means "no limit".
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    const idle = (await screen.findByLabelText('Inactivity timeout')) as HTMLInputElement;
+    const idle = (await screen.findByRole('spinbutton', { name: 'Inactivity timeout' })) as HTMLInputElement;
     expect(idle.getAttribute('min')).toBe('0');
 
-    fireEvent.change(screen.getByLabelText('Max turns'), { target: { value: '1.5' } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Max turns' }), { target: { value: '1.5' } });
     expect(
       (screen.getByRole('button', { name: 'Save behaviour' }) as HTMLButtonElement).disabled,
     ).toBe(true);
 
-    fireEvent.change(screen.getByLabelText('Max turns'), { target: { value: '60' } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Max turns' }), { target: { value: '60' } });
     fireEvent.change(idle, { target: { value: '0' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save behaviour' }));
 
@@ -974,10 +1099,10 @@ describe('this server', () => {
 
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    const effort = (await screen.findByLabelText('Reasoning effort')) as HTMLSelectElement;
+    const effort = (await screen.findByRole('combobox', { name: 'Reasoning effort' })) as HTMLSelectElement;
     expect(effort.value).toBe('');
     expect(effort.options[0]?.text).toBe('—');
-    const personality = screen.getByLabelText('Personality') as HTMLSelectElement;
+    const personality = screen.getByRole('combobox', { name: 'Personality' }) as HTMLSelectElement;
     expect(personality.value).toBe('');
     expect(personality.options[0]?.text).toBe('—');
   });
@@ -1029,8 +1154,8 @@ describe('this server', () => {
     expect(screen.getByText(/has not come back/)).toBeTruthy();
     expect(screen.getByText('Not answering')).toBeTruthy();
     expect(screen.queryByText('Answering')).toBeNull();
-    expect((screen.getByLabelText('Model') as HTMLSelectElement).disabled).toBe(true);
-    expect((screen.getByLabelText('config.yaml') as HTMLTextAreaElement).disabled).toBe(true);
+    expect((screen.getByRole('combobox', { name: 'Model' }) as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByRole('textbox', { name: 'config.yaml' }) as HTMLTextAreaElement).disabled).toBe(true);
   });
 
   it('says what Janus answered out loud, and ties it to the button that asked', async () => {
@@ -1041,7 +1166,7 @@ describe('this server', () => {
     );
     render(<JanusSection onError={vi.fn()} isOwner />);
 
-    fireEvent.change(await screen.findByLabelText('config.yaml'), {
+    fireEvent.change(await screen.findByRole('textbox', { name: 'config.yaml' }), {
       target: { value: 'model: 3\n' },
     });
     const save = screen.getByRole('button', { name: 'Save config.yaml' });

@@ -22,7 +22,19 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { cn } from 'cn';
 import { api, ApiError, type AgentEnvVar } from '../../../../lib/api.ts';
+import { Alert, AlertDescription } from '../../../../components/ui/alert.tsx';
+import { Badge } from '../../../../components/ui/badge.tsx';
+import { Button } from '../../../../components/ui/button.tsx';
+import { Input } from '../../../../components/ui/input.tsx';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableRow,
+} from '../../../../components/ui/table.tsx';
 
 interface Props {
   pluginId: string;
@@ -89,7 +101,9 @@ export function AgentConfig({ pluginId, onError }: Props) {
     }
   }
 
-  if (rows === null) return <div className="admin-row-meta">Reading configuration…</div>;
+  if (rows === null) {
+    return <p className="m-0 text-sm text-muted-foreground">Reading configuration…</p>;
+  }
 
   // One row per key, not per stored row: a duplicated key is one thing to fix, and
   // showing it twice would invite editing each copy separately — which is how it got
@@ -98,35 +112,49 @@ export function AgentConfig({ pluginId, onError }: Props) {
   for (const row of rows) if (!byKey.has(row.key)) byKey.set(row.key, row);
 
   return (
-    <div className="agent-config">
+    <div className="flex flex-col gap-3">
       {duplicates.length > 0 && (
-        <div className="admin-row-meta agent-config-warning">
-          <strong>Set twice: {duplicates.join(', ')}.</strong> The runner stores each of
-          these more than once, and the container uses one of them without saying which —
-          so the agent may be running on a value this screen is not showing. Saving the key
-          fixes it.
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            <strong>Set twice: {duplicates.join(', ')}.</strong> The runner stores each of
+            these more than once, and the container uses one of them without saying which —
+            so the agent may be running on a value this screen is not showing. Saving the key
+            fixes it.
+          </AlertDescription>
+        </Alert>
       )}
 
-      <table className="agent-config-table">
-        <tbody>
+      <Table>
+        <TableCaption className="sr-only">Configuration</TableCaption>
+        <TableBody>
           {[...byKey.values()].map((row) => {
             const gone = removing.includes(row.key);
             return (
-              <tr key={row.key} data-removed={gone ? 'true' : undefined}>
-                <td className="agent-config-key">
-                  <code>{row.key}</code>
-                  {row.duplicated && <span className="role-pill">set twice</span>}
-                  {row.managed && <span className="role-pill" data-muted="true">runner</span>}
-                </td>
-                <td>
+              <TableRow key={row.key} className="hover:bg-transparent">
+                {/* Struck through rather than removed on click: a row that vanishes gives
+                    nothing to undo, and the change has not been saved yet. */}
+                <TableCell className="w-px">
+                  <div className="flex items-center gap-1.5">
+                    <code
+                      className={cn(
+                        'font-mono text-xs',
+                        gone && 'line-through opacity-50',
+                      )}
+                    >
+                      {row.key}
+                    </code>
+                    {row.duplicated && <Badge variant="destructive">set twice</Badge>}
+                    {row.managed && <Badge variant="outline">runner</Badge>}
+                  </div>
+                </TableCell>
+                <TableCell>
                   {row.managed ? (
                     // Editable in principle and pointless in practice: the runner rewrites
                     // these on every deploy, so an edit here disappears without failing.
-                    <span className="admin-row-meta">{row.value ?? row.hint}</span>
+                    <span className="text-sm text-muted-foreground">{row.value ?? row.hint}</span>
                   ) : (
-                    <input
-                      className="input"
+                    <Input
+                      aria-label={row.key}
                       type={row.secret ? 'password' : 'text'}
                       disabled={gone}
                       placeholder={row.secret ? (row.hint ?? 'not set') : ''}
@@ -136,11 +164,12 @@ export function AgentConfig({ pluginId, onError }: Props) {
                       }
                     />
                   )}
-                </td>
-                <td className="agent-config-actions">
+                </TableCell>
+                <TableCell className="w-px text-right">
                   {!row.managed && (
-                    <button
-                      className="btn btn-ghost"
+                    <Button
+                      variant="ghost"
+                      aria-label={`${gone ? 'Keep' : 'Remove'} ${row.key}`}
                       onClick={() =>
                         setRemoving((prev) =>
                           gone ? prev.filter((k) => k !== row.key) : [...prev, row.key],
@@ -148,46 +177,49 @@ export function AgentConfig({ pluginId, onError }: Props) {
                       }
                     >
                       {gone ? 'Keep' : 'Remove'}
-                    </button>
+                    </Button>
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
 
-      <div className="agent-config-add">
-        <input
-          className="input"
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <Input
+          aria-label="New key"
           placeholder="NEW_KEY"
           value={newKey}
           spellCheck={false}
           onChange={(event) => setNewKey(event.target.value)}
         />
-        <input
-          className="input"
+        <Input
+          aria-label="New value"
           placeholder="value"
           value={newValue}
           onChange={(event) => setNewValue(event.target.value)}
         />
       </div>
 
-      <div className="chip-row">
-        <button className="btn" disabled={busy || !pending} onClick={() => void save(true)}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" disabled={busy || !pending} onClick={() => void save(true)}>
           Save and restart
-        </button>
-        <button
-          className="btn btn-ghost"
+        </Button>
+        <Button
+          variant="ghost"
           disabled={busy || !pending}
           onClick={() => void save(false)}
         >
           Save only
-        </button>
-        {saved && <span className="copied-note">Saved</span>}
+        </Button>
+        {/* There before anything is said in it, so the word is announced when it arrives. */}
+        <span role="status" className="text-sm text-muted-foreground">
+          {saved ? 'Saved' : ''}
+        </span>
       </div>
 
-      <p className="pref-hint console-note">
+      <p className="m-0 text-sm text-muted-foreground">
         {/* Said plainly because the alternative is an operator staring at a value the
             agent does not have and concluding the save did not work. */}
         Configuration only reaches the container when it starts, so a change is not live

@@ -59,3 +59,18 @@
 .message-body[data-agent='true'] li > :is(ul, ol) {
   margin-top: 4px;
 }
+
+/* The "Agent" tag beside a bot's name — on its messages, and in the header of a DM with it. */
+.agent-badge {
+  flex: none;
+  align-self: center;
+  padding: 2px 6px;
+  border-radius: var(--blob-radius-xs);
+  background: var(--iris-tint);
+  color: var(--iris-strong);
+  font-size: var(--blob-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}

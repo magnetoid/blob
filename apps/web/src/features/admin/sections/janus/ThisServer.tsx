@@ -23,6 +23,7 @@
 
 import { useCallback } from "react";
 import type { JanusOverview } from "../../../../lib/api.ts";
+import { Button } from "../../../../components/ui/button.tsx";
 import { Card, CardNotice } from "../../../console/Card.tsx";
 import { useJanusSave, useRestartWatch } from "./apply.ts";
 import { BehaviourForm } from "./BehaviourForm.tsx";
@@ -84,11 +85,13 @@ export function ThisServer({
   if (!overview) {
     return (
       <Card>
-        <div className="admin-row janus-retry">
-          <span className="pref-hint grow">What Janus runs on could not be read just now.</span>
-          <button type="button" className="btn" onClick={retry}>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="m-0 min-w-0 flex-1 basis-60 text-sm text-muted-foreground">
+            What Janus runs on could not be read just now.
+          </p>
+          <Button variant="outline" onClick={retry}>
             Retry
-          </button>
+          </Button>
         </div>
       </Card>
     );

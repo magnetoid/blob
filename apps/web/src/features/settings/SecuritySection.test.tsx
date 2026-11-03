@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 /** Sign-in & security: one person's devices and record across every workspace (M3 · B1). */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '../../test/overlayChunk.ts';
 
 const sessions = vi.fn();
@@ -14,6 +14,7 @@ const passkeyList = vi.fn();
 const passkeyOptions = vi.fn();
 const passkeyAdd = vi.fn();
 const passkeyRemove = vi.fn();
+const passkeyRename = vi.fn();
 const setTwoStep = vi.fn();
 const ssoIdentities = vi.fn();
 const ssoUnlink = vi.fn();
@@ -39,6 +40,7 @@ vi.mock('../../lib/api.ts', async (importOriginal) => {
         options: passkeyOptions,
         add: passkeyAdd,
         remove: passkeyRemove,
+        rename: passkeyRename,
         setTwoStep,
       },
       sso: { identities: ssoIdentities, unlink: ssoUnlink, begin: ssoBegin },
@@ -170,14 +172,26 @@ describe('recent activity', () => {
     render(<SecuritySection onError={vi.fn()} isOwner={false} />);
 
     await screen.findByText('Wrong password entered');
-    const lines = [...document.querySelectorAll('[data-kind] .pref-label')].map(
-      (node) => node.textContent,
-    );
+    const card = screen
+      .getByRole('heading', { name: 'Recent activity' })
+      .closest<HTMLElement>('[data-slot="card"]')!;
+    const lines = within(card)
+      .getAllByRole('listitem')
+      .map((row) => row.querySelector('[data-slot="item-title"]')?.textContent);
     expect(lines).toEqual(['Wrong password entered', 'Signed in with a password']);
   });
 });
 
 describe('changing the password', () => {
+  it('describes the new password by the rule for it', async () => {
+    serve();
+    render(<SecuritySection onError={vi.fn()} isOwner={false} />);
+    // A password field has no role to query by, so the description is followed by hand.
+    const field = await screen.findByLabelText('New password');
+    const hint = document.getElementById(field.getAttribute('aria-describedby') ?? '');
+    expect(hint?.textContent).toMatch(/^At least 10 characters\./);
+  });
+
   it('needs the current one and says so beside it when wrong', async () => {
     serve();
     changePassword.mockRejectedValue(
@@ -194,7 +208,12 @@ describe('changing the password', () => {
     });
     fireEvent.click(screen.getByText('Change password'));
 
-    expect(await screen.findByText('That isn’t your current password.')).toBeTruthy();
+    // Beside the field it is about, and the field says so to a screen reader.
+    const message = await screen.findByText('That isn’t your current password.');
+    expect(message.closest('[data-slot="field"]')).toBe(
+      screen.getByLabelText('Current password').closest('[data-slot="field"]'),
+    );
+    expect(screen.getByLabelText('Current password').getAttribute('aria-invalid')).toBe('true');
     expect(changePassword).toHaveBeenCalledWith({
       currentPassword: 'not-it',
       newPassword: 'a-long-new-password',
@@ -268,18 +287,39 @@ describe('passkeys', () => {
     await waitFor(() => expect(forgetPasskey).toHaveBeenCalledWith('cred-b64'));
   });
 
+  it('renames one in place, and lets a second thought keep the name', async () => {
+    serve({ passkeys: [LAPTOP_KEY] });
+    passkeyRename.mockResolvedValue({ ok: true });
+    render(<SecuritySection onError={vi.fn()} isOwner={false} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Rename Chrome on macOS' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(passkeyRename).not.toHaveBeenCalled();
+    expect(screen.getByText('Chrome on macOS')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Chrome on macOS' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Passkey name' }), {
+      target: { value: 'Work laptop' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(passkeyRename).toHaveBeenCalledWith('pk1', 'Work laptop'));
+  });
+
   it('offers the second step only once there is a passkey to ask for', async () => {
     serve();
     const { unmount } = render(<SecuritySection onError={vi.fn()} isOwner={false} />);
     await screen.findByText(/None yet/);
-    expect(screen.queryByLabelText('Ask for a passkey after my password')).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Ask for a passkey after my password' })).toBeNull();
     unmount();
 
     serve({ passkeys: [LAPTOP_KEY], twoStep: false });
     setTwoStep.mockResolvedValue({ ok: true });
     render(<SecuritySection onError={vi.fn()} isOwner={false} />);
-    const toggle = await screen.findByLabelText('Ask for a passkey after my password');
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    const toggle = await screen.findByRole('switch', {
+      name: 'Ask for a passkey after my password',
+      description: /a password alone no longer signs in as you/,
+    });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
     fireEvent.click(toggle);
     await waitFor(() => expect(setTwoStep).toHaveBeenCalledWith(true));
   });

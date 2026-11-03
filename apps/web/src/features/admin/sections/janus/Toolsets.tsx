@@ -8,7 +8,11 @@
  * them on purpose.
  */
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { Alert, AlertDescription } from "../../../../components/ui/alert.tsx";
+import { Button } from "../../../../components/ui/button.tsx";
+import { Checkbox } from "../../../../components/ui/checkbox.tsx";
+import { Field, FieldContent, FieldDescription, FieldLabel } from "../../../../components/ui/field.tsx";
 import { Card, CardNotice } from "../../../console/Card.tsx";
 import { type JanusSave } from "./apply.ts";
 import { Issues } from "./Issues.tsx";
@@ -28,6 +32,7 @@ export function Toolsets({
 }) {
   const { available, enabled: saved, error } = config.toolsets;
   const [enabled, setEnabled] = useState(saved);
+  const ids = useId();
 
   const dead = disabled || save.saving;
   // Order is Janus's, and a click never reorders: `enabled` keeps the order Janus sent and
@@ -46,42 +51,55 @@ export function Toolsets({
     <Card
       title="Toolsets"
       description="What Janus can reach during a run, for every workspace on this server. One that needs a key of its own and has not been given one comes back as a warning here when you save."
-      className="janus-part"
       footer={
-        <button
-          type="button"
-          className="btn btn-primary"
+        <Button
           aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
           disabled={dead || !changed}
           // The whole list, always: Janus drops what a `PUT` leaves out.
           onClick={() => void save.run({ toolsets: enabled })}
         >
           Save toolsets
-        </button>
+        </Button>
       }
     >
-      {error && <p className="error-text">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription className="wrap-anywhere">{error}</AlertDescription>
+        </Alert>
+      )}
 
-      <div className="admin-check-grid">
-        {rows.map((name) => {
-          const gone = !available.includes(name);
-          return (
-            <label className="admin-check-card" key={name}>
-              <input
-                type="checkbox"
-                aria-label={name}
-                checked={enabled.includes(name)}
-                disabled={dead}
-                onChange={() => toggle(name)}
-              />
-              <span>
-                <strong>{name}</strong>
-                {gone && <small>Enabled, and not offered by this Janus.</small>}
-              </span>
-            </label>
-          );
-        })}
-      </div>
+      {rows.length > 0 && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))] gap-2.5">
+          {rows.map((name, index) => {
+            const gone = !available.includes(name);
+            return (
+              <Field
+                key={name}
+                orientation="horizontal"
+                className="items-start rounded-lg border bg-muted/50 px-3 py-2.5"
+              >
+                <Checkbox
+                  id={`${ids}-${index}`}
+                  checked={enabled.includes(name)}
+                  disabled={dead}
+                  aria-describedby={gone ? `${ids}-${index}-gone` : undefined}
+                  onCheckedChange={() => toggle(name)}
+                />
+                <FieldContent>
+                  <FieldLabel htmlFor={`${ids}-${index}`} className="wrap-anywhere">
+                    {name}
+                  </FieldLabel>
+                  {gone && (
+                    <FieldDescription id={`${ids}-${index}-gone`}>
+                      Enabled, and not offered by this Janus.
+                    </FieldDescription>
+                  )}
+                </FieldContent>
+              </Field>
+            );
+          })}
+        </div>
+      )}
 
       {rows.length === 0 && (
         <CardNotice>Janus listed no toolsets.</CardNotice>

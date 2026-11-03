@@ -12,7 +12,16 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { api, type InstanceUser } from "../../../lib/api.ts";
-import { CardNotice } from "../../console/Card.tsx";
+import { Badge } from "../../../components/ui/badge.tsx";
+import { Input } from "../../../components/ui/input.tsx";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../components/ui/table.tsx";
+import { CardNotice, CardTable } from "../../console/Card.tsx";
 import { useAdminData } from '../../console/hooks.ts';
 
 export function AccountsSection({
@@ -43,16 +52,15 @@ export function AccountsSection({
   // /admin/users URL — draws the card, and these are its children.
   return (
     <>
-      <div className="console-toolbar">
-        <div className="console-filter">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Find an account"
-            aria-label="Find an account"
-          />
-        </div>
-        <p className="console-toolbar-note">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Input
+          className="sm:max-w-80"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Find an account"
+          aria-label="Find an account"
+        />
+        <p className="m-0 text-sm text-muted-foreground tabular-nums">
           {users.length} {users.length === 1 ? "account" : "accounts"} — {humans}{" "}
           human, {users.length - humans} bot.
         </p>
@@ -61,40 +69,42 @@ export function AccountsSection({
       {shown.length === 0 ? (
         <CardNotice>Nothing matched.</CardNotice>
       ) : (
-        <div className="console-table-wrap">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Email</th>
-                <th scope="col">Workspace</th>
-                <th scope="col">Role</th>
-                <th scope="col">State</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((user: InstanceUser) => (
-                <tr key={user.id}>
-                  <td>
-                    {user.displayName}
-                    {user.kind === "bot" && (
-                      <>
-                        {" "}
-                        <span className="role-pill">App</span>
-                      </>
-                    )}
-                  </td>
-                  <td className="muted">{user.email}</td>
-                  <td>{user.workspaceName}</td>
-                  <td>{user.role}</td>
-                  <td className="muted">
-                    {user.deactivated ? "Deactivated" : "Active"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CardTable label="Accounts">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Name</TableHead>
+              <TableHead scope="col">Email</TableHead>
+              <TableHead scope="col">Workspace</TableHead>
+              <TableHead scope="col">Role</TableHead>
+              <TableHead scope="col">State</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {shown.map((user: InstanceUser) => (
+              <TableRow key={user.id}>
+                {/* A name, an address and a workspace are data, so one long token wraps
+                    inside its cell and the table scrolls sideways before it clips. */}
+                <TableCell className="whitespace-normal wrap-anywhere">
+                  {user.displayName}
+                  {user.kind === "bot" && (
+                    <>
+                      {" "}
+                      <Badge variant="secondary">App</Badge>
+                    </>
+                  )}
+                </TableCell>
+                <TableCell className="whitespace-normal wrap-anywhere text-muted-foreground">
+                  {user.email}
+                </TableCell>
+                <TableCell className="whitespace-normal wrap-anywhere">{user.workspaceName}</TableCell>
+                <TableCell>{user.role}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {user.deactivated ? "Deactivated" : "Active"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </CardTable>
       )}
     </>
   );

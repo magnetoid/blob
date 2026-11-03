@@ -27,30 +27,55 @@ afterEach(() => {
 
 function card(title: string) {
   return within(
-    screen.getByRole("heading", { name: title }).closest("section")!,
+    screen.getByRole("heading", { name: title }).closest('[data-slot="card"]')!,
   );
 }
 
 describe("what is kept", () => {
+  it("says it is loading before it has read anything", () => {
+    vi.spyOn(api.admin, "storage").mockReturnValue(new Promise(() => undefined));
+    render(<StorageSection onError={vi.fn()} isOwner />);
+    expect(card("What is kept").getByText("Loading…")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("says nothing waits when no upload is orphaned", async () => {
+    vi.spyOn(api.admin, "storage").mockResolvedValue({ ...KEPT, orphans: 0 });
+    render(<StorageSection onError={vi.fn()} isOwner />);
+    expect(await screen.findByText("No upload is waiting to be swept.")).toBeTruthy();
+  });
+
+  it("reads each way the bucket can be out of reach in words", async () => {
+    vi.spyOn(api.admin, "storage").mockResolvedValue({ ...KEPT, probe: "private" });
+    render(<StorageSection onError={vi.fn()} isOwner />);
+    expect(
+      await screen.findByText("A name only this server can resolve — a browser cannot upload to it."),
+    ).toBeTruthy();
+  });
+
   it("lists each kind with its count and size, and the total", async () => {
     vi.spyOn(api.admin, "storage").mockResolvedValue(KEPT);
     render(<StorageSection onError={vi.fn()} isOwner />);
 
-    const files = (
-      await screen.findByRole("rowheader", { name: "Files" })
-    ).closest("tr")!;
+    // The table is named, and says what each column holds.
+    const table = await screen.findByRole("table", { name: "What is kept" });
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual(["Kind", "Count", "Size"]);
+
+    const files = within(table).getByRole("rowheader", { name: "Files" }).closest("tr")!;
     expect(within(files).getByText("12")).toBeTruthy();
     expect(within(files).getByText("3.0 MB")).toBeTruthy();
 
-    const voice = screen
+    const voice = within(table)
       .getByRole("rowheader", { name: "Voice messages" })
       .closest("tr")!;
     expect(within(voice).getByText("1")).toBeTruthy();
     expect(within(voice).getByText("50 KB")).toBeTruthy();
 
-    const total = screen
-      .getByRole("rowheader", { name: "Total" })
-      .closest("tr")!;
+    const total = within(table).getByRole("rowheader", { name: "Total" }).closest("tr")!;
     expect(within(total).getByText("13")).toBeTruthy();
     expect(within(total).getByText("3.0 MB")).toBeTruthy();
 

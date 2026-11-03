@@ -10,7 +10,7 @@
  * stale-response guard the hooks exist to provide.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import type { UserGroup } from "@blob/shared";
 import { api, ApiError } from "../../../lib/api.ts";
 import { navigate, pathForRoute } from "../../../lib/router.ts";
@@ -18,8 +18,20 @@ import { useStore } from "../../../lib/store.ts";
 import { Avatar } from "../../../components/Avatar.tsx";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../../components/Dialog.tsx";
+import { ChevronLeftIcon } from "../../../components/Icon.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import { Field, FieldDescription, FieldLabel } from "../../../components/ui/field.tsx";
+import { Input } from "../../../components/ui/input.tsx";
+import { ItemActions, ItemContent, ItemMedia, ItemTitle } from "../../../components/ui/item.tsx";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../components/ui/table.tsx";
 import type { ConsoleSectionProps } from "../../console/ConsoleShell.tsx";
-import { Card, CardHeading, CardNotice } from "../../console/Card.tsx";
+import { Card, CardHeading, CardNotice, CardRow, CardRows, CardTable } from "../../console/Card.tsx";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 /** Mirrors the server's rule, which mirrors what a message body can reference. */
@@ -37,6 +49,7 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
   const [removing, setRemoving] = useState<UserGroup | null>(null);
   const [renaming, setRenaming] = useState<UserGroup | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const fields = useId();
 
   const load = useCallback(() => api.admin.groups(), []);
   const { data, reload } = useAdminData(
@@ -77,72 +90,69 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
   return (
     <>
       <CardHeading>New group</CardHeading>
-      <p className="pref-hint">
+      <p className="max-w-[68ch] text-sm text-pretty text-muted-foreground">
         Anyone here can then write <code>@{cleaned || "handle"}</code> to
         reach everyone in it. A handle shares one namespace with people's
         names, so it cannot be one somebody already answers to.
       </p>
 
-      <div className="console-form-grid">
-        <label className="field">
-          <span className="field-label">Handle</span>
-          <input
-            className="input"
+      <div className="grid max-w-3xl gap-x-5 gap-y-4 sm:grid-cols-2">
+        <Field>
+          <FieldLabel htmlFor={`${fields}-handle`}>Handle</FieldLabel>
+          <Input
+            id={`${fields}-handle`}
             value={handle}
             placeholder="platform-team"
+            aria-invalid={handle !== "" && !HANDLE_RE.test(cleaned) ? true : undefined}
+            aria-describedby={handle && !HANDLE_RE.test(cleaned) ? `${fields}-handle-hint` : undefined}
             onChange={(event) => setHandle(event.target.value)}
           />
           {handle && !HANDLE_RE.test(cleaned) && (
-            <span className="pref-hint">
+            <FieldDescription id={`${fields}-handle-hint`}>
               Two to thirty-two characters: lowercase letters, numbers and
               hyphens.
-            </span>
+            </FieldDescription>
           )}
-        </label>
+        </Field>
 
-        <label className="field">
-          <span className="field-label">Name</span>
-          <input
-            className="input"
+        <Field>
+          <FieldLabel htmlFor={`${fields}-name`}>Name</FieldLabel>
+          <Input
+            id={`${fields}-name`}
             value={name}
             placeholder="Platform Team"
             onChange={(event) => setName(event.target.value)}
           />
-        </label>
+        </Field>
       </div>
 
-      <div className="console-form-actions">
-        <button
-          className="btn btn-primary"
-          disabled={!usable}
-          onClick={() => void submit()}
-        >
-          {busy ? "Creating…" : "Create"}
-        </button>
-      </div>
+      <Button className="self-start" disabled={!usable} onClick={() => void submit()}>
+        {busy ? "Creating…" : "Create"}
+      </Button>
 
       {groups.length === 0 ? (
         <CardNotice>None yet.</CardNotice>
       ) : (
-      <div className="console-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th scope="col">Handle</th>
-              <th scope="col">Name</th>
-              <th scope="col" className="num">People</th>
-              <th scope="col">
+        <CardTable label="User groups">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Handle</TableHead>
+              <TableHead scope="col">Name</TableHead>
+              <TableHead scope="col" className="text-right">
+                People
+              </TableHead>
+              <TableHead scope="col">
                 <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {groups.map((group) => (
-              <tr key={group.id}>
-                <td>
+              <TableRow key={group.id}>
+                <TableCell>
                   <code>@{group.handle}</code>
-                </td>
-                <td>
+                </TableCell>
+                <TableCell className="whitespace-normal">
                   {renaming?.id === group.id ? (
                     <RenameGroupForm
                       group={group}
@@ -154,45 +164,48 @@ function GroupList({ onError }: { onError: (message: string | null) => void }) {
                   ) : (
                     group.name
                   )}
-                </td>
-                <td className="num">{group.memberCount}</td>
-                <td className="console-cell-actions">
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() =>
-                      navigate(
-                        pathForRoute({
-                          view: "admin",
-                          section: "groups",
-                          detailId: group.id,
-                        }),
-                      )
-                    }
-                  >
-                    Members
-                  </button>
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => {
-                      setRenaming(group);
-                      setRenameDraft(group.name);
-                    }}
-                  >
-                    Rename
-                  </button>
-                  <button
-                    className="btn btn-ghost"
-                    aria-label={`Delete @${group.handle}`}
-                    onClick={() => setRemoving(group)}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{group.memberCount}</TableCell>
+                <TableCell>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      aria-label={`Members of @${group.handle}`}
+                      onClick={() =>
+                        navigate(
+                          pathForRoute({
+                            view: "admin",
+                            section: "groups",
+                            detailId: group.id,
+                          }),
+                        )
+                      }
+                    >
+                      Members
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      aria-label={`Rename @${group.handle}`}
+                      onClick={() => {
+                        setRenaming(group);
+                        setRenameDraft(group.name);
+                      }}
+                    >
+                      Rename
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      aria-label={`Delete @${group.handle}`}
+                      onClick={() => setRemoving(group)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </CardTable>
       )}
 
       <DialogPresence when={removing}>
@@ -236,7 +249,7 @@ function RenameGroupForm({
 
   return (
     <form
-      className="console-inline-form"
+      className="flex items-center gap-2"
       onSubmit={(event) => {
         event.preventDefault();
         const trimmed = renameDraft.trim();
@@ -251,9 +264,8 @@ function RenameGroupForm({
     >
       {/* It replaces the name in its cell, so nothing on screen labels it; the name it
           would have had as a visible label is the one it gets. */}
-      <input
+      <Input
         ref={focusInput}
-        className="input"
         aria-label={`New name for @${group.handle}`}
         value={renameDraft}
         maxLength={80}
@@ -262,9 +274,9 @@ function RenameGroupForm({
           if (e.key === "Escape") setRenaming(null);
         }}
       />
-      <button className="btn" type="submit">
+      <Button variant="outline" type="submit">
         Save
-      </button>
+      </Button>
     </form>
   );
 }
@@ -278,6 +290,7 @@ function GroupMembers({
 }) {
   const users = useStore((s) => s.users);
   const [query, setQuery] = useState("");
+  const fields = useId();
 
   const load = useCallback(
     async () => ({
@@ -309,33 +322,40 @@ function GroupMembers({
     : [];
 
   return (
-    <div className="console-stack">
-      <button
-        className="btn btn-ghost console-back"
+    <div className="flex flex-col gap-6">
+      <Button
+        variant="ghost"
+        className="self-start"
         onClick={() =>
           navigate(pathForRoute({ view: "admin", section: "groups" }))
         }
       >
-        ← All groups
-      </button>
+        <ChevronLeftIcon size="sm" />
+        All groups
+      </Button>
 
       <Card title={data?.group ? `@${data.group.handle}` : "Group"}>
-        <label className="field console-input">
-          <span className="field-label">Add someone</span>
-          <input
-            className="input"
+        <Field className="max-w-md">
+          <FieldLabel htmlFor={`${fields}-add`}>Add someone</FieldLabel>
+          <Input
+            id={`${fields}-add`}
             value={query}
             placeholder="Start typing a name"
             onChange={(event) => setQuery(event.target.value)}
           />
-        </label>
+        </Field>
 
         {candidates.length > 0 && (
-          <div className="member-candidates console-input">
+          <div
+            role="group"
+            aria-label="People you can add"
+            className="flex max-w-md flex-col overflow-clip rounded-lg border"
+          >
             {candidates.map((person) => (
-              <button
+              <Button
                 key={person.id}
-                className="member-row"
+                variant="ghost"
+                className="h-auto justify-start gap-2.5 rounded-none px-3 py-2"
                 onClick={() =>
                   void act(async () => {
                     await api.admin.addGroupMember(groupId, person.id);
@@ -344,9 +364,9 @@ function GroupMembers({
                 }
               >
                 <Avatar user={person} size="sm" />
-                <span className="member-name">{person.displayName}</span>
-                <span className="muted">Add</span>
-              </button>
+                <span className="flex-1 text-left">{person.displayName}</span>
+                <span className="font-normal text-muted-foreground">Add</span>
+              </Button>
             ))}
           </div>
         )}
@@ -358,30 +378,34 @@ function GroupMembers({
         ) : memberIds.size === 0 ? (
           <CardNotice>Nobody is in this group yet.</CardNotice>
         ) : (
-          <div className="console-list">
+          <CardRows>
             {[...memberIds].map((userId) => {
               const person = users[userId];
               return (
-                <div key={userId} className="admin-row">
-                  <Avatar user={person} size="sm" />
-                  <span className="grow min-0 ellipsis">
-                    {person?.displayName ?? "Someone"}
-                  </span>
-                  <button
-                    className="btn btn-ghost"
-                    aria-label={`Remove ${person?.displayName ?? "this person"} from the group`}
-                    onClick={() =>
-                      void act(async () => {
-                        await api.admin.removeGroupMember(groupId, userId);
-                      })
-                    }
-                  >
-                    Remove
-                  </button>
-                </div>
+                <CardRow key={userId}>
+                  <ItemMedia>
+                    <Avatar user={person} size="sm" />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{person?.displayName ?? "Someone"}</ItemTitle>
+                  </ItemContent>
+                  <ItemActions>
+                    <Button
+                      variant="ghost"
+                      aria-label={`Remove ${person?.displayName ?? "this person"} from the group`}
+                      onClick={() =>
+                        void act(async () => {
+                          await api.admin.removeGroupMember(groupId, userId);
+                        })
+                      }
+                    >
+                      Remove
+                    </Button>
+                  </ItemActions>
+                </CardRow>
               );
             })}
-          </div>
+          </CardRows>
         )}
       </Card>
     </div>

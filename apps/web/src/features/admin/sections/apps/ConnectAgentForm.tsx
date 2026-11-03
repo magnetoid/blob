@@ -12,8 +12,19 @@
  * rather than being described by hand here.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { api, ApiError } from '../../../../lib/api.ts';
+import { Button } from '../../../../components/ui/button.tsx';
+import { Checkbox } from '../../../../components/ui/checkbox.tsx';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '../../../../components/ui/field.tsx';
+import { Input } from '../../../../components/ui/input.tsx';
 
 interface Props {
   scopeCatalog: Record<string, string>;
@@ -38,6 +49,7 @@ export function ConnectAgentForm({ scopeCatalog, onConnected, onError }: Props) 
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  const ids = useId();
 
   useEffect(() => {
     if (open) nameRef.current?.focus();
@@ -79,13 +91,11 @@ export function ConnectAgentForm({ scopeCatalog, onConnected, onError }: Props) 
 
   if (!open) {
     return (
-      <div className="admin-app-form">
-        {/* A grid item stretches, and a `.btn` centres its own text, so this read as
-            a centred heading rather than as something to press. */}
-        <button className="btn btn-ghost admin-form-open" onClick={() => setOpen(true)}>
+      <div className="flex flex-col items-start gap-2">
+        <Button variant="outline" onClick={() => setOpen(true)}>
           Connect an agent on your machine
-        </button>
-        <p className="muted admin-form-hint">
+        </Button>
+        <p className="m-0 text-sm text-muted-foreground">
           For an agent running on your laptop or a private network. It dials Blob, so it
           needs no public address.
         </p>
@@ -94,19 +104,22 @@ export function ConnectAgentForm({ scopeCatalog, onConnected, onError }: Props) 
   }
 
   return (
-    <div className="admin-app-form">
-      <h4 className="admin-app-form-wide">Connect an agent on your machine</h4>
-      <p className="muted admin-form-hint admin-app-form-wide">
-        Blob gives you a token. Your agent opens a WebSocket to{' '}
-        <code>{location.origin.replace(/^http/, 'ws')}/ws/agent</code> with it, and says
-        what it is when it connects.
-      </p>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <h4 className="m-0 text-sm font-semibold">Connect an agent on your machine</h4>
+        <p className="m-0 text-sm text-muted-foreground">
+          Blob gives you a token. Your agent opens a WebSocket to{' '}
+          <code>{location.origin.replace(/^http/, 'ws')}/ws/agent</code> with it, and says
+          what it is when it connects.
+        </p>
+      </div>
 
-      <label className="field">
-        <span className="field-label">What is it called?</span>
-        <input
-          className="input"
+      <Field>
+        <FieldLabel htmlFor={`${ids}-name`}>What is it called?</FieldLabel>
+        <Input
+          id={`${ids}-name`}
           value={name}
+          aria-describedby={slug ? `${ids}-slug` : undefined}
           // Focused in an effect rather than with `autoFocus`, which steals focus on
           // mount wherever the element happens to render. Here the form only exists
           // because someone just clicked to open it, so moving the caret into it is
@@ -119,20 +132,21 @@ export function ConnectAgentForm({ scopeCatalog, onConnected, onError }: Props) 
           }}
         />
         {slug && (
-          <span className="muted admin-form-hint">
+          <FieldDescription id={`${ids}-slug`}>
             Known as <code>{slug}</code>, which cannot change later.
-          </span>
+          </FieldDescription>
         )}
-      </label>
+      </Field>
 
-      <fieldset className="admin-scope-list">
-        <legend className="field-label">What may it do?</legend>
+      <FieldSet aria-describedby={`${ids}-scopes-hint`}>
+        <FieldLegend variant="label">What may it do?</FieldLegend>
         {Object.entries(scopeCatalog).map(([scope, description]) => (
-          <label key={scope} className="admin-scope-row">
-            <input
-              type="checkbox"
+          <Field key={scope} orientation="horizontal">
+            <Checkbox
+              id={`${ids}-${scope}`}
+              aria-describedby={`${ids}-${scope}-hint`}
               checked={scopes.includes(scope)}
-              onChange={() =>
+              onCheckedChange={() =>
                 setScopes((current) =>
                   current.includes(scope)
                     ? current.filter((s) => s !== scope)
@@ -140,24 +154,27 @@ export function ConnectAgentForm({ scopeCatalog, onConnected, onError }: Props) 
                 )
               }
             />
-            <span>
-              <code>{scope}</code> — {description}
-            </span>
-          </label>
+            <FieldContent>
+              <FieldLabel htmlFor={`${ids}-${scope}`}>
+                <code>{scope}</code>
+              </FieldLabel>
+              <FieldDescription id={`${ids}-${scope}-hint`}>{description}</FieldDescription>
+            </FieldContent>
+          </Field>
         ))}
-      </fieldset>
-      <p className="muted admin-form-hint">
-        An agent cannot widen this by asking on connect. Changing it later goes through
-        the same approval an app update does.
-      </p>
+        <FieldDescription id={`${ids}-scopes-hint`}>
+          An agent cannot widen this by asking on connect. Changing it later goes through
+          the same approval an app update does.
+        </FieldDescription>
+      </FieldSet>
 
-      <div className="admin-form-actions">
-        <button className="btn btn-primary" disabled={!usable} onClick={() => void submit()}>
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={!usable} onClick={() => void submit()}>
           {busy ? 'Registering…' : 'Get a token'}
-        </button>
-        <button className="btn btn-ghost" onClick={() => setOpen(false)} disabled={busy}>
+        </Button>
+        <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -12,6 +12,8 @@ import { navigate } from '../../lib/router.ts';
 import { leaveCall } from '../../lib/calls.ts';
 import { Card } from '../console/Card.tsx';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
+import { Button } from '../../components/ui/button.tsx';
+import { Field, FieldContent, FieldDescription, FieldTitle } from '../../components/ui/field.tsx';
 
 export function AccountCard({ onSignedOut }: ConsoleSectionProps) {
   const reset = useStore((s) => s.reset);
@@ -23,8 +25,8 @@ export function AccountCard({ onSignedOut }: ConsoleSectionProps) {
       title="Account"
       description="Sign out of Blob on this device."
       footer={
-        <button
-          className="btn"
+        <Button
+          variant="outline"
           onClick={async () => {
             // Hangs up before anything else: `reset()` only forgets the call session,
             // it does not disconnect the room, and this switches away from the app
@@ -37,20 +39,20 @@ export function AccountCard({ onSignedOut }: ConsoleSectionProps) {
           }}
         >
           Sign out
-        </button>
+        </Button>
       }
     >
-      <div className="pref-row">
-        <div className="grow min-0">
-          <div className="pref-label">Other devices</div>
-          <div className="pref-hint">
+      <Field orientation="horizontal">
+        <FieldContent>
+          <FieldTitle>Other devices</FieldTitle>
+          <FieldDescription>
             Where else you are signed in, your password and recent sign-ins.
-          </div>
-        </div>
-        <button className="btn btn-ghost" onClick={() => navigate('/settings/security')}>
+          </FieldDescription>
+        </FieldContent>
+        <Button variant="ghost" onClick={() => navigate('/settings/security')}>
           Sign-in &amp; security
-        </button>
-      </div>
+        </Button>
+      </Field>
     </Card>
   );
 }

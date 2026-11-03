@@ -31,7 +31,10 @@ describe('the server console', () => {
     render(<ServerConsole section="health" onFeedback={vi.fn()} />);
     const nav = screen.getByRole('navigation', { name: 'Console sections' });
     expect(within(nav).queryAllByRole('heading')).toEqual([]);
-    expect([...nav.querySelectorAll('.channel-name')].map((n) => n.textContent)).toEqual([
+    const rows = within(nav)
+      .getAllByRole('listitem')
+      .map((item) => within(item).getByRole('button').textContent);
+    expect(rows).toEqual([
       'Health',
       'Storage',
       'Accounts',
@@ -47,6 +50,6 @@ describe('the server console', () => {
   it('keeps Accounts in its card under a detail id', () => {
     signIn('owner', true);
     render(<ServerConsole section="users" detailId="u1" onFeedback={vi.fn()} />);
-    expect(screen.getByText('accounts-part').closest('.console-card')).toBeTruthy();
+    expect(screen.getByText('accounts-part').closest('[data-slot="card"]')).toBeTruthy();
   });
 });

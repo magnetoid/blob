@@ -98,6 +98,21 @@ describe('connecting an assistant', () => {
     expect(await screen.findByText(/It can also post/)).toBeTruthy();
   });
 
+  it('ticks the box from its label, and says what posting means as its description', async () => {
+    seed([]);
+    await draw();
+    // What a screen reader says on reaching the box: its name, then what ticking it does.
+    const box = screen.getByRole('checkbox', {
+      name: 'Let it post',
+      description: /indistinguishable from one you typed/,
+    });
+    expect(box.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(screen.getByText('Let it post'));
+    expect(screen.getByRole('checkbox', { name: 'Let it post' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+  });
+
   it('will not mint a nameless connection', async () => {
     seed([]);
     await draw();
@@ -126,6 +141,14 @@ describe('connecting an assistant', () => {
         '--header "Authorization: Bearer the-only-copy"',
     );
     expect(screen.getByText(/reads only/)).toBeTruthy();
+    // And the two values for a tool that takes them separately, each in a field of its own
+    // that can be read whole and copied.
+    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Server URL' }).value).toBe(
+      'https://blob.example.com/api/mcp',
+    );
+    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Authorization' }).value).toBe(
+      'Bearer the-only-copy',
+    );
   });
 });
 
@@ -176,8 +199,12 @@ describe('how long a connection lasts', () => {
     await draw();
 
     expect(screen.getByText(/ends .*2099/)).toBeTruthy();
+    // The visible label is the name, and the line under it describes the choice.
+    expect(
+      screen.getByRole('combobox', { name: 'It lasts', description: /Every connection ends/ }),
+    ).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'Laptop' } });
-    fireEvent.change(screen.getByLabelText('How long it lasts'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('It lasts'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Get a token' }));
     await waitFor(() => expect(create).toHaveBeenCalledWith('Laptop', false, 30));
   });
@@ -193,7 +220,9 @@ describe('an assistant that signs in', () => {
   it('is given the connector address, and Claude Code a line with no secret in it', async () => {
     seed([]);
     await draw();
-    expect(await screen.findByText('https://blob.example.com/api/mcp')).toBeTruthy();
+    expect(
+      (await screen.findByRole<HTMLInputElement>('textbox', { name: 'Connector address' })).value,
+    ).toBe('https://blob.example.com/api/mcp');
     const commands = screen.getAllByText(/claude mcp add/).map((node) => node.textContent);
     expect(commands).toEqual(['claude mcp add --transport http blob https://blob.example.com/api/mcp']);
     expect(screen.getByText(/None yet. When an assistant signs in/)).toBeTruthy();

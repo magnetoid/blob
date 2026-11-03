@@ -3,6 +3,9 @@
 import { useCallback, useId, useState } from 'react';
 import { api } from '../../../lib/api.ts';
 import { useStore } from '../../../lib/store.ts';
+import { Button } from '../../../components/ui/button.tsx';
+import { Input } from '../../../components/ui/input.tsx';
+import { NativeSelect, NativeSelectOption } from '../../../components/ui/native-select.tsx';
 import { Card } from '../../console/Card.tsx';
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
@@ -27,7 +30,7 @@ export function GeneralSection({ onError }: { onError: (message: string | null) 
 
   return (
     <form
-      className="console-stack"
+      className="flex flex-col gap-6"
       onSubmit={(event) => {
         event.preventDefault();
         void act(async () => {
@@ -47,15 +50,11 @@ export function GeneralSection({ onError }: { onError: (message: string | null) 
         title={<label htmlFor={fieldId}>Server name</label>}
         description="Shown in the top bar, on the sign-in screen, and in invitations."
         descriptionId={hintId}
-        footer={
-          <button className="btn btn-primary" type="submit">
-            {saved ? 'Saved' : 'Save'}
-          </button>
-        }
+        footer={<Button type="submit">{saved ? 'Saved' : 'Save'}</Button>}
       >
-        <input
+        <Input
           id={fieldId}
-          className="input console-input"
+          className="max-w-md"
           aria-describedby={hintId}
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -69,9 +68,8 @@ export function GeneralSection({ onError }: { onError: (message: string | null) 
         description="Who may notify a whole channel at once. Admins only keeps a big workspace quiet; everybody else can still mention people and groups."
         descriptionId={broadcastHintId}
       >
-        <select
+        <NativeSelect
           id={broadcastId}
-          className="input console-input"
           aria-describedby={broadcastHintId}
           value={broadcast}
           onChange={(event) => {
@@ -83,9 +81,9 @@ export function GeneralSection({ onError }: { onError: (message: string | null) 
             });
           }}
         >
-          <option value="everyone">Everyone</option>
-          <option value="admins">Admins only</option>
-        </select>
+          <NativeSelectOption value="everyone">Everyone</NativeSelectOption>
+          <NativeSelectOption value="admins">Admins only</NativeSelectOption>
+        </NativeSelect>
       </Card>
     </form>
   );

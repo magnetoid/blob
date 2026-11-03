@@ -18,9 +18,13 @@ import { DesktopAgentSetup } from '../agentic/DesktopAgentSetup.tsx';
 import { MemoryList } from "../agentic/MemoryList.tsx";
 import { NoteList } from "../agentic/NoteList.tsx";
 import type { ConsoleSectionProps } from "../console/ConsoleShell.tsx";
-import { Card, CardNotice } from "../console/Card.tsx";
+import { Card, CardNotice, CardRow, CardRows, LegacyRows } from "../console/Card.tsx";
 import { useAdminAction, useAdminData } from "../console/hooks.ts";
 import { UsageTable } from "../console/UsageTable.tsx";
+import { Badge } from "../../components/ui/badge.tsx";
+import { Button } from "../../components/ui/button.tsx";
+import { Input } from "../../components/ui/input.tsx";
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from "../../components/ui/item.tsx";
 
 interface Minted {
   name: string;
@@ -67,7 +71,7 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
   }
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card
         title="Connect an agent"
         description={
@@ -78,9 +82,8 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
           </>
         }
       >
-        <div className="console-inline-form">
-          <input
-            className="input"
+        <div className="flex gap-2">
+          <Input
             value={name}
             placeholder="What is it called?"
             aria-label="Agent name"
@@ -89,23 +92,23 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
               if (event.key === "Enter") void attach();
             }}
           />
-          <button
-            className="btn btn-primary"
-            disabled={!usable}
-            onClick={() => void attach()}
-          >
+          <Button disabled={!usable} onClick={() => void attach()}>
             {busy ? "Registering…" : "Get a token"}
-          </button>
+          </Button>
         </div>
       </Card>
 
       {minted && (
-        <DesktopAgentSetup
-          agentName={minted.name}
-          botToken={minted.botToken}
-          signingSecret={minted.signingSecret}
-          bridgeHref="/api/agents/bridge"
-        />
+        // The setup is the agents console's own markup (features/agentic/), still drawn by
+        // the legacy stylesheet, so it sits in an island.
+        <div data-legacy>
+          <DesktopAgentSetup
+            agentName={minted.name}
+            botToken={minted.botToken}
+            signingSecret={minted.signingSecret}
+            bridgeHref="/api/agents/bridge"
+          />
+        </div>
       )}
 
       <Card title="Your agents">
@@ -114,7 +117,7 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
           <CardNotice>None yet. Connect one above and it will appear here.</CardNotice>
         )}
         {agents.length > 0 && (
-          <div className="console-list">
+          <CardRows>
             {agents.map((agent) => (
               <AgentRow
                 key={agent.id}
@@ -124,7 +127,7 @@ export function MyAgentsSection({ onError }: ConsoleSectionProps) {
                 act={act}
               />
             ))}
-          </div>
+          </CardRows>
         )}
       </Card>
 
@@ -154,6 +157,7 @@ function SpendCard({ onError }: { onError: (message: string | null) => void }) {
         <CardNotice>None of your agents ran this week.</CardNotice>
       ) : (
         <UsageTable
+          label="What they spent"
           lines={data.agents}
           currency={data.currency}
           heading="Agent"
@@ -184,12 +188,14 @@ function NotesCard({ onError }: { onError: (message: string | null) => void }) {
         </CardNotice>
       )}
       {notes.length > 0 && (
-        <NoteList
-          notes={notes}
-          showAgent
-          onReword={(note, body) => act(() => api.agents.rewordNote(note.id, body))}
-          onForget={(note) => void act(() => api.agents.forgetNote(note.id))}
-        />
+        <LegacyRows>
+          <NoteList
+            notes={notes}
+            showAgent
+            onReword={(note, body) => act(() => api.agents.rewordNote(note.id, body))}
+            onForget={(note) => void act(() => api.agents.forgetNote(note.id))}
+          />
+        </LegacyRows>
       )}
     </Card>
   );
@@ -213,7 +219,36 @@ function RememberedCard({ onError }: { onError: (message: string | null) => void
   const memories = data?.memories ?? [];
 
   return (
-    <Card title="What agents remember of you">
+    <Card
+      title="What agents remember of you"
+      // Once there is something to forget, the way to forget all of it closes the card.
+      footer={
+        memories.length > 0 ? (
+          confirming ? (
+            <>
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  void act(async () => {
+                    await api.agents.forgetAllMemory();
+                    setConfirming(false);
+                  })
+                }
+              >
+                Forget all of it
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirming(false)}>
+                Keep
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" onClick={() => setConfirming(true)}>
+              Forget everything
+            </Button>
+          )
+        ) : undefined
+      }
+    >
       {data && memories.length === 0 && (
         <CardNotice>
           Nothing yet. An agent you own, or one lent to you, keeps what it learns in your
@@ -221,37 +256,13 @@ function RememberedCard({ onError }: { onError: (message: string | null) => void
         </CardNotice>
       )}
       {memories.length > 0 && (
-        <>
+        <LegacyRows>
           <MemoryList
             memories={memories}
             showAgent
             onForget={(memory) => void act(() => api.agents.forgetMemory(memory.id))}
           />
-          <div className="console-row-more">
-            {confirming ? (
-              <>
-                <button
-                  className="btn btn-danger"
-                  onClick={() =>
-                    void act(async () => {
-                      await api.agents.forgetAllMemory();
-                      setConfirming(false);
-                    })
-                  }
-                >
-                  Forget all of it
-                </button>
-                <button className="btn btn-ghost" onClick={() => setConfirming(false)}>
-                  Keep
-                </button>
-              </>
-            ) : (
-              <button className="btn btn-ghost" onClick={() => setConfirming(true)}>
-                Forget everything
-              </button>
-            )}
-          </div>
-        </>
+        </LegacyRows>
       )}
     </Card>
   );
@@ -291,86 +302,78 @@ function AgentRow({
 
   // A row of the "Your agents" list, with its channels opening under it.
   return (
-    <div className="console-list-item">
-      <div className="admin-row">
-        <div className="grow min-0">
-          <div className="admin-row-title">
-            {agent.name}
-            <span
-              className="role-pill"
-              data-muted={!agent.online}
-              title={
-                agent.online
-                  ? "Holding a connection to Blob"
-                  : "Not connected — run the bridge next to the agent"
+    <CardRow>
+      <ItemContent>
+        <ItemTitle>
+          {agent.name}
+          <Badge
+            variant={agent.online ? "secondary" : "outline"}
+            title={
+              agent.online
+                ? "Holding a connection to Blob"
+                : "Not connected — run the bridge next to the agent"
+            }
+          >
+            {agent.online ? "connected" : "not connected"}
+          </Badge>
+          {agent.status !== "enabled" && (
+            <Badge variant="outline">{agent.status.replace("_", " ")}</Badge>
+          )}
+        </ItemTitle>
+        <ItemDescription>
+          {agent.description || agent.slug} · answers you, and whoever you
+          /allow
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        {/* The label stays; `aria-expanded` says which way the press goes. */}
+        <Button variant="ghost" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          Channels
+        </Button>
+        <Button
+          variant="ghost"
+          aria-expanded={lendingOpen}
+          onClick={() => setLendingOpen((v) => !v)}
+        >
+          Lent to
+        </Button>
+        {confirming ? (
+          <>
+            <Button
+              variant="destructive"
+              onClick={() =>
+                void act(async () => {
+                  await api.agents.detach(agent.id);
+                  onRemoved();
+                })
               }
             >
-              {agent.online ? "connected" : "not connected"}
-            </span>
-            {agent.status !== "enabled" && (
-              <span className="role-pill" data-muted>
-                {agent.status.replace("_", " ")}
-              </span>
-            )}
-          </div>
-          <div className="admin-row-meta">
-            {agent.description || agent.slug} · answers you, and whoever you
-            /allow
-          </div>
-        </div>
-        <div className="admin-row-actions">
-          <button className="btn btn-ghost" onClick={() => setOpen((v) => !v)}>
-            {open ? "Hide channels" : "Channels"}
-          </button>
-          <button
-            className="btn btn-ghost"
-            aria-expanded={lendingOpen}
-            onClick={() => setLendingOpen((v) => !v)}
-          >
-            {lendingOpen ? "Hide who has it" : "Lent to"}
-          </button>
-          {confirming ? (
-            <>
-              <button
-                className="btn btn-danger"
-                onClick={() =>
-                  void act(async () => {
-                    await api.agents.detach(agent.id);
-                    onRemoved();
-                  })
-                }
-              >
-                Remove {agent.name}
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => setConfirming(false)}
-              >
-                Keep
-              </button>
-            </>
-          ) : (
-            <button
-              className="btn btn-ghost"
-              onClick={() => setConfirming(true)}
-            >
-              Remove
-            </button>
-          )}
-        </div>
-      </div>
+              Remove {agent.name}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirming(false)}>
+              Keep
+            </Button>
+          </>
+        ) : (
+          <Button variant="ghost" onClick={() => setConfirming(true)}>
+            Remove
+          </Button>
+        )}
+      </ItemActions>
 
       {open && (
-        <div className="console-row-more">
-          <div className="pref-hint">
+        <div className="flex basis-full flex-col gap-2">
+          <p className="text-sm text-muted-foreground">
             Mentioning {agent.name} reaches it only in channels it has been
             added to. Only channels you are in are offered.
-          </div>
+          </p>
           {(channels.data?.channels ?? []).map((channel: AppChannel) => (
-            <div className="console-subrow" key={channel.id}>
-              <div className="pref-label grow">#{channel.name ?? channel.id}</div>
-              <button
-                className={channel.joined ? "btn btn-ghost" : "btn"}
+            <div className="flex items-center gap-3" key={channel.id}>
+              <span className="min-w-0 flex-1 font-medium wrap-anywhere">
+                #{channel.name ?? channel.id}
+              </span>
+              <Button
+                variant={channel.joined ? "ghost" : "outline"}
                 onClick={() =>
                   void channelAct(() =>
                     channel.joined
@@ -380,44 +383,44 @@ function AgentRow({
                 }
               >
                 {channel.joined ? "Remove" : "Add"}
-              </button>
+              </Button>
             </div>
           ))}
           {channels.data && channels.data.channels.length === 0 && (
-            <div className="pref-hint">
+            <p className="text-sm text-muted-foreground">
               You are not in any channel it could join.
-            </div>
+            </p>
           )}
         </div>
       )}
 
       {lendingOpen && (
-        <div className="console-row-more">
-          <div className="pref-hint">
+        <div className="flex basis-full flex-col gap-2">
+          <p className="text-sm text-muted-foreground">
             Lend it with /allow @{agent.name} @someone in a channel. Each person it is
             lent to keeps a memory of their own with it, never yours.
-          </div>
+          </p>
           {(loans.data?.loans ?? []).map((loan: AgentLoan) => (
-            <div className="console-subrow" key={loan.id}>
-              <div className="pref-label grow">
+            <div className="flex items-center gap-3" key={loan.id}>
+              <span className="min-w-0 flex-1 font-medium wrap-anywhere">
                 {loan.granteeName} ·{" "}
                 {loan.channelId === null
                   ? "everywhere it is"
                   : `#${loan.channelName ?? "a channel"}`}
-              </div>
-              <button
-                className="btn btn-ghost"
+              </span>
+              <Button
+                variant="ghost"
                 onClick={() => void loanAct(() => api.agents.endLoan(agent.id, loan.id))}
               >
                 End
-              </button>
+              </Button>
             </div>
           ))}
           {loans.data && loans.data.loans.length === 0 && (
-            <div className="pref-hint">Nobody else may use it.</div>
+            <p className="text-sm text-muted-foreground">Nobody else may use it.</p>
           )}
         </div>
       )}
-    </div>
+    </CardRow>
   );
 }

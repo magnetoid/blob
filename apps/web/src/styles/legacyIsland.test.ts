@@ -11,7 +11,8 @@
  * nothing fails.
  *
  * The CSS is read as text: happy-dom's selector engine gets `:not()` with descendant
- * combinators wrong, so `matches()` here would test happy-dom rather than the rule.
+ * combinators wrong, so `matches()` here would test happy-dom rather than the rule. Where
+ * the two clauses reach is asked of a reader of their own small grammar instead, below.
  */
 
 import { readFileSync } from 'node:fs';
@@ -60,11 +61,13 @@ describe('the preflight repair', () => {
     const rules = repair();
     // Guard the guard: the block is some thirty rules, and an empty match proves nothing.
     expect(rules.length).toBeGreaterThan(20);
+    const repaired = `:where(${OUTSIDE}, ${ISLAND})`;
     for (const selector of rules) {
-      expect(selector, selector).toContain(OUTSIDE);
-      // Once per place the outside clause is used: a rule that keeps the old condition in
-      // one compound and the new one in another is half-converted.
-      expect(selector.split(ISLAND).length, selector).toBe(selector.split(OUTSIDE).length);
+      // The two clauses as one alternative, which is what the reader below is asked about.
+      expect(selector, selector).toContain(repaired);
+      // Wherever the outside clause is used: a rule that keeps the old condition in one
+      // compound and the new one in another is half-converted.
+      expect(selector.split(repaired).length, selector).toBe(selector.split(OUTSIDE).length);
     }
   });
 
@@ -86,6 +89,97 @@ describe('the preflight repair', () => {
         expect(selector, selector).toMatch(/:where\(/);
       }
     }
+  });
+});
+
+/** Top-level parts of a selector, split on `separator` outside any parentheses. */
+function parts(selector: string, separator: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let at = 0; at < selector.length; at += 1) {
+    const char = selector[at];
+    if (char === '(') depth += 1;
+    else if (char === ')') depth -= 1;
+    else if (char === separator && depth === 0) {
+      out.push(selector.slice(start, at));
+      start = at + 1;
+    }
+  }
+  out.push(selector.slice(start));
+  return out.map((part) => part.trim()).filter(Boolean);
+}
+
+/** An element as the attributes it carries; a path runs from the root down to one. */
+type Path = readonly (readonly string[])[];
+
+/**
+ * Whether the element at `at` matches a selector list — in exactly the grammar the two
+ * clauses are written in: attribute tests, `*`, `:not()` of a list, and the descendant
+ * combinator. Anything else throws, so the reader cannot quietly answer for a selector it
+ * does not understand.
+ */
+function matches(list: string, path: Path, at = path.length - 1): boolean {
+  return parts(list, ',').some((complex) => {
+    const compounds = parts(complex, ' ');
+    if (!compound(compounds.at(-1)!, path, at)) return false;
+    // Right to left, each compound on the nearest ancestor that takes it. With nothing but
+    // descendant combinators the nearest is never a worse choice than one further up.
+    let index = at;
+    for (const part of compounds.slice(0, -1).reverse()) {
+      do {
+        index -= 1;
+      } while (index >= 0 && !compound(part, path, index));
+      if (index < 0) return false;
+    }
+    return true;
+  });
+}
+
+function compound(part: string, path: Path, at: number): boolean {
+  if (part === '*') return true;
+  const not = /^:not\((.*)\)$/.exec(part);
+  if (not) return !matches(not[1]!, path, at);
+  const attribute = /^\[([\w-]+)\]$/.exec(part);
+  if (attribute) return path[at]!.includes(attribute[1]!);
+  throw new Error(`Not a selector this reader knows: ${part}`);
+}
+
+describe('where the repair reaches', () => {
+  /** A shadcn part, an island, and anything else. */
+  const SLOT = ['data-slot'];
+  const ISLE = ['data-legacy'];
+  const NONE: string[] = [];
+  /** Whether base.css hands the browser's defaults back to the last element of the path. */
+  const reached = (...path: Path) => matches(`${OUTSIDE}, ${ISLAND}`, path);
+
+  it('reads the clauses as the selector spec defines them', () => {
+    // Guard the reader on the plain cases first.
+    expect(reached(NONE, NONE)).toBe(true);
+    expect(reached(NONE, SLOT)).toBe(false);
+    expect(reached(SLOT, NONE)).toBe(false);
+    expect(reached(SLOT, ISLE, NONE)).toBe(true);
+  });
+
+  it('reaches an island inside a card in the console, and stops at a shadcn part inside it', () => {
+    // The sidebar's wrapper and inset, the page's column, the console body, a card and its
+    // content: where the island holding an agent's memory, its notes, its terminal or a
+    // run's card sits.
+    const card = [SLOT, SLOT, NONE, SLOT, SLOT, SLOT];
+    expect(reached(...card, ISLE, NONE)).toBe(true);
+    expect(reached(...card, ISLE, NONE, NONE)).toBe(true);
+    // A Button inside the legacy markup keeps preflight's reset, and so does its icon.
+    expect(reached(...card, ISLE, NONE, SLOT)).toBe(false);
+    expect(reached(...card, ISLE, NONE, SLOT, NONE)).toBe(false);
+    // Converted markup in the body itself, outside any island, is preflight's.
+    expect(reached(SLOT, SLOT, NONE, SLOT, NONE)).toBe(false);
+  });
+
+  it('does not reach an island inside a component inside another island', () => {
+    // A selector cannot ask which island is nearest. This is why the console body is not
+    // an island: while it was one, the islands its sections keep inside cards went
+    // unreached.
+    expect(reached(SLOT, ISLE, SLOT, ISLE, NONE)).toBe(false);
   });
 });
 

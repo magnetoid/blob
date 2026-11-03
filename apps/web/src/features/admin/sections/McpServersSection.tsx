@@ -11,7 +11,7 @@
  * anything else asks), and the select beside it is where that is decided for real.
  */
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   api,
   ApiError,
@@ -22,10 +22,24 @@ import {
 } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../../components/Dialog.tsx";
+import { Alert, AlertDescription } from "../../../components/ui/alert.tsx";
+import { Badge } from "../../../components/ui/badge.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import { Field, FieldLabel } from "../../../components/ui/field.tsx";
+import { Input } from "../../../components/ui/input.tsx";
+import {
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "../../../components/ui/item.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../components/ui/native-select.tsx";
+import { Switch } from "../../../components/ui/switch.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
 import type { ConsoleSectionProps } from "../../console/ConsoleShell.tsx";
-import { Card, CardHeading, CardNotice } from "../../console/Card.tsx";
+import { Card, CardHeading, CardNotice, CardRow, CardRows } from "../../console/Card.tsx";
 import { useAdminAction, useAdminData } from "../../console/hooks.ts";
+import { useDisclosure } from "./apps/useDisclosure.ts";
 
 /** The same words the agent page uses for when a post waits, so one decision reads alike. */
 const POLICY_LABELS: Record<McpToolPolicy, string> = {
@@ -79,7 +93,7 @@ export function McpServersSection({ onError }: ConsoleSectionProps) {
   }
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <ConnectCard onError={onError} onConnected={listed} />
 
       {/* No data and no request in flight means the load failed: the error above says
@@ -132,7 +146,14 @@ export function McpServersSection({ onError }: ConsoleSectionProps) {
 
 // ─── connecting ──────────────────────────────────────────────────────────────────────
 
-/** The credential fields, shared by connecting a server and changing one. */
+/** Fields on a grid, two across where they fit. */
+const FORM_GRID =
+  "grid max-w-3xl grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-x-5 gap-y-4";
+
+/** The credential fields, shared by connecting a server and changing one.
+ *
+ * What is typed into the token and the value is never drawn: they are password fields that
+ * nothing is read back into, taken from the form when it is sent, and gone when it is reset. */
 function CredentialFields({
   kind,
   onKind,
@@ -143,59 +164,61 @@ function CredentialFields({
   /** Changing a server: the first choice keeps what it has. */
   keepOption?: boolean;
 }) {
+  const id = useId();
   return (
     <>
-      <label className="field">
-        <span className="field-label">Credential</span>
-        <select
-          className="input"
+      <Field>
+        <FieldLabel htmlFor={`${id}-kind`}>Credential</FieldLabel>
+        <NativeSelect
+          id={`${id}-kind`}
+          className="w-full"
           name="authKind"
           value={kind}
           onChange={(event) => onKind(event.target.value)}
         >
-          {keepOption && <option value="keep">Keep the current one</option>}
-          <option value="none">None</option>
-          <option value="bearer">A bearer token</option>
-          <option value="header">A header of its own</option>
-        </select>
-      </label>
+          {keepOption && <NativeSelectOption value="keep">Keep the current one</NativeSelectOption>}
+          <NativeSelectOption value="none">None</NativeSelectOption>
+          <NativeSelectOption value="bearer">A bearer token</NativeSelectOption>
+          <NativeSelectOption value="header">A header of its own</NativeSelectOption>
+        </NativeSelect>
+      </Field>
       {kind === "bearer" && (
-        <label className="field">
-          <span className="field-label">Token</span>
-          <input
-            className="input"
+        <Field>
+          <FieldLabel htmlFor={`${id}-token`}>Token</FieldLabel>
+          <Input
+            id={`${id}-token`}
             name="token"
             type="password"
             autoComplete="off"
             spellCheck={false}
             required
           />
-        </label>
+        </Field>
       )}
       {kind === "header" && (
         <>
-          <label className="field">
-            <span className="field-label">Header</span>
-            <input
-              className="input"
+          <Field>
+            <FieldLabel htmlFor={`${id}-header`}>Header</FieldLabel>
+            <Input
+              id={`${id}-header`}
               name="header"
               placeholder="X-Api-Key"
               autoComplete="off"
               spellCheck={false}
               required
             />
-          </label>
-          <label className="field">
-            <span className="field-label">Value</span>
-            <input
-              className="input"
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${id}-value`}>Value</FieldLabel>
+            <Input
+              id={`${id}-value`}
               name="headerValue"
               type="password"
               autoComplete="off"
               spellCheck={false}
               required
             />
-          </label>
+          </Field>
         </>
       )}
     </>
@@ -222,6 +245,7 @@ function ConnectCard({
 }) {
   const [kind, setKind] = useState("none");
   const [busy, setBusy] = useState(false);
+  const fields = useId();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -252,27 +276,27 @@ function ConnectCard({
       title="Connect a server"
       description="Its tools become ones you can let agents use. Blob asks it for them first, holds the credential, and makes every call itself."
     >
-      <form className="console-form-grid" onSubmit={(event) => void submit(event)}>
-        <label className="field">
-          <span className="field-label">Name</span>
-          <input className="input" name="name" placeholder="GitHub" maxLength={60} required />
-        </label>
-        <label className="field">
-          <span className="field-label">Address</span>
-          <input
-            className="input"
+      <form className={FORM_GRID} onSubmit={(event) => void submit(event)}>
+        <Field>
+          <FieldLabel htmlFor={`${fields}-name`}>Name</FieldLabel>
+          <Input id={`${fields}-name`} name="name" placeholder="GitHub" maxLength={60} required />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`${fields}-url`}>Address</FieldLabel>
+          <Input
+            id={`${fields}-url`}
             name="url"
             type="url"
             placeholder="https://example.com/mcp"
             spellCheck={false}
             required
           />
-        </label>
+        </Field>
         <CredentialFields kind={kind} onKind={setKind} />
-        <div className="console-form-actions">
-          <button className="btn btn-primary" type="submit" disabled={busy}>
+        <div className="col-span-full">
+          <Button type="submit" disabled={busy}>
             {busy ? "Connecting…" : "Connect"}
-          </button>
+          </Button>
         </div>
       </form>
     </Card>
@@ -286,6 +310,16 @@ function status(server: McpServer): string {
   const count = `${server.tools.length} ${server.tools.length === 1 ? "tool" : "tools"}`;
   const listedAt = server.checkedAt ? `, listed ${formatRelative(server.checkedAt)}` : "";
   return `${speaks} ${count}${listedAt}.`.trim();
+}
+
+/** A line a card says about its server that is not a row: what is true of it, in the page's
+ * small muted type. */
+function Said({ id, children }: { id?: string; children: ReactNode }) {
+  return (
+    <p id={id} className="m-0 text-sm text-muted-foreground wrap-anywhere">
+      {children}
+    </p>
+  );
 }
 
 function ServerCard({
@@ -306,6 +340,8 @@ function ServerCard({
   onRemove: () => void;
 }) {
   const [refreshing, setRefreshing] = useState(false);
+  const titleId = useId();
+  const agentsHint = useId();
 
   async function refresh() {
     onError(null);
@@ -321,145 +357,172 @@ function ServerCard({
 
   return (
     <Card
-      className="mcp-server"
+      // A server that is switched off greys its title. The attribute is the card's own
+      // statement, and the rule waits for it, so the title is dimmed without being told to.
+      className="data-[enabled=false]:**:data-[slot=card-title]:text-muted-foreground"
       data-enabled={server.enabled}
-      title={server.name}
+      title={<span id={titleId}>{server.name}</span>}
       description={
         <>
-          <span className="mcp-server-url">{server.url}</span> {status(server)}
+          <span className="block font-mono text-xs wrap-anywhere">{server.url}</span>{" "}
+          {status(server)}
         </>
       }
+      // Several servers share this page and every one has these three, so each says whose.
       actions={
         <>
-          <button className="btn" disabled={refreshing} onClick={() => void refresh()}>
+          <Button
+            variant="outline"
+            disabled={refreshing}
+            onClick={() => void refresh()}
+          >
+            {/* The server's name follows the words on the button, whichever they are, so the
+                name starts with what is read on it. */}
             {refreshing ? "Asking…" : "Refresh tools"}
-          </button>
-          <button
-            className="btn"
+            <span className="sr-only">
+              {refreshing ? ` ${server.name} for its tools` : ` of ${server.name}`}
+            </span>
+          </Button>
+          <Button
+            variant="outline"
+            aria-label={`${server.enabled ? "Switch off" : "Switch on"} ${server.name}`}
             onClick={() =>
               void act(() => api.admin.changeMcpServer(server.id, { enabled: !server.enabled }))
             }
           >
             {server.enabled ? "Switch off" : "Switch on"}
-          </button>
-          <button className="btn btn-ghost" onClick={onRemove}>
+          </Button>
+          <Button variant="ghost" aria-label={`Disconnect ${server.name}`} onClick={onRemove}>
             Disconnect
-          </button>
+          </Button>
         </>
       }
     >
       {!server.enabled && (
-        <CardNotice>Switched off: no agent is offered its tools until you switch it on.</CardNotice>
+        <Said>Switched off: no agent is offered its tools until you switch it on.</Said>
       )}
       {server.lastError && server.lastErrorAt && (
-        <p className="mcp-server-error" role="status">
-          Last failed {formatRelative(server.lastErrorAt)}: {server.lastError}
-        </p>
+        // Polite, not an alert: it is where the server stood when the page opened, and
+        // would otherwise be read out once for every server that has ever failed.
+        <Alert variant="destructive" role="status">
+          <AlertDescription className="wrap-anywhere">
+            Last failed {formatRelative(server.lastErrorAt)}: {server.lastError}
+          </AlertDescription>
+        </Alert>
       )}
-      {skipped.length > 0 && (
-        <p className="pref-hint">
-          Left out, because Blob could not use them: {skipped.join("; ")}.
-        </p>
-      )}
+      {skipped.length > 0 && <Said>Left out, because Blob could not use them: {skipped.join("; ")}.</Said>}
 
-      <section className="mcp-part">
+      <div className="flex flex-col gap-3">
         <CardHeading>Agents that may use it</CardHeading>
-        <p className="pref-hint">
+        <Said id={agentsHint}>
           An agent switched on here offers these tools to everyone who may ask it, and every
           call uses this server&apos;s credential.
-        </p>
+        </Said>
         {agents.length === 0 ? (
-          <p className="pref-hint">No agent here answers over AG-UI yet.</p>
+          <Said>No agent here answers over AG-UI yet.</Said>
         ) : (
-          agents.map((agent) => {
-            const on = server.agentIds.includes(agent.id);
-            return (
-              <div className="pref-row" key={agent.id}>
-                <div className="grow min-0">
-                  <div className="pref-label">{agent.name}</div>
-                </div>
-                <button
-                  className="toggle"
-                  aria-pressed={on}
-                  aria-label={`${agent.name} may use ${server.name}`}
-                  onClick={() =>
-                    void act(() =>
-                      on
-                        ? api.admin.revokeMcpServer(server.id, agent.id)
-                        : api.admin.grantMcpServer(server.id, agent.id),
-                    )
-                  }
-                >
-                  <span />
-                </button>
-              </div>
-            );
-          })
+          <CardRows
+            aria-label={`Agents that may use ${server.name}`}
+            aria-describedby={agentsHint}
+          >
+            {agents.map((agent) => {
+              const on = server.agentIds.includes(agent.id);
+              return (
+                <CardRow key={agent.id}>
+                  <ItemContent>
+                    <ItemTitle>{agent.name}</ItemTitle>
+                  </ItemContent>
+                  <ItemActions>
+                    {/* Named for the server as well: the agent's name is on every card. */}
+                    <Switch
+                      checked={on}
+                      aria-label={`${agent.name} may use ${server.name}`}
+                      onCheckedChange={() =>
+                        void act(() =>
+                          on
+                            ? api.admin.revokeMcpServer(server.id, agent.id)
+                            : api.admin.grantMcpServer(server.id, agent.id),
+                        )
+                      }
+                    />
+                  </ItemActions>
+                </CardRow>
+              );
+            })}
+          </CardRows>
         )}
-      </section>
+      </div>
 
-      <section className="mcp-part">
+      <div className="flex flex-col gap-3">
         <CardHeading>Tools</CardHeading>
         {server.tools.length === 0 ? (
-          <p className="pref-hint">It listed no tools Blob could use.</p>
+          <Said>It listed no tools Blob could use.</Said>
         ) : (
-          <ul className="mcp-tools">
+          <CardRows aria-label={`Tools of ${server.name}`}>
             {server.tools.map((tool) => (
-              <li className="mcp-tool" key={tool.name}>
-                <div className="grow min-0">
-                  <div className="mcp-tool-name">
+              <CardRow key={tool.name}>
+                <ItemContent>
+                  <ItemTitle>
                     {tool.title ?? tool.name}
-                    {tool.readOnly && (
-                      <span className="role-pill" data-muted="">
-                        reads only
-                      </span>
-                    )}
-                  </div>
-                  {tool.description && <p className="mcp-tool-desc">{tool.description}</p>}
-                </div>
-                <select
-                  className="input"
-                  aria-label={`When an agent uses ${tool.title ?? tool.name}`}
-                  value={tool.policy}
-                  onChange={(event) =>
-                    void act(() =>
-                      api.admin.setMcpToolPolicy(
-                        server.id,
-                        tool.name,
-                        event.target.value as McpToolPolicy,
-                      ),
-                    )
-                  }
-                >
-                  {POLICY_ORDER.map((policy) => (
-                    <option key={policy} value={policy}>
-                      {POLICY_LABELS[policy]}
-                    </option>
-                  ))}
-                </select>
-              </li>
+                    {tool.readOnly && <Badge variant="outline">reads only</Badge>}
+                  </ItemTitle>
+                  {/* Whole, and wrapped anywhere: a URL in it is one word, and the card
+                      clips what runs past it. */}
+                  {tool.description && (
+                    <ItemDescription className="wrap-anywhere">{tool.description}</ItemDescription>
+                  )}
+                </ItemContent>
+                {/* On a line of its own on a phone, where the choices are as long as the row. */}
+                <ItemActions className="max-sm:basis-full">
+                  <NativeSelect
+                    className="w-full sm:w-72"
+                    aria-label={`When an agent uses ${tool.title ?? tool.name}`}
+                    value={tool.policy}
+                    onChange={(event) =>
+                      void act(() =>
+                        api.admin.setMcpToolPolicy(
+                          server.id,
+                          tool.name,
+                          event.target.value as McpToolPolicy,
+                        ),
+                      )
+                    }
+                  >
+                    {POLICY_ORDER.map((policy) => (
+                      <NativeSelectOption key={policy} value={policy}>
+                        {POLICY_LABELS[policy]}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                </ItemActions>
+              </CardRow>
             ))}
-          </ul>
+          </CardRows>
         )}
-      </section>
+      </div>
 
-      <ChangeServer server={server} onError={onError} onListed={onListed} />
+      <ChangeServer server={server} subjectId={titleId} onError={onError} onListed={onListed} />
     </Card>
   );
 }
 
 function ChangeServer({
   server,
+  subjectId,
   onError,
   onListed,
 }: {
   server: McpServer;
+  /** The element that titles the server, so the button is named for it. */
+  subjectId: string;
   onError: (message: string | null) => void;
   onListed: (server: McpServer) => void;
 }) {
   const [kind, setKind] = useState("keep");
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  const disclosure = useDisclosure(subjectId);
+  const opener = useRef<HTMLButtonElement>(null);
+  const fields = useId();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -478,7 +541,10 @@ function ChangeServer({
         }),
       );
       setKind("keep");
-      setOpen(false);
+      // Saved: the form closes, and focus goes back to the button that opened it, since
+      // the one that was pressed is about to leave the page.
+      opener.current?.focus();
+      disclosure.setOpen(false);
     } catch (err) {
       onError(failure(err));
     } finally {
@@ -487,43 +553,49 @@ function ChangeServer({
   }
 
   return (
-    <details
-      className="mcp-change"
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary>Change its name, address or credential</summary>
-      {/* Keyed by what it shows, so a change saved here or anywhere else starts it afresh
-          rather than leaving the old values in the fields. */}
-      <form
-        key={`${server.name}\n${server.url}`}
-        className="console-form-grid"
-        onSubmit={(event) => void submit(event)}
-      >
-        <label className="field">
-          <span className="field-label">Name</span>
-          <input className="input" name="name" defaultValue={server.name} maxLength={60} />
-        </label>
-        <label className="field">
-          <span className="field-label">Address</span>
-          <input
-            className="input"
-            name="url"
-            type="url"
-            defaultValue={server.url}
-            spellCheck={false}
-          />
-        </label>
-        <CredentialFields kind={kind} onKind={setKind} keepOption />
-        <div className="console-form-actions">
-          <button className="btn" type="submit" disabled={busy}>
-            {busy ? "Asking the server…" : "Save"}
-          </button>
-          <span className="pref-hint">
-            A new address or credential is checked by listing its tools again.
-          </span>
-        </div>
-      </form>
-    </details>
+    <div className="flex flex-col items-start gap-3">
+      <Button ref={opener} variant="ghost" size="sm" {...disclosure.buttonProps}>
+        Change its name, address or credential
+      </Button>
+      {disclosure.open && (
+        // Keyed by what it shows, so a change saved here or anywhere else starts it afresh
+        // rather than leaving the old values in the fields.
+        <form
+          id={disclosure.panelId}
+          key={`${server.name}\n${server.url}`}
+          className={`${FORM_GRID} w-full`}
+          onSubmit={(event) => void submit(event)}
+        >
+          <Field>
+            <FieldLabel htmlFor={`${fields}-name`}>Name</FieldLabel>
+            <Input id={`${fields}-name`} name="name" defaultValue={server.name} maxLength={60} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${fields}-url`}>Address</FieldLabel>
+            <Input
+              id={`${fields}-url`}
+              name="url"
+              type="url"
+              defaultValue={server.url}
+              spellCheck={false}
+            />
+          </Field>
+          <CredentialFields kind={kind} onKind={setKind} keepOption />
+          <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Button
+              variant="outline"
+              type="submit"
+              disabled={busy}
+              aria-describedby={`${fields}-note`}
+            >
+              {busy ? "Asking the server…" : "Save"}
+            </Button>
+            <span id={`${fields}-note`} className="text-sm text-muted-foreground">
+              A new address or credential is checked by listing its tools again.
+            </span>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }

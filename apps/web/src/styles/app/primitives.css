@@ -44,33 +44,6 @@
   border-color: var(--blob-accent-hover);
 }
 
-/* For the confirm button of something destructive: the last word you read before a
-   channel is archived should not look like the word for "save". */
-.btn-danger {
-  border-color: var(--danger);
-  color: var(--danger);
-  font-weight: 600;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: var(--danger);
-  color: var(--blob-accent-contrast);
-}
-
-/* Forest on its own tint: the second action in a view, when the first is the primary.
-   One forest primary per view is the rule; this is what the rest wear. */
-.btn-tinted {
-  background: var(--blob-accent-wash);
-  border-color: var(--blob-accent-border-soft);
-  color: var(--blob-accent);
-  font-weight: 600;
-}
-
-.btn-tinted:hover:not(:disabled) {
-  background: var(--blob-accent-wash-rail);
-  border-color: var(--blob-accent-border);
-}
-
 /* A button that touches an agent run — Stop, show reasoning — is iris outlined and
    never iris filled: the colour marks whose work it is, it does not shout. */
 .btn-agent {
@@ -140,6 +113,23 @@
   border-color: var(--blob-accent);
 }
 
+/* A native select drawn as a field draws its own arrow, so every browser shows the same one
+   at the same inset. */
+select.input {
+  appearance: none;
+  padding-right: 26px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 55%,
+    calc(100% - 9px) 55%;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -189,7 +179,6 @@
 
 /* Where the rows beneath are inset, the label lines up with them. */
 .sidebar .section-label,
-.admin-nav .section-label,
 .pinned-panel .section-label,
 .shortcut-help .section-label {
   padding-left: 10px;

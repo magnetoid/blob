@@ -6,12 +6,14 @@
  * on its own (`lib/stepUp.ts`) — and the list watches itself while something is building.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, type ExportEntry } from '../../lib/api.ts';
 import { formatBytes } from '../../lib/format.ts';
 import { showError } from '../../lib/toasts.ts';
 import { useFetch } from '../../lib/useFetch.ts';
-import { Card } from './Card.tsx';
+import { Button, buttonVariants } from '../../components/ui/button.tsx';
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from '../../components/ui/item.tsx';
+import { Card, CardNotice, CardRow, CardRows } from './Card.tsx';
 
 const STATUS: Record<ExportEntry['status'], string> = {
   pending: 'Waiting to start',
@@ -51,6 +53,9 @@ export function ExportsCard({
   description: string;
 }) {
   const [busy, setBusy] = useState(false);
+  // One request per press: state is not read until the next render, and two presses can
+  // land before it.
+  const asking = useRef(false);
   const { data, reload } = useFetch(
     async () => (scope === 'workspace' ? api.admin.exports() : api.me.exports()),
     [scope],
@@ -67,6 +72,8 @@ export function ExportsCard({
   }, [building, data, reload]);
 
   async function start() {
+    if (asking.current) return;
+    asking.current = true;
     setBusy(true);
     try {
       await (scope === 'workspace' ? api.admin.startExport() : api.me.startExport());
@@ -74,6 +81,7 @@ export function ExportsCard({
     } catch (err) {
       showError(err);
     } finally {
+      asking.current = false;
       setBusy(false);
     }
   }
@@ -83,34 +91,40 @@ export function ExportsCard({
       title={title}
       description={description}
       footer={
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={busy || building}
-          onClick={() => void start()}
-        >
+        // Busy, not gone: a button disabled under the pointer would drop focus to the page
+        // while the export builds.
+        <Button disabled={busy || building} focusableWhenDisabled onClick={() => void start()}>
           {building ? 'Building…' : 'Export'}
-        </button>
+        </Button>
       }
     >
       {items.length === 0 ? (
-        <p className="muted m-0">Nothing exported yet. An export is kept for a week.</p>
+        <CardNotice>Nothing exported yet. An export is kept for a week.</CardNotice>
       ) : (
-        <ul className="export-list">
+        <CardRows aria-label="Exports">
           {items.map((item) => (
-            <li key={item.id} className="export-row">
-              <span className="grow">
-                <span className="pref-label">{when(item.createdAt)}</span>
-                <span className="pref-hint block">{describe(item, scope)}</span>
-              </span>
+            <CardRow key={item.id}>
+              <ItemContent>
+                <ItemTitle>{when(item.createdAt)}</ItemTitle>
+                {/* A failure's reason is data and may be one unbroken token. */}
+                <ItemDescription className="wrap-anywhere">{describe(item, scope)}</ItemDescription>
+              </ItemContent>
               {item.downloadUrl && (
-                <a className="btn" href={item.downloadUrl}>
-                  Download
-                </a>
+                <ItemActions>
+                  {/* A link that looks like the button beside it: it goes to a file, so it is
+                      one. Named by the export, as every ready row says "Download". */}
+                  <a
+                    className={buttonVariants({ variant: 'outline' })}
+                    href={item.downloadUrl}
+                    aria-label={`Download the export from ${when(item.createdAt)}`}
+                  >
+                    Download
+                  </a>
+                </ItemActions>
               )}
-            </li>
+            </CardRow>
           ))}
-        </ul>
+        </CardRows>
       )}
     </Card>
   );

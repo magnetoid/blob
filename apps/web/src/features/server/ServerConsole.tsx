@@ -10,7 +10,6 @@
  */
 
 import type { ComponentType } from 'react';
-import { MenuIcon } from '../../components/Icon.tsx';
 import { useStore } from '../../lib/store.ts';
 import type { ServerSection } from '../../lib/router.ts';
 import { Card } from '../console/Card.tsx';
@@ -28,11 +27,9 @@ const NAV_ID = 'server-console-nav';
 /** Accounts draws its list and leaves the card to whoever shows it, as on People. */
 function Accounts(props: ConsoleSectionProps) {
   return (
-    <div className="console-stack">
-      <Card>
-        <AccountsSection {...props} />
-      </Card>
-    </div>
+    <Card>
+      <AccountsSection {...props} />
+    </Card>
   );
 }
 
@@ -75,11 +72,6 @@ export function ServerConsole({
       viewer={viewer}
       title={entry.label}
       description={entry.description}
-      toggle={{
-        className: 'icon-btn admin-nav-toggle',
-        label: 'Console sections',
-        icon: <MenuIcon size="lg" />,
-      }}
       resetKey={`${section}/${detailId ?? ''}`}
       onFeedback={onFeedback}
     >

@@ -7,8 +7,20 @@ import { Avatar } from "../../../components/Avatar.tsx";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../../components/Dialog.tsx";
 import { SearchIcon } from "../../../components/Icon.tsx";
+import { Badge } from "../../../components/ui/badge.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "../../../components/ui/input-group.tsx";
+import {
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "../../../components/ui/item.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../components/ui/native-select.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
-import { CardNotice } from "../../console/Card.tsx";
+import { CardNotice, CardRow, CardRows } from "../../console/Card.tsx";
+import { CopyField } from "../../console/CopyField.tsx";
 import { useAdminAction } from '../../console/hooks.ts';
 
 /** "1 session", "2 sessions". */
@@ -62,17 +74,17 @@ export function PeopleSection({
   // are the card's own children and take its rhythm and its flush list.
   return (
     <>
-      <div className="console-toolbar">
-        <div className="console-filter">
+      <InputGroup className="max-w-xs">
+        <InputGroupAddon>
           <SearchIcon size="sm" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name or email"
-            aria-label="Search people"
-          />
-        </div>
-      </div>
+        </InputGroupAddon>
+        <InputGroupInput
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name or email"
+          aria-label="Search people"
+        />
+      </InputGroup>
 
       {loading && users.length === 0 ? (
         <CardNotice>Loading…</CardNotice>
@@ -81,64 +93,52 @@ export function PeopleSection({
       ) : (
         // A list, not a table: these rows have no cells to be a table's rows, and axe
         // reads `role="row"` without them as broken structure (critical, in CI's scan).
-        <div className="console-list" role="list">
+        <CardRows>
           {users.map((user) => (
-            <div
-              className="admin-row"
-              role="listitem"
-              key={user.id}
-              data-inactive={user.deactivatedAt !== null}
-            >
-              <Avatar
-                user={{ displayName: user.displayName, avatarUrl: null }}
-                size="lg"
-              />
-              <div className="grow min-0">
-                <div className="admin-row-title">
+            <CardRow key={user.id}>
+              {/* A person who is off goes grey and their badge says why, rather than the
+                  whole row being dimmed, which took its meta line below readable. */}
+              <ItemMedia className={user.deactivatedAt ? "opacity-60" : undefined}>
+                <Avatar
+                  user={{ displayName: user.displayName, avatarUrl: null }}
+                  size="lg"
+                />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle className={user.deactivatedAt ? "text-muted-foreground" : undefined}>
                   {user.displayName}
-                  {user.role !== "member" && (
-                    <span className="role-pill">{user.role}</span>
-                  )}
+                  {user.role !== "member" && <Badge variant="outline">{user.role}</Badge>}
                   {user.placeholder ? (
                     // Brought over by an import (ADR 0042): somebody who can still be
                     // invited has not joined yet; an app, or somebody Slack gave no
                     // address, is a name on old messages and nothing more.
-                    <span className="role-pill" data-muted>
+                    <Badge variant="secondary">
                       {user.invitable ? 'not joined yet' : 'from Slack'}
-                    </span>
+                    </Badge>
                   ) : (
-                    user.deactivatedAt && (
-                      <span className="role-pill" data-muted>
-                        deactivated
-                      </span>
-                    )
+                    user.deactivatedAt && <Badge variant="secondary">deactivated</Badge>
                   )}
                   {user.twoStep && !user.deactivatedAt && (
-                    <span
-                      className="role-pill"
-                      data-muted
-                      title="Signs in with a password and a passkey"
-                    >
+                    <Badge variant="secondary" title="Signs in with a password and a passkey">
                       two-step
-                    </span>
+                    </Badge>
                   )}
-                </div>
-                <div className="admin-row-meta">
+                </ItemTitle>
+                <ItemDescription>
                   {user.placeholder && !user.invitable ? "no address" : user.email} ·{" "}
-                  {user.messageCount} messages ·{" "}
-                  {user.channelCount} channels
+                  {user.messageCount} messages · {user.channelCount} channels
                   {user.lastSeenAt
                     ? ` · seen ${formatRelative(user.lastSeenAt)}`
                     : " · never seen"}
-                </div>
-              </div>
+                </ItemDescription>
+              </ItemContent>
 
-              <div className="admin-row-actions">
+              <ItemActions>
                 {isOwner &&
                   user.id !== currentUser?.id &&
                   !user.deactivatedAt && (
-                    <select
-                      className="chip"
+                    <NativeSelect
+                      size="sm"
                       value={user.role}
                       aria-label={`Role for ${user.displayName}`}
                       onChange={(e) =>
@@ -150,15 +150,15 @@ export function PeopleSection({
                         )
                       }
                     >
-                      <option value="guest">guest</option>
-                      <option value="member">member</option>
-                      <option value="admin">admin</option>
-                      <option value="owner">owner</option>
-                    </select>
+                      <NativeSelectOption value="guest">guest</NativeSelectOption>
+                      <NativeSelectOption value="member">member</NativeSelectOption>
+                      <NativeSelectOption value="admin">admin</NativeSelectOption>
+                      <NativeSelectOption value="owner">owner</NativeSelectOption>
+                    </NativeSelect>
                   )}
                 {!user.deactivatedAt && mayActOn(user) && (
-                  <button
-                    className="btn btn-ghost"
+                  <Button
+                    variant="ghost"
                     aria-label={`Make a password reset link for ${user.displayName}`}
                     title="For when this server cannot send email"
                     onClick={() =>
@@ -169,26 +169,26 @@ export function PeopleSection({
                     }
                   >
                     Reset link
-                  </button>
+                  </Button>
                 )}
                 {!user.deactivatedAt &&
                   user.twoStep &&
                   user.id !== currentUser?.id &&
                   mayActOn(user) && (
-                    <button
-                      className="btn btn-ghost"
+                    <Button
+                      variant="ghost"
                       aria-label={`End two-step for ${user.displayName}: stop asking for a passkey`}
                       title="For someone who lost the devices their passkeys were on"
                       onClick={() => setEndingTwoStep(user)}
                     >
                       End two-step
-                    </button>
+                    </Button>
                   )}
                 {!user.deactivatedAt &&
                   user.sessionCount > 0 &&
                   (user.id === currentUser?.id || mayActOn(user)) && (
-                  <button
-                    className="btn btn-ghost"
+                  <Button
+                    variant="ghost"
                     onClick={() =>
                       void act(() => api.admin.revokeSessions(user.id))
                     }
@@ -198,62 +198,60 @@ export function PeopleSection({
                     title={`Sign out of ${sessions(user.sessionCount)}`}
                   >
                     Sign out
-                  </button>
+                  </Button>
                 )}
                 {user.placeholder ? (
                   user.invitable && (
-                    <button
-                      className="btn"
+                    <Button
+                      variant="outline"
                       aria-label={`Invite ${user.displayName}`}
                       onClick={() =>
                         void act(() => api.auth.createInvite({ email: user.email }))
                       }
                     >
                       Invite
-                    </button>
+                    </Button>
                   )
                 ) : user.deactivatedAt ? (
-                  <button
-                    className="btn"
+                  <Button
+                    variant="outline"
                     aria-label={`Reactivate ${user.displayName}`}
                     onClick={() =>
                       void act(() => api.admin.reactivate(user.id))
                     }
                   >
                     Reactivate
-                  </button>
+                  </Button>
                 ) : (
                   user.role !== "owner" &&
                   user.id !== currentUser?.id && (
-                    <button
-                      className="btn"
+                    <Button
+                      variant="outline"
                       aria-label={`Deactivate ${user.displayName}`}
                       onClick={() => setDeactivating(user)}
                     >
                       Deactivate
-                    </button>
+                    </Button>
                   )
                 )}
-              </div>
-            </div>
+              </ItemActions>
+            </CardRow>
           ))}
-        </div>
+        </CardRows>
       )}
 
       {resetLink && (
-        <div className="draft-chip console-copy">
-          <span className="grow ellipsis">
-            For {resetLink.name}, good for an hour: {resetLink.url}
-          </span>
-          <button
-            className="btn btn-ghost"
-            onClick={() => void navigator.clipboard.writeText(resetLink.url)}
-          >
-            Copy
-          </button>
-          <button className="btn btn-ghost" onClick={() => setResetLink(null)}>
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-muted-foreground">
+            For {resetLink.name}, good for an hour.
+          </p>
+          <CopyField
+            label={`Password reset link for ${resetLink.name}`}
+            value={resetLink.url}
+          />
+          <Button variant="ghost" className="self-start" onClick={() => setResetLink(null)}>
             Done
-          </button>
+          </Button>
         </div>
       )}
 

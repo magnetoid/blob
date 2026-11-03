@@ -7,6 +7,9 @@
  */
 
 import { api, type AppChannel } from "../../../../lib/api.ts";
+import { Button } from "../../../../components/ui/button.tsx";
+import { ItemActions, ItemContent, ItemTitle } from "../../../../components/ui/item.tsx";
+import { CardNotice, CardRow, CardRows } from "../../../console/Card.tsx";
 
 export function AppChannelList({
   pluginId,
@@ -25,35 +28,44 @@ export function AppChannelList({
   // rows rather than a column of their own.
   return (
     <>
-      <div className="pref-hint">
+      <p className="m-0 max-w-[68ch] text-sm text-pretty text-muted-foreground">
         {joined.length === 0
           ? `${subject} is not in any channel yet, so nobody can reach it. Add it to one.`
           : `Mentioning it in ${
               joined.length === 1 ? "this channel" : "these channels"
             } will reach it.`}
-      </div>
-      {channels.length === 0 && (
-        <div className="pref-hint">There are no public channels to add it to.</div>
+      </p>
+      {channels.length === 0 ? (
+        <CardNotice>There are no public channels to add it to.</CardNotice>
+      ) : (
+        <CardRows aria-label="Channels">
+          {channels.map((channel) => {
+            const where = `#${channel.name ?? channel.id}`;
+            return (
+              <CardRow key={channel.id}>
+                <ItemContent>
+                  <ItemTitle>{where}</ItemTitle>
+                </ItemContent>
+                <ItemActions>
+                  <Button
+                    variant={channel.joined ? "ghost" : "outline"}
+                    aria-label={`${channel.joined ? "Remove" : "Add"} ${where}`}
+                    onClick={() =>
+                      void act(() =>
+                        channel.joined
+                          ? api.admin.appLeaveChannel(pluginId, channel.id)
+                          : api.admin.appJoinChannel(pluginId, channel.id),
+                      )
+                    }
+                  >
+                    {channel.joined ? "Remove" : "Add"}
+                  </Button>
+                </ItemActions>
+              </CardRow>
+            );
+          })}
+        </CardRows>
       )}
-      {channels.map((channel) => (
-        <div className="pref-row" key={channel.id}>
-          <div className="grow min-0">
-            <div className="pref-label">#{channel.name ?? channel.id}</div>
-          </div>
-          <button
-            className={channel.joined ? "btn btn-ghost" : "btn"}
-            onClick={() =>
-              void act(() =>
-                channel.joined
-                  ? api.admin.appLeaveChannel(pluginId, channel.id)
-                  : api.admin.appJoinChannel(pluginId, channel.id),
-              )
-            }
-          >
-            {channel.joined ? "Remove" : "Add"}
-          </button>
-        </div>
-      ))}
     </>
   );
 }

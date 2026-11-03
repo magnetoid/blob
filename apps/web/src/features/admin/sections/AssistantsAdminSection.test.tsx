@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 /** Every assistant connected to the workspace, for its admins: whose, and revoking one. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { api } from '../../../lib/api.ts';
 import { AssistantsAdminSection } from './AssistantsAdminSection.tsx';
 
@@ -30,13 +30,62 @@ describe('connected assistants', () => {
     const revoke = vi.spyOn(api.admin, 'revokeAssistantToken').mockResolvedValue({ ok: true });
     render(<AssistantsAdminSection onError={vi.fn()} isOwner={false} />);
 
-    expect(await screen.findByText(/Bo · Claude Code/)).toBeTruthy();
-    expect(screen.getByText('reads and posts')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
+    // A row of the Tokens list: whose it is, what it may do, when it was last used and ends.
+    const list = await screen.findByRole('list', { name: 'Tokens' });
+    const row = within(list).getByRole('listitem');
+    expect(within(row).getByText(/Bo · Claude Code/)).toBeTruthy();
+    expect(within(row).getByText('reads and posts')).toBeTruthy();
+    expect(within(row).getByText(/^Never used · /)).toBeTruthy();
+
+    // Named for its row, since every row has one; the confirm names whose it is.
+    fireEvent.click(within(row).getByRole('button', { name: 'Revoke Claude Code (Bo)' }));
     expect(revoke).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /Revoke Bo.s Claude Code/ }));
+    fireEvent.click(within(row).getByRole('button', { name: /^Revoke Bo.s Claude Code$/ }));
     await waitFor(() => expect(revoke).toHaveBeenCalledWith('t1'));
     expect(await screen.findByText(/Nobody has made a token/)).toBeTruthy();
+  });
+
+  it('lets an admin think better of it: Keep puts the Revoke back, and revokes nothing', async () => {
+    vi.spyOn(api.admin, 'oauthGrants').mockResolvedValue({ grants: [] });
+    vi.spyOn(api.admin, 'assistantTokens').mockResolvedValue({
+      tokens: [{ ...TOKEN, scopes: ['read'] }],
+    });
+    const revoke = vi.spyOn(api.admin, 'revokeAssistantToken').mockResolvedValue({ ok: true });
+    render(<AssistantsAdminSection onError={vi.fn()} isOwner={false} />);
+
+    expect(await screen.findByText('reads only')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke Claude Code (Bo)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(screen.getByRole('button', { name: 'Revoke Claude Code (Bo)' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Revoke Bo/ })).toBeNull();
+    expect(revoke).not.toHaveBeenCalled();
+  });
+
+  it('keeps focus with the person: into the confirm when it opens, and back when they keep it', async () => {
+    // The button they pressed is replaced by the pair, so focus would otherwise drop to the
+    // page and a keyboard user would start again from the top.
+    vi.spyOn(api.admin, 'oauthGrants').mockResolvedValue({ grants: [] });
+    vi.spyOn(api.admin, 'assistantTokens').mockResolvedValue({ tokens: [TOKEN] });
+    render(<AssistantsAdminSection onError={vi.fn()} isOwner={false} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke Claude Code (Bo)' }));
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: /^Revoke Bo.s Claude Code$/ }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Revoke Claude Code (Bo)' }),
+    );
+  });
+
+  it('says it is loading, and then that nobody has made a token', async () => {
+    vi.spyOn(api.admin, 'oauthGrants').mockResolvedValue({ grants: [] });
+    vi.spyOn(api.admin, 'assistantTokens').mockResolvedValue({ tokens: [] });
+    render(<AssistantsAdminSection onError={vi.fn()} isOwner={false} />);
+    expect(screen.getAllByText('Loading…').length).toBeGreaterThan(0);
+    expect(await screen.findByText(/Nobody has made a token/)).toBeTruthy();
+    expect(screen.queryByRole('list', { name: 'Tokens' })).toBeNull();
   });
 });
 

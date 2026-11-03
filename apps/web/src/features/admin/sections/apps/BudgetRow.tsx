@@ -12,9 +12,12 @@
  * routes, and a second copy of the minutes/seconds conversion is the copy that drifts.
  */
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { api, type AdminPlugin } from "../../../../lib/api.ts";
 import { formatTokens } from "../../../../lib/format.ts";
+import { Button } from "../../../../components/ui/button.tsx";
+import { FieldDescription, FieldLabel } from "../../../../components/ui/field.tsx";
+import { Input } from "../../../../components/ui/input.tsx";
 
 export function BudgetRow({
   plugin,
@@ -35,6 +38,7 @@ export function BudgetRow({
   const [tokens, setTokens] = useState(
     plugin.budgetTokensPerDay !== null ? String(plugin.budgetTokensPerDay) : "",
   );
+  const fields = useId();
 
   const usedMinutes = Math.round(plugin.secondsLastDay / 60);
   const capped =
@@ -53,6 +57,13 @@ export function BudgetRow({
       : plugin.tokensLastDay > 0
         ? ` · ${formatTokens(plugin.tokensLastDay)}`
         : "");
+  const over =
+    (plugin.budgetRunsPerDay !== null &&
+      plugin.runsLastDay >= plugin.budgetRunsPerDay) ||
+    (plugin.budgetSecondsPerDay !== null &&
+      plugin.secondsLastDay >= plugin.budgetSecondsPerDay) ||
+    (plugin.budgetTokensPerDay !== null &&
+      plugin.tokensLastDay >= plugin.budgetTokensPerDay);
 
   const save = () => {
     const runsNum = runs.trim() === "" ? null : Number(runs);
@@ -71,77 +82,73 @@ export function BudgetRow({
     ).then(() => setEditing(false));
   };
 
-  return (
-    <div className="admin-budget">
-      {editing ? (
-        <>
-          <label className="admin-budget-field">
-            Runs / day
-            <input
-              className="input admin-budget-input"
-              type="number"
-              min={1}
-              placeholder="∞"
-              value={runs}
-              onChange={(e) => setRuns(e.target.value)}
-            />
-          </label>
-          <label className="admin-budget-field">
-            Minutes / day
-            <input
-              className="input admin-budget-input"
-              type="number"
-              min={1}
-              placeholder="∞"
-              value={minutes}
-              onChange={(e) => setMinutes(e.target.value)}
-            />
-          </label>
-          <label
-            className="admin-budget-field"
-            title="Counts the tokens the agent reports. One that reports none is not limited by this."
-          >
-            Tokens / day
-            <input
-              className="input admin-budget-input admin-budget-input-wide"
-              type="number"
-              min={1}
-              placeholder="∞"
-              value={tokens}
-              onChange={(e) => setTokens(e.target.value)}
-            />
-          </label>
-          <button className="btn btn-primary" onClick={save}>
-            Save
-          </button>
-          <button className="btn btn-ghost" onClick={() => setEditing(false)}>
+  if (editing) {
+    return (
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel htmlFor={`${fields}-runs`}>Runs / day</FieldLabel>
+          <Input
+            id={`${fields}-runs`}
+            className="w-24"
+            type="number"
+            min={1}
+            placeholder="∞"
+            value={runs}
+            onChange={(e) => setRuns(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel htmlFor={`${fields}-minutes`}>Minutes / day</FieldLabel>
+          <Input
+            id={`${fields}-minutes`}
+            className="w-24"
+            type="number"
+            min={1}
+            placeholder="∞"
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+          />
+        </div>
+        <div className="flex max-w-56 flex-col gap-1.5">
+          <FieldLabel htmlFor={`${fields}-tokens`}>Tokens / day</FieldLabel>
+          <Input
+            id={`${fields}-tokens`}
+            className="w-32"
+            type="number"
+            min={1}
+            placeholder="∞"
+            aria-describedby={`${fields}-tokens-hint`}
+            value={tokens}
+            onChange={(e) => setTokens(e.target.value)}
+          />
+          <FieldDescription id={`${fields}-tokens-hint`} className="text-xs">
+            Counts the tokens the agent reports. One that reports none is not limited by this.
+          </FieldDescription>
+        </div>
+        <div className="flex gap-2 self-end">
+          <Button onClick={save}>Save</Button>
+          <Button variant="ghost" onClick={() => setEditing(false)}>
             Cancel
-          </button>
-        </>
-      ) : (
-        <>
-          <span className="admin-budget-label">
-            {capped ? "Budget" : "Budget: unlimited"}
-          </span>
-          <span className="admin-budget-usage" data-over={
-            (plugin.budgetRunsPerDay !== null &&
-              plugin.runsLastDay >= plugin.budgetRunsPerDay) ||
-            (plugin.budgetSecondsPerDay !== null &&
-              plugin.secondsLastDay >= plugin.budgetSecondsPerDay) ||
-            (plugin.budgetTokensPerDay !== null &&
-              plugin.tokensLastDay >= plugin.budgetTokensPerDay) ||
-            undefined
-          }>
-            {used} in the last 24h
-          </span>
-          <button
-            className="btn btn-ghost admin-budget-edit"
-            onClick={() => setEditing(true)}
-          >
-            {capped ? "Edit" : "Set a budget"}
-          </button>
-        </>
-      )}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+      <span className="font-semibold">{capped ? "Budget" : "Budget: unlimited"}</span>
+      <span
+        className="text-muted-foreground data-over:font-semibold data-over:text-destructive"
+        data-over={over || undefined}
+      >
+        {used} in the last 24h
+        {/* The colour is not the only thing that says a cap is reached. */}
+        {over && <span className="sr-only"> — limit reached</span>}
+      </span>
+      <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+        {capped ? "Edit" : "Set a budget"}
+      </Button>
     </div>
   );
 }

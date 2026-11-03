@@ -5,13 +5,38 @@
  * the title says what it holds, the rows inside are ruled from each other, and a Save
  * sits in the card it saves.
  *
- * The layout lives in app.css under `.console-card`; this is only the markup that has to
- * agree with it. Cards are sections with no accessible name on purpose: a named section
- * is a landmark, and a settings page of eight landmarks is a list nobody can use. The
- * title is a heading, which is how a screen reader already moves through a page.
+ * shadcn's Card, in its parts: a header holding the title, the line under it and any
+ * card-wide controls; the content; a footer strip. The card is not a landmark on
+ * purpose: a named section is one, and a settings page of eight landmarks is a list
+ * nobody can use. The title is a heading, which is how a screen reader already moves
+ * through a page.
+ *
+ * What a card holds is stacked with the card's own gap, not with margins. A list or a
+ * table that runs to the card's edges takes `-mx-(--card-spacing)`, the padding it is
+ * cancelling; a lone control in the stack takes `self-start`, or it is as wide as the card.
  */
 
-import { createContext, useContext, type HTMLAttributes, type ReactNode } from 'react';
+import {
+  Children,
+  createContext,
+  useContext,
+  type ComponentProps,
+  type HTMLAttributes,
+  type ReactNode,
+} from 'react';
+import { cn } from 'cn';
+import {
+  Card as CardRoot,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '../../components/ui/card.tsx';
+import { FieldGroup } from '../../components/ui/field.tsx';
+import { Item, ItemGroup } from '../../components/ui/item.tsx';
+import { Table, TableCaption } from '../../components/ui/table.tsx';
 
 /** Whether the card something is drawn in has a title — see `CardHeading`. */
 const InTitledCard = createContext(false);
@@ -37,28 +62,55 @@ export function Card({
   /** For a control that the description describes. */
   descriptionId?: string;
   children?: ReactNode;
-} & Omit<HTMLAttributes<HTMLElement>, 'title'>) {
-  const heading = title !== undefined || description !== undefined;
+} & Omit<HTMLAttributes<HTMLDivElement>, 'title'>) {
   return (
-    <section className={className ? `console-card ${className}` : 'console-card'} {...rest}>
-      {(heading || actions !== undefined) && (
-        <header className="console-card-header">
-          {heading && (
-            <div className="console-card-heading">
-              {title !== undefined && <h2 className="console-card-title">{title}</h2>}
-              {description !== undefined && (
-                <p id={descriptionId} className="console-card-desc">
-                  {description}
-                </p>
-              )}
-            </div>
+    // `overflow-clip` in place of the generated `overflow-hidden`: both keep a flush list's
+    // hover inside the rounded corners, but `hidden` makes the card a scroll container,
+    // which focusing a control near its edge can scroll sideways.
+    <CardRoot className={className ? `overflow-clip ${className}` : 'overflow-clip'} {...rest}>
+      {(title !== undefined || description !== undefined || actions !== undefined) && (
+        <CardHeader>
+          {title !== undefined && (
+            // The title is the heading's content; `render` only names the element. A title
+            // may be data — `@some-long-handle` — so one unbroken word wraps (`min-w-0`,
+            // `wrap-anywhere`) rather than widening the header's column past the card.
+            // eslint-disable-next-line jsx-a11y/heading-has-content
+            <CardTitle render={<h2 />} className="flex min-w-0 flex-wrap items-center gap-2 wrap-anywhere">
+              {title}
+            </CardTitle>
           )}
-          {actions !== undefined && <div className="console-card-actions">{actions}</div>}
-        </header>
+          {description !== undefined && (
+            <CardDescription
+              id={descriptionId}
+              className="max-w-[68ch] min-w-0 text-pretty wrap-break-word"
+            >
+              {description}
+            </CardDescription>
+          )}
+          {/* Beside the title while both fit; under it in a narrow card, where a row of
+              buttons squeezed into the title's column would leave the words a word wide. */}
+          {actions !== undefined && (
+            <CardAction className="flex flex-wrap items-center gap-2 @max-sm/card-header:col-start-1 @max-sm/card-header:row-span-1 @max-sm/card-header:row-start-auto @max-sm/card-header:mt-2 @max-sm/card-header:justify-self-start">
+              {actions}
+            </CardAction>
+          )}
+        </CardHeader>
       )}
-      <InTitledCard.Provider value={title !== undefined}>{children}</InTitledCard.Provider>
-      {footer !== undefined && <footer className="console-card-footer">{footer}</footer>}
-    </section>
+      {/* Only when there is something to hold: an empty part would still take the card's
+          gap, and a card that is only its title would end in a blank strip. */}
+      {Children.toArray(children).length > 0 && (
+        <CardContent className="flex flex-col gap-4">
+          <InTitledCard.Provider value={title !== undefined}>{children}</InTitledCard.Provider>
+        </CardContent>
+      )}
+      {/* A strip of its own, so the action is found in the same place on every card; a note
+          in it reads first and pushes the actions to the end. */}
+      {footer !== undefined && (
+        <CardFooter className="flex-wrap justify-end gap-x-3 gap-y-2 [&>:is(p,span):first-child]:mr-auto">
+          {footer}
+        </CardFooter>
+      )}
+    </CardRoot>
   );
 }
 
@@ -67,9 +119,11 @@ export function Card({
  * card's title, or, in a card with none, a level under the page's own. A part can be
  * drawn in either: Groups is a titled card on the People page and an untitled one at its
  * old URL, and a fixed h3 made that page go from its h1 straight to an h3.
+ *
+ * A caller's `className` replaces the heading's own type rather than adding to it.
  */
 export function CardHeading({
-  className = 'section-label',
+  className = 'font-heading text-sm font-semibold',
   children,
 }: {
   className?: string;
@@ -81,8 +135,122 @@ export function CardHeading({
 
 /**
  * The line a card shows where its rows would be: nothing yet, nothing matched, or still
- * loading. One element for all three, so every page says it in the same place and type.
+ * loading. One element for all three, so every page says it in the same place and type. It
+ * takes a paragraph's props, so a page can make it the place focus goes (`tabIndex={-1}`
+ * and a ref) when what it replaced held the focus.
  */
-export function CardNotice({ children }: { children: ReactNode }) {
-  return <p className="console-notice">{children}</p>;
+export function CardNotice({ className, children, ...rest }: ComponentProps<'p'>) {
+  return (
+    <p
+      className={cn('px-4 py-6 text-center text-sm text-pretty text-muted-foreground', className)}
+      {...rest}
+    >
+      {children}
+    </p>
+  );
+}
+
+/**
+ * A list of things a card holds — passkeys, tokens, agents — one `CardRow` each.
+ *
+ * It runs from one edge of the card to the other and the rows are ruled from each other,
+ * which is how these lists have always read; the card's own padding comes back inside each
+ * row, so a row's words line up with the title above it. What a row says is data — a name,
+ * an address — so it is read whole rather than cut to a line with an ellipsis, and a row
+ * whose buttons do not fit beside its words lets them drop to a line of their own, at the
+ * end of it.
+ */
+export function CardRows({ className, ...rest }: ComponentProps<typeof ItemGroup>) {
+  return (
+    <ItemGroup
+      className={cn(
+        '-mx-(--card-spacing) gap-0',
+        // Item clamps a title and a description to a line or two. The clamp only works on a
+        // `-webkit-box`, so the description is made a block; the title is a flex row (its
+        // badges sit in it) and only has to stop clipping. `line-clamp-none` would do both
+        // by making the title a block too.
+        '**:data-[slot=item-title]:flex-wrap **:data-[slot=item-title]:overflow-visible **:data-[slot=item-description]:block **:data-[slot=item-description]:overflow-visible',
+        '**:data-[slot=item-content]:min-w-40 **:data-[slot=item-actions]:ml-auto **:data-[slot=item-actions]:flex-wrap',
+        className,
+      )}
+      {...rest}
+    />
+  );
+}
+
+/** One row of `CardRows`: an `Item` with the rule under it and the card's padding on it.
+ * It is a `listitem`, so it must sit inside `CardRows` (the list that has the role). */
+export function CardRow({ className, ...rest }: ComponentProps<typeof Item>) {
+  return (
+    <Item
+      // shadcn's list has the role and its item has none, which leaves a list with no list
+      // items in it for a screen reader.
+      role="listitem"
+      className={cn(
+        'rounded-none border-0 border-b border-border px-(--card-spacing) last:border-b-0',
+        className,
+      )}
+      {...rest}
+    />
+  );
+}
+
+/**
+ * A table of records a card holds — groups, emoji — for the lists whose rows are cells
+ * under column headings rather than a title and a line, which `CardRows` is for.
+ *
+ * It runs from one edge of the card to the other, like the list does, and the card's own
+ * padding comes back on the first and last cell of every row, so the words line up with the
+ * title above. It scrolls sideways inside its own box rather than widening the card. A
+ * table is named: `label` is its caption, there for a screen reader and not drawn, since the
+ * card's title says it to everyone else.
+ */
+export function CardTable({
+  label,
+  className,
+  children,
+  ...rest
+}: { label: string } & ComponentProps<typeof Table>) {
+  return (
+    <div className="-mx-(--card-spacing)">
+      <Table
+        className={cn(
+          '[&_tr>:first-child]:pl-(--card-spacing) [&_tr>:last-child]:pr-(--card-spacing)',
+          className,
+        )}
+        {...rest}
+      >
+        <TableCaption className="sr-only">{label}</TableCaption>
+        {children}
+      </Table>
+    </div>
+  );
+}
+
+/**
+ * Rows a card holds that are still drawn by the legacy stylesheet — what an agent remembers
+ * (`features/agentic/MemoryList`, `NoteList`) — as an island, run to the card's edges as
+ * the rows of `CardRows` are, with the padding those rows read from the card they used to
+ * sit in. Replace it with `CardRows` when the rows are converted.
+ */
+export function LegacyRows({ children }: { children: ReactNode }) {
+  return (
+    <div data-legacy className="-mx-(--card-spacing) [--card-pad-x:var(--card-spacing)]">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The settings a card holds: a label and what it means on the left, its control on the
+ * right — a `Field` each — ruled from one another. Inside the card's padding, where a
+ * list runs to its edges.
+ */
+export function CardFields({ className, ...rest }: ComponentProps<typeof FieldGroup>) {
+  return (
+    <FieldGroup
+      className={cn('gap-0 divide-y divide-border *:py-4 *:first:pt-0 *:last:pb-0', className)}
+      {...rest}
+    />
+  );
 }

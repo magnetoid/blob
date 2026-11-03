@@ -441,32 +441,46 @@ before that.
 **The three consoles.** `/settings` is you, `/admin` is this workspace and `/server` is
 the machine, and they are the same page with different catalogues: `features/console/`
 holds what they share — the shell, the nav, `registry.ts` (which is the nav *as data*, so
-a new section is a row plus a component rather than four files that have to agree) and
-the data/action hooks every section uses. `features/settings/`, `features/admin/` and
-`features/server/` are then only their own section lists (the server console reuses the
-admin section components; it is a catalogue, not a copy). Three things the registry
-decides that are easy to undo by accident. The admin menu is three groups — Workspace,
-Apps & agents, Data & security — of real pages, no "Soon" placeholders, grouped by what a
-page is about and never by who may open it: the machine's pages (Health, Storage, Accounts, Single
-sign-on, App policy, Errors and logs) used to sit in that list behind a "Server" badge,
-which made one list of twenty-four rows out of two jobs, and since 2026-10-28 they are
-`/server`, offered in the account menu to the instance admin alone. Every row carries an
-`access` level — `admin`, `owner` or `instance` — that has to match the server's gate for
-that page (`require_admin`, `require_owner`, `require_instance_admin`); the client knows
-the last from `isInstanceAdmin` on the current user, and the nav badges a row only when
-its level is above the console's own (`baseAccess`), so the server console badges nothing.
-A page that mixes gates sits at the lower level and degrades: Health is any admin's and
-asks for the server's log only when the viewer is the server's administrator. Old URLs
-survive: `/admin/health` and the rest resolve to `/server/…`, and `/admin/huddles` and
+a new section is a row plus a component rather than four files that have to agree), the
+data/action hooks every section uses and the kit every section is drawn with — shadcn's,
+since phase 3 of ADR 0043. The shell is shadcn's Sidebar (`components/ui/sidebar.tsx`,
+with the generated component's `sidebar_state` cookie and ⌘B stripped): the nav is a
+column on the ground from 768px — Tailwind's `md`, one pixel from where the chat's frame
+begins — and below that a Sheet that traps focus, closes on Escape and hands focus back,
+and the page is `SidebarInset`. A page is cards from `features/console/Card.tsx`, whose
+`CardRows`, `CardFields` and `CardTable` are the list, the settings and the table a card
+holds, and a hint is tied to its control by `aria-describedby`. The page body is
+converted markup (`data-slot="console-body"`). What is left in `data-legacy` islands is
+other features' markup: what an agent remembers, its notes and its terminal
+(`features/agentic/`) and the chat's own run card (`features/messages/AgentRunCard.tsx`)
+inside the cards, and the setup panels — Janus's, the bridge's — between them.
+`features/settings/`, `features/admin/` and `features/server/` are then only their own
+section lists (the server console reuses the admin section components; it is a catalogue,
+not a copy). Three things the registry decides that are easy to undo by accident. The
+admin menu is three groups — Workspace, Apps & agents, Data & security — of real pages,
+no "Soon" placeholders, grouped by what a page is about and never by who may open it: the
+machine's pages (Health, Storage, Accounts, Single sign-on, App policy, Errors and logs)
+used to sit in that list behind a "Server" badge, which made one list of twenty-four rows
+out of two jobs, and since 2026-10-28 they are `/server`, offered in the account menu to
+the instance admin alone. Every row carries an `access` level — `admin`, `owner` or
+`instance` — that has to match the server's gate for that page (`require_admin`,
+`require_owner`, `require_instance_admin`); the client knows the last from
+`isInstanceAdmin` on the current user, and the nav badges a row only when its level is
+above the console's own (`baseAccess`), so the server console badges nothing. A page that
+mixes gates sits at the lower level and degrades: Health is any admin's and asks for the
+server's log only when the viewer is the server's administrator. Old URLs survive:
+`/admin/health` and the rest resolve to `/server/…`, and `/admin/huddles` and
 `/admin/meetups` are the two tabs of `/admin/calls`.
 
 **The design layer.** The client wears shadcn's preset b0 — Base UI, Lucide, Inter, radius
 `0.625rem`, neutral — and is mid-move: ADR 0043 and
 `docs/superpowers/specs/2026-10-29-shadcn-whole-app-design.md` carry the seven phases,
-of which the first two are built: phase 1 changed how every screen looks and no component;
-phase 2 rebuilt the shared primitives in `components/` — dialogs, menus, popovers, toasts,
-notes, avatars, empty states, skeletons, icons — on shadcn, Base UI and Lucide behind the
-same names and props, and moved the overlays off the first load (ADR 0043's addendum).
+of which the first three are built: phase 1 changed how every screen looks and no
+component; phase 2 rebuilt the shared primitives in `components/` — dialogs, menus,
+popovers, toasts, notes, avatars, empty states, skeletons, icons — on shadcn, Base UI and
+Lucide behind the same names and props, and moved the overlays off the first load (ADR
+0043's addendum); phase 3 drew the three consoles with shadcn's Sidebar and a kit of its
+parts (above).
 `styles/index.css` is the one CSS entry, and its layer order is the design:
 `@layer theme, base, legacy, components, utilities`. shadcn's variables are unlayered in
 `styles/theme.css`; `styles/tokens.css` and `styles/app.css` (and `app/`) are Blob's own,
@@ -519,15 +533,18 @@ Eight rules the file will not tell you on its own:
 * **The work sits in a frame (Meadow `1a`, since 2026-10).** From 769px `.shell > .pane` —
   every view's root — and `.shell > .panel` — a thread, a file, a terminal — are one paper
   card, inset by `--frame-gap`, rounded `--frame-radius`, shadowed `--elev-frame`, on the
-  ground the top bar and the channel list share (`--bg-sidebar`, shadcn's `--sidebar`, which
-  in dark is *lighter* than the card — shadcn's arrangement, where Meadow's sat below the
-  page so the card lifted); the consoles' `.admin-main` is framed the same way.
-  It is a rule about those selectors with nothing wrapped round them and no
-  `overflow: hidden` — the header's menus and the message toolbar overhang the card — so a
-  view root sets no margin, radius or background of its own, and anything that paints to
-  the card's edge clips itself (the file panel does). A row on the ground hovers, selects
-  and presses with `--ground-*`, mixed against whatever the ground is: the palette's
-  washes were tuned on near-white and vanish on the tint.
+  ground the top bar and the channel list share (`--bg-sidebar`, shadcn's `--sidebar`,
+  which in dark is *lighter* than the card — shadcn's arrangement, where Meadow's sat below
+  the page so the card lifted). The consoles draw the same card with shadcn's Sidebar from
+  768px, Tailwind's `md` and one pixel before the chat's 769: `SidebarInset` as
+  `<main class="admin-main">`, given the frame's gap, radius and shadow by utilities in
+  `features/console/ConsoleShell.tsx`, and its own scroller, so its corners clip what
+  scrolls in it. For `.pane` and `.panel` it is a rule about those selectors with nothing
+  wrapped round them and no `overflow: hidden` — the header's menus and the message toolbar
+  overhang the card — so a view root sets no margin, radius or background of its own, and
+  anything that paints to the card's edge clips itself (the file panel does). A row on the
+  ground hovers, selects and presses with `--ground-*`, mixed against whatever the ground
+  is: the palette's washes were tuned on near-white and vanish on the tint.
 * **Dialogs, menus and popovers are Base UI's, and never on the first load.** They come
   from one lazy chunk: `components/overlays/index.ts` is its barrel, `lib/overlays.ts` the
   only module that imports it (dynamically, preloaded once the page is idle, but not on the

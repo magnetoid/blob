@@ -25,6 +25,13 @@ describe('the People page', () => {
     expect(screen.getByText('accounts-part')).toBeTruthy();
   });
 
+  // Accounts is converted like the rest, so it sits in its card with no island round it.
+  it('draws Accounts inside its card, with no legacy island', () => {
+    const { container } = render(<PeopleHub onError={vi.fn()} isOwner={false} isInstanceAdmin />);
+    expect(screen.getByText('accounts-part').closest('[data-slot="card"]')).toBeTruthy();
+    expect(container.querySelector('[data-legacy]')).toBeNull();
+  });
+
   it('keeps accounts off anybody who does not run the server, its owner included', () => {
     for (const isOwner of [false, true]) {
       const { unmount } = render(

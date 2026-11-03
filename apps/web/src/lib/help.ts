@@ -800,7 +800,7 @@ export const SECTIONS: Section[] = [
       {
         id: 'push',
         title: 'Notifications on this device',
-        blurb: 'Turn on “Push notifications on this device” to be told when the tab is closed.',
+        blurb: 'Turn on “Notify this device” to be told when the tab is closed.',
         body: [
           'Permission is per browser and per device, so each one you use has to be turned on separately.',
           'On an iPhone or iPad the browser only allows this once the app has been added to the Home Screen — the Notifications page says so where it matters.',

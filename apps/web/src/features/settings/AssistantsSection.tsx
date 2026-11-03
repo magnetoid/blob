@@ -21,13 +21,21 @@
  * substituted in — a placeholder to fill in by hand is the step people get wrong.
  */
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { formatEnds } from '../../lib/format.ts';
 import { api, type AssistantToken } from '../../lib/api.ts';
 import type { ConsoleSectionProps } from '../console/ConsoleShell.tsx';
-import { Card, CardNotice } from '../console/Card.tsx';
+import { Card, CardFields, CardNotice, CardRow, CardRows } from '../console/Card.tsx';
 import { ConnectedAppRow } from '../console/ConnectedAppRow.tsx';
+import { CopyField } from '../console/CopyField.tsx';
 import { useAdminAction, useAdminData } from '../console/hooks.ts';
+import { Badge } from '../../components/ui/badge.tsx';
+import { Button } from '../../components/ui/button.tsx';
+import { Checkbox } from '../../components/ui/checkbox.tsx';
+import { Field, FieldContent, FieldDescription, FieldLabel } from '../../components/ui/field.tsx';
+import { Input } from '../../components/ui/input.tsx';
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from '../../components/ui/item.tsx';
+import { NativeSelect, NativeSelectOption } from '../../components/ui/native-select.tsx';
 
 interface Minted {
   name: string;
@@ -57,6 +65,7 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
   const [lifetime, setLifetime] = useState<30 | 90 | 365>(90);
   const [busy, setBusy] = useState(false);
   const [minted, setMinted] = useState<Minted | null>(null);
+  const hint = useId();
 
   const tokens = data?.tokens ?? [];
   const usable = name.trim().length >= 2 && !busy;
@@ -84,7 +93,7 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
   }
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <ConnectorCard url={apps.data?.url ?? data?.url ?? null} />
 
       <Card title="Connected apps">
@@ -96,7 +105,7 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
           </CardNotice>
         )}
         {grants.length > 0 && (
-          <div className="console-list">
+          <CardRows>
             {grants.map((grant) => (
               <ConnectedAppRow
                 key={grant.id}
@@ -104,7 +113,7 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
                 onDisconnect={() => void actOnApps(() => api.oauth.disconnect(grant.id))}
               />
             ))}
-          </div>
+          </CardRows>
         )}
       </Card>
 
@@ -118,9 +127,8 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
           </>
         }
       >
-        <div className="console-inline-form">
-          <input
-            className="input"
+        <div className="flex gap-2">
+          <Input
             value={name}
             placeholder="What is it? “Claude Code on the laptop”"
             aria-label="Connection name"
@@ -129,41 +137,44 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
               if (event.key === 'Enter') void create();
             }}
           />
-          <button className="btn btn-primary" disabled={!usable} onClick={() => void create()}>
+          <Button disabled={!usable} onClick={() => void create()}>
             {busy ? 'Connecting…' : 'Get a token'}
-          </button>
+          </Button>
         </div>
-        <label className="pref-row">
-          <span className="pref-label grow">
-            Let it post
-            <span className="pref-hint block">
-              Off by default. A message it sends is indistinguishable from one you typed.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            checked={canWrite}
-            onChange={(event) => setCanWrite(event.target.checked)}
-          />
-        </label>
-        <label className="pref-row">
-          <span className="pref-label grow">
-            It lasts
-            <span className="pref-hint block">
-              Every connection ends; make a new one when it does. Your admins can see it too.
-            </span>
-          </span>
-          <select
-            className="input"
-            aria-label="How long it lasts"
-            value={lifetime}
-            onChange={(event) => setLifetime(Number(event.target.value) as 30 | 90 | 365)}
-          >
-            <option value={30}>30 days</option>
-            <option value={90}>90 days</option>
-            <option value={365}>A year</option>
-          </select>
-        </label>
+        <CardFields>
+          <Field orientation="horizontal">
+            <Checkbox
+              id="assistant-can-write"
+              checked={canWrite}
+              aria-describedby={`${hint}-write`}
+              onCheckedChange={setCanWrite}
+            />
+            <FieldContent>
+              <FieldLabel htmlFor="assistant-can-write">Let it post</FieldLabel>
+              <FieldDescription id={`${hint}-write`}>
+                Off by default. A message it sends is indistinguishable from one you typed.
+              </FieldDescription>
+            </FieldContent>
+          </Field>
+          <Field orientation="responsive">
+            <FieldContent>
+              <FieldLabel htmlFor="assistant-lifetime">It lasts</FieldLabel>
+              <FieldDescription id={`${hint}-lifetime`}>
+                Every connection ends; make a new one when it does. Your admins can see it too.
+              </FieldDescription>
+            </FieldContent>
+            <NativeSelect
+              id="assistant-lifetime"
+              aria-describedby={`${hint}-lifetime`}
+              value={lifetime}
+              onChange={(event) => setLifetime(Number(event.target.value) as 30 | 90 | 365)}
+            >
+              <NativeSelectOption value={30}>30 days</NativeSelectOption>
+              <NativeSelectOption value={90}>90 days</NativeSelectOption>
+              <NativeSelectOption value={365}>A year</NativeSelectOption>
+            </NativeSelect>
+          </Field>
+        </CardFields>
       </Card>
 
       {minted && <AssistantSetup minted={minted} />}
@@ -174,11 +185,11 @@ export function AssistantsSection({ onError }: ConsoleSectionProps) {
           <CardNotice>None yet. Make one above and it will appear here.</CardNotice>
         )}
         {tokens.length > 0 && (
-          <div className="console-list">
+          <CardRows>
             {tokens.map((token) => (
               <TokenRow key={token.id} token={token} act={act} />
             ))}
-          </div>
+          </CardRows>
         )}
       </Card>
     </div>
@@ -196,44 +207,42 @@ function TokenRow({
   const writes = token.scopes.includes('write');
 
   return (
-    <div className="console-list-item">
-      <div className="admin-row">
-        <div className="grow min-0">
-          <div className="admin-row-title">
-            {token.name}
-            <span className="role-pill" data-muted={!writes}>
-              {writes ? 'reads and posts' : 'reads only'}
-            </span>
-          </div>
-          <div className="admin-row-meta">
-            {token.lastUsedAt
-              ? `Last used ${new Date(token.lastUsedAt).toLocaleString()}`
-              : 'Never used — it has not connected yet'}
-            {' · '}
-            {formatEnds(token.expiresAt)}
-          </div>
-        </div>
-        <div className="admin-row-actions">
-          {confirming ? (
-            <>
-              <button
-                className="btn btn-danger"
-                onClick={() => void act(() => api.assistants.revoke(token.id))}
-              >
-                Revoke {token.name}
-              </button>
-              <button className="btn btn-ghost" onClick={() => setConfirming(false)}>
-                Keep
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-ghost" onClick={() => setConfirming(true)}>
-              Revoke
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <CardRow>
+      <ItemContent>
+        <ItemTitle>
+          {token.name}
+          <Badge variant={writes ? 'secondary' : 'outline'}>
+            {writes ? 'reads and posts' : 'reads only'}
+          </Badge>
+        </ItemTitle>
+        <ItemDescription>
+          {token.lastUsedAt
+            ? `Last used ${new Date(token.lastUsedAt).toLocaleString()}`
+            : 'Never used — it has not connected yet'}
+          {' · '}
+          {formatEnds(token.expiresAt)}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        {confirming ? (
+          <>
+            <Button
+              variant="destructive"
+              onClick={() => void act(() => api.assistants.revoke(token.id))}
+            >
+              Revoke {token.name}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirming(false)}>
+              Keep
+            </Button>
+          </>
+        ) : (
+          <Button variant="ghost" onClick={() => setConfirming(true)}>
+            Revoke
+          </Button>
+        )}
+      </ItemActions>
+    </CardRow>
   );
 }
 
@@ -249,6 +258,17 @@ function useCopy() {
     }
   }
   return { copied, copy };
+}
+
+/** A command somebody is going to select and paste. It scrolls sideways rather than
+ * wrapping: a wrapped `export` line looks like two commands and pastes as one broken one.
+ * One click selects it whole. */
+function CommandBlock({ children }: { children: string }) {
+  return (
+    <pre className="overflow-x-auto rounded-lg border bg-muted p-3.5 font-mono text-[13px] leading-relaxed whitespace-pre select-all">
+      <code>{children}</code>
+    </pre>
+  );
 }
 
 /** The address an assistant that signs in needs, and nothing else: it finds the sign-in
@@ -269,27 +289,23 @@ function ConnectorCard({ url }: { url: string | null }) {
       }
     >
       {url && (
-        <div className="connector-setup">
-          <div className="draft-chip admin-secret-chip">
-            <span className="admin-secret-label">Connector address</span>
-            <code>{url}</code>
-            <button className="btn btn-ghost" onClick={() => void copy('url', url)}>
-              {copied === 'url' ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-          <p className="pref-hint m-0">
+        <>
+          <CopyField label="Connector address" value={url} />
+          <p className="text-sm text-muted-foreground">
             <strong>In Claude or ChatGPT</strong>, add a custom connector and paste the address.
           </p>
-          <p className="pref-hint m-0">
+          <p className="text-sm text-muted-foreground">
             <strong>In Claude Code</strong>, run this, then <code>/mcp</code> to sign in:
           </p>
-          <pre className="admin-command-block">
-            <code>{command}</code>
-          </pre>
-          <button className="btn btn-ghost" onClick={() => void copy('command', command)}>
+          <CommandBlock>{command}</CommandBlock>
+          <Button
+            variant="ghost"
+            className="self-start"
+            onClick={() => void copy('command', command)}
+          >
             {copied === 'command' ? 'Copied' : 'Copy the command'}
-          </button>
-        </div>
+          </Button>
+        </>
       )}
     </Card>
   );
@@ -305,52 +321,32 @@ function AssistantSetup({ minted }: { minted: Minted }) {
     `--header "Authorization: Bearer ${minted.secret}"`;
 
   return (
-    <div className="admin-secret-card block">
-      <div className="admin-row-title">Point “{minted.name}” at this workspace</div>
-      <div className="admin-row-meta">
-        This token is shown once. Only its fingerprint is stored, so if you lose it, revoke
-        this connection and make another.
-      </div>
-
-      <p className="pref-hint m-0">
+    <Card
+      title={`Point “${minted.name}” at this workspace`}
+      description="This token is shown once. Only its fingerprint is stored, so if you lose it, revoke this connection and make another."
+    >
+      <p className="text-sm text-muted-foreground">
         <strong>In a terminal</strong>, for Claude Code:
       </p>
-      <pre className="admin-command-block">
-        <code>{command}</code>
-      </pre>
-      <button className="btn btn-ghost" onClick={() => void copy('command', command)}>
+      <CommandBlock>{command}</CommandBlock>
+      <Button variant="ghost" className="self-start" onClick={() => void copy('command', command)}>
         {copied === 'command' ? 'Copied' : 'Copy the command'}
-      </button>
+      </Button>
 
-      <p className="pref-hint m-0">
+      <p className="text-sm text-muted-foreground">
         <strong>Anywhere else</strong> that takes a remote MCP server — Claude on the web,
         an editor — give it these two:
       </p>
-      <div className="draft-chip admin-secret-chip">
-        <span className="admin-secret-label">Server URL</span>
-        <code>{minted.url}</code>
-        <button className="btn btn-ghost" onClick={() => void copy('url', minted.url)}>
-          {copied === 'url' ? 'Copied' : 'Copy'}
-        </button>
-      </div>
-      <div className="draft-chip admin-secret-chip">
-        <span className="admin-secret-label">Authorization</span>
-        <code>Bearer {minted.secret}</code>
-        <button
-          className="btn btn-ghost"
-          onClick={() => void copy('token', `Bearer ${minted.secret}`)}
-        >
-          {copied === 'token' ? 'Copied' : 'Copy'}
-        </button>
-      </div>
+      <CopyField label="Server URL" value={minted.url} />
+      <CopyField label="Authorization" value={`Bearer ${minted.secret}`} />
 
-      <p className="pref-hint m-0">
+      <p className="text-sm text-muted-foreground">
         Once it is connected, ask it something like “what happened in #general today?” or
         “find the thread about the deploy”.{' '}
         {minted.canWrite
           ? 'It can also post — and everyone will read that as you writing it.'
           : 'It cannot post: this connection reads only.'}
       </p>
-    </div>
+    </Card>
   );
 }

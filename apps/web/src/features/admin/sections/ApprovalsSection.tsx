@@ -8,8 +8,15 @@ import { formatMoment } from '../../../lib/format.ts';
 import { showChannel } from '../../../lib/navigation.ts';
 import { showError } from '../../../lib/toasts.ts';
 import { useFetch } from '../../../lib/useFetch.ts';
+import { Button } from '../../../components/ui/button.tsx';
+import {
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from '../../../components/ui/item.tsx';
 import { formatRelative } from '../../messages/messageFormatting.ts';
-import { Card, CardNotice } from '../../console/Card.tsx';
+import { Card, CardNotice, CardRow, CardRows } from '../../console/Card.tsx';
 
 function waitingFor(item: PendingApproval): string {
   const { run } = item;
@@ -48,7 +55,7 @@ export function ApprovalsSection() {
 
   if (!data) {
     return (
-      <div className="console-stack">
+      <div className="flex flex-col gap-6">
         <Card>
           <CardNotice>Loading…</CardNotice>
         </Card>
@@ -56,7 +63,7 @@ export function ApprovalsSection() {
     );
   }
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card
         title="Waiting"
         description="Only the person a question is for can answer it, in the conversation where it was asked."
@@ -64,44 +71,53 @@ export function ApprovalsSection() {
         {data.length === 0 ? (
           <CardNotice>Nothing is waiting on anybody.</CardNotice>
         ) : (
-          <ul className="hold-list" aria-label="What agents are waiting on">
+          <CardRows aria-label="What agents are waiting on">
             {data.map((item) => {
               const said = words(item);
               const since = item.run.finishedAt ?? item.run.startedAt;
               return (
-                <li key={item.run.id} className="hold-row approval-row">
-                  <span className="grow min-0">
-                    <span className="pref-label">
+                <CardRow key={item.run.id}>
+                  <ItemContent>
+                    <ItemTitle>
                       {item.run.agentName}, {waitingFor(item)}
-                    </span>
-                    <span className="pref-hint block">
+                    </ItemTitle>
+                    <ItemDescription>
                       In {where(item)} · since {formatRelative(since)}
-                    </span>
-                    {said && <span className="pref-hint block approval-words">“{said}”</span>}
-                    {!item.visible && (
-                      <span className="pref-hint block">
-                        In a conversation you are not in: what it asks stays there.
-                      </span>
+                    </ItemDescription>
+                    {said && (
+                      <ItemDescription className="text-foreground wrap-anywhere">
+                        “{said}”
+                      </ItemDescription>
                     )}
-                  </span>
+                    {!item.visible && (
+                      <ItemDescription>
+                        In a conversation you are not in: what it asks stays there.
+                      </ItemDescription>
+                    )}
+                  </ItemContent>
                   {item.visible && (
-                    <span className="approval-actions">
-                      <button
-                        type="button"
-                        className="btn"
+                    <ItemActions>
+                      {/* Every row has an Open and a Stop, so each says whose it is. */}
+                      <Button
+                        variant="outline"
+                        aria-label={`Open ${where(item)}`}
                         onClick={() => void showChannel(item.run.channelId)}
                       >
                         Open
-                      </button>
-                      <button type="button" className="btn" onClick={() => void stop(item)}>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        aria-label={`Stop ${item.run.agentName}`}
+                        onClick={() => void stop(item)}
+                      >
                         Stop
-                      </button>
-                    </span>
+                      </Button>
+                    </ItemActions>
                   )}
-                </li>
+                </CardRow>
               );
             })}
-          </ul>
+          </CardRows>
         )}
       </Card>
     </div>

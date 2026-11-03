@@ -7,7 +7,7 @@
  * Yours, so every member sees it. Nothing here is a workspace-wide setting.
  */
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { UserPrefs } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import {
@@ -20,7 +20,19 @@ import {
 import { useStore } from "../../lib/store.ts";
 import { showError } from "../../lib/toasts.ts";
 import { useFetch } from "../../lib/useFetch.ts";
-import { Card } from "../console/Card.tsx";
+import { Button } from "../../components/ui/button.tsx";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from "../../components/ui/field.tsx";
+import { Input } from "../../components/ui/input.tsx";
+import { Label } from "../../components/ui/label.tsx";
+import { NativeSelect, NativeSelectOption } from "../../components/ui/native-select.tsx";
+import { Switch } from "../../components/ui/switch.tsx";
+import { Card, CardFields } from "../console/Card.tsx";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -43,6 +55,7 @@ export function NotificationsCard() {
   const myGroupIds = useStore((s) => s.myGroupIds);
   const mutedGroupIds = useStore((s) => s.mutedGroupIds);
   const [keywordDraft, setKeywordDraft] = useState("");
+  const hint = useId();
 
   const myGroups = Object.values(groups).filter((g) => myGroupIds.has(g.id));
 
@@ -87,257 +100,260 @@ export function NotificationsCard() {
       title="Notifications"
       description="When Blob is allowed to interrupt you, and what counts as urgent."
     >
-      <PushPanel />
+      <CardFields>
+        <PushPanel />
 
-      <div className="pref-row">
-        <div className="grow">
-          <label className="pref-label" htmlFor="email-when-away">
-            Email me when I'm away
-          </label>
-          <div className="pref-hint">
-            Direct messages, mentions and replies in threads you follow that
-            are still unread while you have no Blob open, all in one email.
-          </div>
-        </div>
-        <select
-          id="email-when-away"
-          className="input"
-          value={prefs.emailWhenAway ?? "quarter_hour"}
-          onChange={(e) =>
-            void setPrefs({
-              emailWhenAway: e.target.value as UserPrefs["emailWhenAway"],
-            })
-          }
-        >
-          <option value="quarter_hour">Once every 15 minutes</option>
-          <option value="hourly">Once an hour</option>
-          <option value="off">Never</option>
-        </select>
-      </div>
-
-      <div className="pref-row">
-        <div className="grow">
-          <div className="pref-label">Pause notifications</div>
-          <div className="pref-hint">
-            {snoozedUntil
-              ? `Paused until ${snoozedUntil.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
-              : "Stop everything for a while, whatever the hour."}
-          </div>
-        </div>
-        {snoozedUntil ? (
-          <button
-            className="btn"
-            onClick={() => void setPrefs({ snoozeUntil: null })}
+        <Field orientation="responsive">
+          <FieldContent>
+            <FieldLabel htmlFor="email-when-away">Email me when I'm away</FieldLabel>
+            <FieldDescription id={`${hint}-email`}>
+              Direct messages, mentions and replies in threads you follow that
+              are still unread while you have no Blob open, all in one email.
+            </FieldDescription>
+          </FieldContent>
+          <NativeSelect
+            id="email-when-away"
+            aria-describedby={`${hint}-email`}
+            value={prefs.emailWhenAway ?? "quarter_hour"}
+            onChange={(e) =>
+              void setPrefs({
+                emailWhenAway: e.target.value as UserPrefs["emailWhenAway"],
+              })
+            }
           >
-            Resume
-          </button>
-        ) : (
-          <div className="chip-row">
-            {SNOOZE_PRESETS.map((preset) => (
-              <button
-                key={preset.minutes}
-                className="chip"
-                onClick={() =>
-                  void setPrefs({
-                    snoozeUntil: new Date(
-                      Date.now() + preset.minutes * 60_000,
-                    ).toISOString(),
-                  })
-                }
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+            <NativeSelectOption value="quarter_hour">Once every 15 minutes</NativeSelectOption>
+            <NativeSelectOption value="hourly">Once an hour</NativeSelectOption>
+            <NativeSelectOption value="off">Never</NativeSelectOption>
+          </NativeSelect>
+        </Field>
 
-      <div className="pref-row">
-        <div className="grow">
-          <div className="pref-label">Nudge me about unanswered questions</div>
-          <div className="pref-hint">
-            In channels that have it switched on, a question of yours that goes
-            a day without a reply comes back to you in Later. Nobody else is
-            told.
-          </div>
-        </div>
-        <button
-          className="toggle"
-          aria-pressed={prefs.nudges}
-          aria-label="Nudge me about unanswered questions"
-          onClick={() => void setPrefs({ nudges: !prefs.nudges })}
-        >
-          <span />
-        </button>
-      </div>
-
-      <div className="pref-row">
-        <div className="grow">
-          <div className="pref-label">Quiet hours</div>
-          <div className="pref-hint">
-            Only the hours you choose will notify you. Unread counts still
-            update.
-          </div>
-        </div>
-        <button
-          className="toggle"
-          aria-pressed={dnd.enabled}
-          aria-label="Quiet hours"
-          onClick={() =>
-            void setPrefs({ dnd: { ...dnd, enabled: !dnd.enabled } })
-          }
-        >
-          <span />
-        </button>
-      </div>
-
-      {dnd.enabled && (
-        <div className="pref-block">
-          <div className="console-dnd-window">
-            <label className="pref-hint" htmlFor="dnd-start">
-              Notify me from
-            </label>
-            <select
-              id="dnd-start"
-              className="input console-select-hour"
-              value={dnd.startHour}
-              onChange={(e) =>
-                void setPrefs({
-                  dnd: { ...dnd, startHour: Number(e.target.value) },
-                })
-              }
+        <Field orientation="responsive">
+          <FieldContent>
+            <FieldTitle>Pause notifications</FieldTitle>
+            <FieldDescription>
+              {snoozedUntil
+                ? `Paused until ${snoozedUntil.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
+                : "Stop everything for a while, whatever the hour."}
+            </FieldDescription>
+          </FieldContent>
+          {snoozedUntil ? (
+            <Button
+              variant="outline"
+              onClick={() => void setPrefs({ snoozeUntil: null })}
             >
-              {hourOptions().map((hour) => (
-                <option key={hour} value={hour}>
-                  {String(hour).padStart(2, "0")}:00
-                </option>
-              ))}
-            </select>
-            <label className="pref-hint" htmlFor="dnd-end">
-              until
-            </label>
-            <select
-              id="dnd-end"
-              className="input console-select-hour"
-              value={dnd.endHour}
-              onChange={(e) =>
-                void setPrefs({
-                  dnd: { ...dnd, endHour: Number(e.target.value) },
-                })
-              }
-            >
-              {hourOptions().map((hour) => (
-                <option key={hour} value={hour}>
-                  {String(hour).padStart(2, "0")}:00
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="chip-row">
-            {DAY_LABELS.map((label, day) => {
-              const active = dnd.days.includes(day);
-              return (
-                <button
-                  key={label}
-                  className="chip"
-                  aria-pressed={active}
+              Resume
+            </Button>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {SNOOZE_PRESETS.map((preset) => (
+                <Button
+                  key={preset.minutes}
+                  variant="outline"
+                  size="sm"
                   onClick={() =>
                     void setPrefs({
-                      dnd: {
-                        ...dnd,
-                        days: active
-                          ? dnd.days.filter((d) => d !== day)
-                          : [...dnd.days, day].sort((a, b) => a - b),
-                      },
+                      snoozeUntil: new Date(
+                        Date.now() + preset.minutes * 60_000,
+                      ).toISOString(),
                     })
                   }
                 >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="pref-block">
-        <div className="pref-label">Keyword alerts</div>
-        <div className="pref-hint">
-          Notify me whenever one of these words appears anywhere I can see.
-        </div>
-        <div className="chip-row">
-          {prefs.keywords.map((keyword) => (
-            <button
-              key={keyword}
-              className="chip"
-              aria-pressed
-              title="Remove"
-              onClick={() =>
-                void setPrefs({
-                  keywords: prefs.keywords.filter((k) => k !== keyword),
-                })
-              }
-            >
-              {keyword}{" "}
-              {/* The glyph is decoration: without this the button is named "deploy ✕"
-                  and a reader says the multiplication sign out loud. `title` stays as
-                  the description, so the announcement is the word and then what
-                  clicking does. */}
-              <span aria-hidden="true">✕</span>
-            </button>
-          ))}
-        </div>
-        <form
-          className="console-inline-form console-note"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const word = keywordDraft.trim();
-            if (!word || prefs.keywords.includes(word)) return;
-            void setPrefs({ keywords: [...prefs.keywords, word] });
-            setKeywordDraft("");
-          }}
-        >
-          <input
-            className="input"
-            value={keywordDraft}
-            onChange={(e) => setKeywordDraft(e.target.value)}
-            // A placeholder is a hint, not a name: it is not reliably announced and it
-            // disappears the moment there is a value, so the one control on this screen
-            // with nothing else to identify it was the one with no name at all.
-            aria-label="Add a keyword to be alerted on"
-            placeholder="Add a word"
-          />
-          <button className="btn" type="submit">
-            Add
-          </button>
-        </form>
-      </div>
-
-      {myGroups.length > 0 && (
-        <div className="pref-block">
-          <div className="pref-label">Group mentions</div>
-          <div className="pref-hint">
-            Silence a group you are in: @-mentions of it stop counting as
-            mentions of you. Muting is yours alone — nobody is told.
-          </div>
-          {myGroups.map((group) => (
-            <div key={group.id} className="console-subrow">
-              <div className="grow">
-                <code>@{group.handle}</code>{" "}
-                <span className="pref-hint">{group.name}</span>
-              </div>
-              <button
-                className="toggle"
-                aria-pressed={!mutedGroupIds.has(group.id)}
-                aria-label={`Notifications for @${group.handle}`}
-                onClick={() => void toggleGroupMute(group.id)}
-              >
-                <span />
-              </button>
+                  {preset.label}
+                </Button>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
+        </Field>
+
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor="nudges">Nudge me about unanswered questions</FieldLabel>
+            <FieldDescription id={`${hint}-nudges`}>
+              In channels that have it switched on, a question of yours that goes
+              a day without a reply comes back to you in Later. Nobody else is
+              told.
+            </FieldDescription>
+          </FieldContent>
+          <Switch
+            id="nudges"
+            aria-describedby={`${hint}-nudges`}
+            checked={prefs.nudges}
+            onCheckedChange={(on) => void setPrefs({ nudges: on })}
+          />
+        </Field>
+
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor="quiet-hours">Quiet hours</FieldLabel>
+            <FieldDescription id={`${hint}-quiet`}>
+              Only the hours you choose will notify you. Unread counts still
+              update.
+            </FieldDescription>
+          </FieldContent>
+          <Switch
+            id="quiet-hours"
+            aria-describedby={`${hint}-quiet`}
+            checked={dnd.enabled}
+            onCheckedChange={(on) => void setPrefs({ dnd: { ...dnd, enabled: on } })}
+          />
+        </Field>
+
+        {dnd.enabled && (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="dnd-start" className="font-normal text-muted-foreground">
+                Notify me from
+              </Label>
+              <NativeSelect
+                id="dnd-start"
+                value={dnd.startHour}
+                onChange={(e) =>
+                  void setPrefs({
+                    dnd: { ...dnd, startHour: Number(e.target.value) },
+                  })
+                }
+              >
+                {hourOptions().map((hour) => (
+                  <NativeSelectOption key={hour} value={hour}>
+                    {String(hour).padStart(2, "0")}:00
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <Label htmlFor="dnd-end" className="font-normal text-muted-foreground">
+                until
+              </Label>
+              <NativeSelect
+                id="dnd-end"
+                value={dnd.endHour}
+                onChange={(e) =>
+                  void setPrefs({
+                    dnd: { ...dnd, endHour: Number(e.target.value) },
+                  })
+                }
+              >
+                {hourOptions().map((hour) => (
+                  <NativeSelectOption key={hour} value={hour}>
+                    {String(hour).padStart(2, "0")}:00
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {DAY_LABELS.map((label, day) => {
+                const active = dnd.days.includes(day);
+                return (
+                  <Button
+                    key={label}
+                    variant="outline"
+                    size="sm"
+                    aria-pressed={active}
+                    onClick={() =>
+                      void setPrefs({
+                        dnd: {
+                          ...dnd,
+                          days: active
+                            ? dnd.days.filter((d) => d !== day)
+                            : [...dnd.days, day].sort((a, b) => a - b),
+                        },
+                      })
+                    }
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <Field>
+          <FieldContent>
+            <FieldTitle>Keyword alerts</FieldTitle>
+            <FieldDescription id={`${hint}-keywords`}>
+              Notify me whenever one of these words appears anywhere I can see.
+            </FieldDescription>
+          </FieldContent>
+          {prefs.keywords.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {prefs.keywords.map((keyword) => (
+                <Button
+                  key={keyword}
+                  variant="outline"
+                  size="sm"
+                  aria-pressed
+                  title="Remove"
+                  onClick={() =>
+                    void setPrefs({
+                      keywords: prefs.keywords.filter((k) => k !== keyword),
+                    })
+                  }
+                >
+                  {keyword}{" "}
+                  {/* The glyph is decoration: without this the button is named "deploy ✕"
+                      and a reader says the multiplication sign out loud. `title` stays as
+                      the description, so the announcement is the word and then what
+                      clicking does. */}
+                  <span aria-hidden="true">✕</span>
+                </Button>
+              ))}
+            </div>
+          )}
+          <form
+            className="flex gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const word = keywordDraft.trim();
+              if (!word || prefs.keywords.includes(word)) return;
+              void setPrefs({ keywords: [...prefs.keywords, word] });
+              setKeywordDraft("");
+            }}
+          >
+            <Input
+              className="max-w-xs"
+              value={keywordDraft}
+              onChange={(e) => setKeywordDraft(e.target.value)}
+              // A placeholder is a hint, not a name: it is not reliably announced and it
+              // disappears the moment there is a value, so the one control on this screen
+              // with nothing else to identify it was the one with no name at all.
+              aria-label="Add a keyword to be alerted on"
+              aria-describedby={`${hint}-keywords`}
+              placeholder="Add a word"
+            />
+            <Button variant="outline" type="submit">
+              Add
+            </Button>
+          </form>
+        </Field>
+
+        {myGroups.length > 0 && (
+          <Field>
+            <FieldContent>
+              <FieldTitle>Group mentions</FieldTitle>
+              <FieldDescription id={`${hint}-groups`}>
+                Silence a group you are in: @-mentions of it stop counting as
+                mentions of you. Muting is yours alone — nobody is told.
+              </FieldDescription>
+            </FieldContent>
+            {myGroups.map((group) => (
+              <div key={group.id} className="flex items-center gap-3">
+                <Label htmlFor={`mute-${group.id}`} className="flex-1 font-normal">
+                  {/* Said before the handle to a screen reader, so "on" reads as notifications
+                      on rather than as the group silenced; the name still holds what is shown. */}
+                  <span className="sr-only">Notifications for </span>
+                  <code className="font-mono text-xs">@{group.handle}</code>{" "}
+                  <span className="text-muted-foreground">{group.name}</span>
+                </Label>
+                <Switch
+                  id={`mute-${group.id}`}
+                  aria-describedby={`${hint}-groups`}
+                  checked={!mutedGroupIds.has(group.id)}
+                  onCheckedChange={() => void toggleGroupMute(group.id)}
+                />
+              </div>
+            ))}
+          </Field>
+        )}
+      </CardFields>
     </Card>
   );
 }
@@ -348,6 +364,7 @@ export function NotificationsCard() {
  * switch is what finally subscribes a browser to receive them.
  */
 function PushPanel() {
+  const hint = useId();
   const { data: detected } = useFetch(currentPushState, []);
   /** Where the switch was last put, which outranks what was detected on arrival. */
   const [changed, setChanged] = useState<PushState | null>(null);
@@ -367,6 +384,7 @@ function PushPanel() {
     }
   }
 
+  const hasSwitch = state === "on" || state === "off";
   const explanation =
     state === "unsupported"
       ? "This browser cannot receive push notifications."
@@ -378,63 +396,68 @@ function PushPanel() {
 
   return (
     <>
-      <div className="pref-row">
-        <div className="grow">
-          <div className="pref-label">Notify this device</div>
-          <div className="pref-hint">
+      <Field orientation="horizontal">
+        <FieldContent>
+          {/* A label only while there is a switch for it to point at. */}
+          {hasSwitch ? (
+            <FieldLabel htmlFor="push-device">Notify this device</FieldLabel>
+          ) : (
+            <FieldTitle>Notify this device</FieldTitle>
+          )}
+          <FieldDescription id={hint}>
             {state === "loading" ? "Checking…" : (tested ?? explanation)}
-          </div>
+          </FieldDescription>
+        </FieldContent>
+        <div className="flex shrink-0 items-center gap-3">
+          {state === "on" && (
+            <Button
+              variant="ghost"
+              disabled={busy || tested !== null}
+              onClick={async () => {
+                try {
+                  // What came back, not what was hoped for: this switch reads "on" from
+                  // the browser's own subscription, which can outlive the server's record
+                  // of it — and a push that failed for a bad server key used to be
+                  // counted as sent.
+                  const result = await api.me.pushTest();
+                  setTested(
+                    result.sent > 0
+                      ? `Sent to ${result.sent} ${result.sent === 1 ? "device" : "devices"} — check it`
+                      : result.failed > 0
+                        ? "The server could not send it. An admin can check the push keys."
+                        : "This browser is subscribed but the server has no record of it. Turn the switch off and on again.",
+                  );
+                  setTimeout(() => setTested(null), 6000);
+                } catch (err) {
+                  showError(err);
+                }
+              }}
+            >
+              Send a test
+            </Button>
+          )}
+          {hasSwitch && (
+            <Switch
+              id="push-device"
+              aria-describedby={hint}
+              checked={state === "on"}
+              disabled={busy}
+              onCheckedChange={() => void toggle()}
+            />
+          )}
         </div>
-        {(state === "on" || state === "off") && (
-          <button
-            className="toggle"
-            aria-pressed={state === "on"}
-            aria-label="Push notifications on this device"
-            disabled={busy}
-            onClick={() => void toggle()}
-          >
-            <span />
-          </button>
-        )}
-        {state === "on" && (
-          <button
-            className="btn btn-ghost"
-            disabled={busy || tested !== null}
-            onClick={async () => {
-              try {
-                // What came back, not what was hoped for: this switch reads "on" from
-                // the browser's own subscription, which can outlive the server's record
-                // of it — and a push that failed for a bad server key used to be
-                // counted as sent.
-                const result = await api.me.pushTest();
-                setTested(
-                  result.sent > 0
-                    ? `Sent to ${result.sent} ${result.sent === 1 ? "device" : "devices"} — check it`
-                    : result.failed > 0
-                      ? "The server could not send it. An admin can check the push keys."
-                      : "This browser is subscribed but the server has no record of it. Turn the switch off and on again.",
-                );
-                setTimeout(() => setTested(null), 6000);
-              } catch (err) {
-                showError(err);
-              }
-            }}
-          >
-            Send a test
-          </button>
-        )}
-      </div>
+      </Field>
       {needsIosInstall() && state !== "unsupported" && (
-        <div className="pref-row">
-          <div className="grow">
-            <div className="pref-label">On iPhone and iPad</div>
-            <div className="pref-hint">
+        <Field>
+          <FieldContent>
+            <FieldTitle>On iPhone and iPad</FieldTitle>
+            <FieldDescription>
               iOS only delivers push to installed web apps, and never says so:
               tap the Share button in Safari, then “Add to Home Screen”, open
               Blob from that icon, and this switch will work.
-            </div>
-          </div>
-        </div>
+            </FieldDescription>
+          </FieldContent>
+        </Field>
       )}
     </>
   );

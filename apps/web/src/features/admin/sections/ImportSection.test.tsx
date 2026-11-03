@@ -4,9 +4,25 @@
  * run, invite the people it brought.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { api, type ImportRecord, type ImportState } from '../../../lib/api.ts';
-import { ImportSection } from './ImportSection.tsx';
+import { useToasts } from '../../../lib/toasts.ts';
+
+// The zip goes to storage by an XHR; here it is a promise the test settles, reporting how
+// far it has got when told to.
+const upload: { onProgress: (sent: number) => void; finish: () => void } = {
+  onProgress: () => undefined,
+  finish: () => undefined,
+};
+vi.mock('../../../lib/putFile.ts', () => ({
+  putFile: (_url: string, _file: Blob, _type: string, onProgress: (sent: number) => void) =>
+    new Promise<void>((resolve) => {
+      upload.onProgress = onProgress;
+      upload.finish = resolve;
+    }),
+}));
+
+const { ImportSection } = await import('./ImportSection.tsx');
 
 afterEach(() => {
   cleanup();
@@ -66,6 +82,57 @@ describe('importing from Slack', () => {
     expect(screen.getByText(/Import\/Export Data/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Choose the zip' })).toBeTruthy();
     expect(screen.getByLabelText('Slack export zip')).toBeTruthy();
+    // The two steps are a numbered list, and the limit is said beside the button.
+    const steps = screen.getByRole('list');
+    expect(within(steps).getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByText('Up to 2.0 GB.')).toBeTruthy();
+  });
+
+  it('shows the upload moving, then hands the zip over to be read', async () => {
+    const importState = vi.spyOn(api.admin, 'importState').mockResolvedValue(state(null));
+    vi.spyOn(api.admin, 'createImport').mockResolvedValue({
+      uploadUrl: 'https://storage.example/zip',
+      current: record({ status: 'uploading', preview: null }),
+    } as never);
+    const uploaded = vi.spyOn(api.admin, 'importUploaded').mockResolvedValue(state(null));
+    render(<ImportSection />);
+    const input = (await screen.findByLabelText('Slack export zip')) as HTMLInputElement;
+    const zip = new File([new Uint8Array(1000)], 'export.zip', { type: 'application/zip' });
+    fireEvent.change(input, { target: { files: [zip] } });
+
+    expect(await screen.findByRole('heading', { name: 'Uploading' })).toBeTruthy();
+    expect(screen.getByText('export.zip')).toBeTruthy();
+    const bar = await screen.findByRole('progressbar', { name: 'Uploaded' });
+    expect(bar.getAttribute('aria-valuenow')).toBe('0');
+
+    await waitFor(() => expect(upload.finish).not.toBe(undefined));
+    upload.onProgress(250);
+    await waitFor(() => expect(bar.getAttribute('aria-valuenow')).toBe('250'));
+    expect(bar.getAttribute('aria-valuemax')).toBe('1000');
+    expect(screen.getByText('250 B of 1000 B')).toBeTruthy();
+
+    upload.finish();
+    await waitFor(() => expect(uploaded).toHaveBeenCalledWith('i1'));
+    // And the page looks again, to read what the worker made of it.
+    await waitFor(() => expect(importState.mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it('refuses a zip larger than the server takes, before sending any of it', async () => {
+    vi.spyOn(api.admin, 'importState').mockResolvedValue({
+      ...state(null),
+      maxBytes: 100,
+    });
+    const create = vi.spyOn(api.admin, 'createImport');
+    render(<ImportSection />);
+    const input = (await screen.findByLabelText('Slack export zip')) as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File([new Uint8Array(500)], 'big.zip', { type: 'application/zip' })] },
+    });
+    await waitFor(() =>
+      expect(useToasts.getState().toasts.some((t) => /larger than the 100 B/.test(t.text))).toBe(true),
+    );
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.queryByRole('progressbar')).toBeNull();
   });
 
   it('says what the zip holds, and starts with private conversations left out', async () => {
@@ -76,11 +143,21 @@ describe('importing from Slack', () => {
     expect(await screen.findByText(/12 channels, 900 days of history/)).toBeTruthy();
     expect(screen.getByText(/Merging into channels already here: #general, #random/)).toBeTruthy();
     expect(screen.getByText(/4 already here, 21 arriving as names on their messages/)).toBeTruthy();
-    const privately = screen.getByRole('checkbox', {
-      name: /Also bring private channels and direct messages/,
-    }) as HTMLInputElement;
-    expect(privately.checked).toBe(false);
-    expect((screen.getByRole('checkbox', { name: /Copy files/ }) as HTMLInputElement).checked).toBe(true);
+    // Each choice is a checkbox named by its label, with what it means tied to it.
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Also bring private channels and direct messages',
+        checked: false,
+        description: /Only the people who were in each one will see it/,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Copy files',
+        checked: true,
+        description: /A file that isn’t copied leaves a line in its message saying so/,
+      }),
+    ).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start import' }));
     await waitFor(() =>
@@ -93,7 +170,7 @@ describe('importing from Slack', () => {
     const start = vi.spyOn(api.admin, 'startImport').mockResolvedValue(state(record({ status: 'running' })));
     render(<ImportSection />);
     fireEvent.click(await screen.findByRole('checkbox', { name: /Also bring private channels/ }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /Copy files/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Copy files' }));
     fireEvent.click(screen.getByRole('button', { name: 'Start import' }));
     await waitFor(() =>
       expect(start).toHaveBeenCalledWith('i1', { includePrivate: true, copyFiles: false }),
@@ -120,8 +197,9 @@ describe('importing from Slack', () => {
     const cancel = vi.spyOn(api.admin, 'cancelImport').mockResolvedValue(state(null));
     render(<ImportSection />);
     expect(await screen.findByText(/3 of 12 conversations, 4,210 messages, 17 files copied/)).toBeTruthy();
-    const bar = screen.getByRole('progressbar', { name: 'Conversations imported' }) as HTMLProgressElement;
-    expect(bar.value).toBeCloseTo(0.25);
+    const bar = screen.getByRole('progressbar', { name: 'Conversations imported' });
+    expect(bar.getAttribute('aria-valuenow')).toBe('3');
+    expect(bar.getAttribute('aria-valuemax')).toBe('12');
     fireEvent.click(screen.getByRole('button', { name: 'Stop import' }));
     await waitFor(() => expect(cancel).toHaveBeenCalledWith('i1'));
   });
@@ -155,13 +233,22 @@ describe('importing from Slack', () => {
     render(<ImportSection />);
 
     expect(await screen.findByText(/50,000 messages in 12 conversations, 80 files copied/)).toBeTruthy();
-    expect(screen.getByText('1 thing didn’t come over')).toBeTruthy();
+    // What did not come over is behind a disclosure, and says what each thing was.
+    const problems = screen.getByText('1 thing didn’t come over').closest('details')!;
+    expect(problems.open).toBe(false);
+    expect(within(problems).getByText('report.pdf in #general could not be fetched from Slack.')).toBeTruthy();
     expect(screen.getByText(/revoke them on Slack’s export page/)).toBeTruthy();
     // Still offered a new one.
     expect(screen.getByRole('heading', { name: 'Import another export' })).toBeTruthy();
 
     const button = await screen.findByRole('button', { name: 'Invite 1 person' });
-    expect((screen.getByRole('checkbox', { name: /Bob/ }) as HTMLInputElement).checked).toBe(false);
+    // Everybody not invited yet is chosen; Bob already was, and the row says so.
+    expect(
+      screen.getByRole('checkbox', { name: 'Pat Lee', checked: true, description: 'pat@example.com' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('checkbox', { name: 'Bob', checked: false, description: 'bob@example.com, invited' }),
+    ).toBeTruthy();
     fireEvent.click(button);
     await waitFor(() => expect(invite).toHaveBeenCalledWith('i1', ['u1']));
   });
@@ -196,6 +283,8 @@ describe('importing from Slack', () => {
     render(<ImportSection />);
     expect(await screen.findByText('That file is not a zip.')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'The last import didn’t finish' })).toBeTruthy();
+    // And the way to try again is offered below it.
+    expect(screen.getByRole('heading', { name: 'Import another export' })).toBeTruthy();
   });
 
   it('looks again while the worker has it', async () => {

@@ -11,16 +11,6 @@
   cursor: pointer;
 }
 
-/* One run in the console's log, opened: what it did and what it was shown. */
-.run-log-detail {
-  margin-top: 6px;
-  font-size: var(--blob-text-sm);
-}
-.run-log-detail > summary {
-  color: var(--text-3);
-  cursor: pointer;
-}
-
 .run-history-list {
   display: flex;
   flex-direction: column;

@@ -6,7 +6,8 @@
  * whether one is set.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
+import { cn } from 'cn';
 import {
   api,
   ApiError,
@@ -16,8 +17,15 @@ import {
 } from '../../../lib/api.ts';
 import { ConfirmDialog } from '../../../components/ConfirmDialog.tsx';
 import { DialogPresence } from '../../../components/Dialog.tsx';
+import { Button } from '../../../components/ui/button.tsx';
+import { Checkbox } from '../../../components/ui/checkbox.tsx';
+import { Field, FieldContent, FieldDescription, FieldLabel } from '../../../components/ui/field.tsx';
+import { Input } from '../../../components/ui/input.tsx';
+import { ItemContent, ItemDescription, ItemTitle } from '../../../components/ui/item.tsx';
+import { NativeSelect, NativeSelectOption } from '../../../components/ui/native-select.tsx';
 import type { ConsoleSectionProps } from '../../console/ConsoleShell.tsx';
-import { Card, CardNotice } from '../../console/Card.tsx';
+import { Card, CardNotice, CardRow, CardRows } from '../../console/Card.tsx';
+import { CopyField } from '../../console/CopyField.tsx';
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 function failure(err: unknown): string {
@@ -45,26 +53,16 @@ export function SsoSection({ onError }: ConsoleSectionProps) {
   const spaces = workspaces.data?.workspaces ?? [];
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card
         title="How it works"
         description="People sign in with the account their organisation already gives them — Google Workspace, Microsoft Entra, Okta, Keycloak, anything that speaks OpenID Connect."
       >
-        <p className="pref-hint">
+        <p className="m-0 max-w-[68ch] text-sm text-pretty text-muted-foreground">
           Register this one address at the provider as the redirect (callback) address, then connect
           it below with the client id and secret the provider gives you.
         </p>
-        {data && (
-          <div className="draft-chip console-copy">
-            <span className="grow ellipsis">{data.callbackUrl}</span>
-            <button
-              className="btn btn-ghost"
-              onClick={() => void navigator.clipboard.writeText(data.callbackUrl)}
-            >
-              Copy
-            </button>
-          </div>
-        )}
+        {data && <CopyField label="Redirect address" value={data.callbackUrl} />}
       </Card>
 
       {loading && providers.length === 0 && (
@@ -93,8 +91,10 @@ export function SsoSection({ onError }: ConsoleSectionProps) {
             description={provider.issuer}
             actions={
               <>
-                <button
-                  className="btn"
+                {/* Named by the provider they act on: there is a card of these for each. */}
+                <Button
+                  variant="outline"
+                  aria-label={`Check ${provider.name}`}
                   onClick={() =>
                     void api.admin
                       .checkSso(provider.id)
@@ -103,13 +103,21 @@ export function SsoSection({ onError }: ConsoleSectionProps) {
                   }
                 >
                   Check
-                </button>
-                <button className="btn" onClick={() => setEditing(provider)}>
+                </Button>
+                <Button
+                  variant="outline"
+                  aria-label={`Edit ${provider.name}`}
+                  onClick={() => setEditing(provider)}
+                >
                   Edit
-                </button>
-                <button className="btn btn-ghost" onClick={() => setRemoving(provider)}>
+                </Button>
+                <Button
+                  variant="ghost"
+                  aria-label={`Remove ${provider.name}`}
+                  onClick={() => setRemoving(provider)}
+                >
                   Remove
-                </button>
+                </Button>
               </>
             }
           >
@@ -117,45 +125,55 @@ export function SsoSection({ onError }: ConsoleSectionProps) {
               <CardNotice>Switched off: its button is not on the sign-in page.</CardNotice>
             )}
             {checked[provider.id] && (
-              <p className={checked[provider.id]?.ok ? 'pref-hint' : 'error-text'} role="status">
+              <p
+                role="status"
+                className={cn(
+                  'm-0 text-sm wrap-anywhere',
+                  checked[provider.id]?.ok ? 'text-muted-foreground' : 'text-destructive',
+                )}
+              >
                 {checked[provider.id]?.message}
               </p>
             )}
-            <div className="pref-row">
-              <div className="grow min-0">
-                <div className="pref-label">Signs in</div>
-                <div className="pref-hint">
-                  {provider.linked === 1 ? '1 person' : `${provider.linked} people`} ·{' '}
-                  {provider.allowedDomains.length > 0
-                    ? `addresses at ${provider.allowedDomains.join(', ')}`
-                    : 'any address'}{' '}
-                  ·{' '}
-                  {provider.linkByEmail
-                    ? 'links existing accounts by verified address'
-                    : 'people link it themselves'}
-                </div>
-              </div>
-            </div>
-            <div className="pref-row">
-              <div className="grow min-0">
-                <div className="pref-label">New people</div>
-                <div className="pref-hint">
-                  {provider.joinWorkspaceId
-                    ? `Join ${spaces.find((w) => w.id === provider.joinWorkspaceId)?.name ?? 'a workspace'} as members`
-                    : 'Need an invitation'}
-                </div>
-              </div>
-            </div>
-            <div className="pref-row">
-              <div className="grow min-0">
-                <div className="pref-label">Client</div>
-                <div className="pref-hint">
-                  {provider.clientId} ·{' '}
-                  {provider.hasSecret ? 'secret set' : 'no secret (public client)'} · button name “
-                  {provider.slug}”
-                </div>
-              </div>
-            </div>
+            <CardRows aria-label={`About ${provider.name}`}>
+              <CardRow>
+                <ItemContent>
+                  <ItemTitle>Signs in</ItemTitle>
+                  <ItemDescription>
+                    {provider.linked === 1 ? '1 person' : `${provider.linked} people`} ·{' '}
+                    {provider.allowedDomains.length > 0
+                      ? `addresses at ${provider.allowedDomains.join(', ')}`
+                      : 'any address'}{' '}
+                    ·{' '}
+                    {provider.linkByEmail
+                      ? 'links existing accounts by verified address'
+                      : 'people link it themselves'}
+                  </ItemDescription>
+                </ItemContent>
+              </CardRow>
+              <CardRow>
+                <ItemContent>
+                  <ItemTitle>New people</ItemTitle>
+                  <ItemDescription>
+                    {provider.joinWorkspaceId
+                      ? `Join ${spaces.find((w) => w.id === provider.joinWorkspaceId)?.name ?? 'a workspace'} as members`
+                      : 'Need an invitation'}
+                  </ItemDescription>
+                </ItemContent>
+              </CardRow>
+              <CardRow>
+                <ItemContent>
+                  <ItemTitle>Client</ItemTitle>
+                  {/* The id is data and may be one long token. The secret itself is never
+                      here: the server does not return it, only whether one is set. */}
+                  <ItemDescription className="wrap-anywhere">
+                    {provider.clientId} ·{' '}
+                    {provider.hasSecret ? 'secret set' : 'no secret (public client)'} · button name “
+                    {provider.slug}”
+                  </ItemDescription>
+                </ItemContent>
+              </CardRow>
+            </CardRows>
           </Card>
         ),
       )}
@@ -188,6 +206,24 @@ export function SsoSection({ onError }: ConsoleSectionProps) {
   );
 }
 
+/** What the form shows before anything is typed: the provider's own, or a new one's defaults. */
+function initialValues(provider: SsoProvider | null) {
+  return {
+    name: provider?.name ?? '',
+    slug: '',
+    issuer: provider?.issuer ?? '',
+    clientId: provider?.clientId ?? '',
+    // Never the secret: the server does not return it, so a form for a provider that has one
+    // starts blank and says so in its placeholder.
+    clientSecret: '',
+    scopes: provider?.scopes ?? 'openid email profile',
+    allowedDomains: provider?.allowedDomains.join(', ') ?? '',
+    joinWorkspaceId: provider?.joinWorkspaceId ?? '',
+    linkByEmail: provider?.linkByEmail ?? true,
+    enabled: provider?.enabled ?? true,
+  };
+}
+
 function ProviderForm({
   provider,
   workspaces,
@@ -202,33 +238,35 @@ function ProviderForm({
   onCancel?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [values, setValues] = useState(() => initialValues(provider));
+  const ids = useId();
+  const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) =>
+    setValues((current) => ({ ...current, [key]: value }));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = event.currentTarget;
-    const field = (name: string) =>
-      (form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement).value.trim();
-    const checked = (name: string) => (form.elements.namedItem(name) as HTMLInputElement).checked;
     const input: SsoProviderInput = {
-      name: field('name'),
-      issuer: field('issuer'),
-      clientId: field('clientId'),
-      clientSecret: field('clientSecret') || undefined,
-      scopes: field('scopes') || 'openid email profile',
-      allowedDomains: field('allowedDomains')
+      name: values.name.trim(),
+      issuer: values.issuer.trim(),
+      clientId: values.clientId.trim(),
+      clientSecret: values.clientSecret.trim() || undefined,
+      scopes: values.scopes.trim() || 'openid email profile',
+      allowedDomains: values.allowedDomains
+        .trim()
         .split(/[\s,]+/)
         .filter(Boolean),
-      linkByEmail: checked('linkByEmail'),
-      joinWorkspaceId: field('joinWorkspaceId') || null,
-      enabled: checked('enabled'),
+      linkByEmail: values.linkByEmail,
+      joinWorkspaceId: values.joinWorkspaceId || null,
+      enabled: values.enabled,
     };
     onError(null);
     setBusy(true);
     try {
       if (provider) await api.admin.updateSso(provider.id, input);
       else {
-        await api.admin.createSso({ ...input, slug: field('slug') });
-        form.reset();
+        await api.admin.createSso({ ...input, slug: values.slug.trim() });
+        // A new provider's form is ready for the next one, and the secret is not left in it.
+        setValues(initialValues(null));
       }
       onSaved();
     } catch (err) {
@@ -247,133 +285,150 @@ function ProviderForm({
           : 'Blob reads the provider’s own description of itself before saving, so a mistyped address shows here.'
       }
     >
-      <form className="console-form" onSubmit={(event) => void submit(event)}>
-        <div className="console-form-grid">
-          <label className="field">
-            <span className="field-label">Button name</span>
-            <input
-              className="input"
-              name="name"
-              defaultValue={provider?.name}
+      <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
+        <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor={`${ids}-name`}>Button name</FieldLabel>
+            <Input
+              id={`${ids}-name`}
+              value={values.name}
               placeholder="Acme"
               maxLength={60}
               required
+              onChange={(event) => set('name', event.target.value)}
             />
-          </label>
+          </Field>
           {!provider && (
-            <label className="field">
-              <span className="field-label">Short name</span>
-              <input
-                className="input"
-                name="slug"
+            <Field>
+              <FieldLabel htmlFor={`${ids}-slug`}>Short name</FieldLabel>
+              <Input
+                id={`${ids}-slug`}
+                value={values.slug}
                 placeholder="acme"
                 pattern="[a-z0-9][a-z0-9\-]{1,30}"
                 title="Lowercase letters, numbers and hyphens"
                 required
+                onChange={(event) => set('slug', event.target.value)}
               />
-            </label>
+            </Field>
           )}
-          <label className="field">
-            <span className="field-label">Issuer</span>
-            <input
-              className="input"
-              name="issuer"
+          <Field>
+            <FieldLabel htmlFor={`${ids}-issuer`}>Issuer</FieldLabel>
+            <Input
+              id={`${ids}-issuer`}
               type="url"
-              defaultValue={provider?.issuer}
+              value={values.issuer}
               placeholder="https://accounts.google.com"
               spellCheck={false}
               required
+              onChange={(event) => set('issuer', event.target.value)}
             />
-          </label>
-          <label className="field">
-            <span className="field-label">Client id</span>
-            <input
-              className="input"
-              name="clientId"
-              defaultValue={provider?.clientId}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${ids}-client`}>Client id</FieldLabel>
+            <Input
+              id={`${ids}-client`}
+              value={values.clientId}
               spellCheck={false}
               required
+              onChange={(event) => set('clientId', event.target.value)}
             />
-          </label>
-          <label className="field">
-            <span className="field-label">Client secret</span>
-            <input
-              className="input"
-              name="clientSecret"
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${ids}-secret`}>Client secret</FieldLabel>
+            <Input
+              id={`${ids}-secret`}
               type="password"
               autoComplete="off"
+              value={values.clientSecret}
               placeholder={provider?.hasSecret ? 'Set — leave blank to keep' : ''}
+              onChange={(event) => set('clientSecret', event.target.value)}
             />
-          </label>
-          <label className="field">
-            <span className="field-label">Scopes</span>
-            <input
-              className="input"
-              name="scopes"
-              defaultValue={provider?.scopes ?? 'openid email profile'}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${ids}-scopes`}>Scopes</FieldLabel>
+            <Input
+              id={`${ids}-scopes`}
+              value={values.scopes}
               spellCheck={false}
+              onChange={(event) => set('scopes', event.target.value)}
             />
-          </label>
-          <label className="field">
-            <span className="field-label">Only these domains</span>
-            <input
-              className="input"
-              name="allowedDomains"
-              defaultValue={provider?.allowedDomains.join(', ')}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${ids}-domains`}>Only these domains</FieldLabel>
+            <Input
+              id={`${ids}-domains`}
+              value={values.allowedDomains}
               placeholder="acme.com, acme.co.uk"
               spellCheck={false}
+              aria-describedby={`${ids}-domains-hint`}
+              onChange={(event) => set('allowedDomains', event.target.value)}
             />
-          </label>
-          <label className="field">
-            <span className="field-label">New people</span>
-            <select
-              className="input"
-              name="joinWorkspaceId"
-              defaultValue={provider?.joinWorkspaceId ?? ''}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${ids}-join`}>New people</FieldLabel>
+            <NativeSelect
+              id={`${ids}-join`}
+              className="w-full"
+              value={values.joinWorkspaceId}
+              onChange={(event) => set('joinWorkspaceId', event.target.value)}
             >
-              <option value="">Need an invitation</option>
+              <NativeSelectOption value="">Need an invitation</NativeSelectOption>
               {workspaces.map((workspace) => (
-                <option key={workspace.id} value={workspace.id}>
+                <NativeSelectOption key={workspace.id} value={workspace.id}>
                   Join {workspace.name}
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
-          </label>
+            </NativeSelect>
+          </Field>
         </div>
-        <p className="pref-hint">
+        <p
+          id={`${ids}-domains-hint`}
+          className="m-0 max-w-[68ch] text-sm text-pretty text-muted-foreground"
+        >
           With no domains named, anyone the provider has verified may sign in to an account that
           already exists here. Letting new people join without an invitation needs the domains
           named — otherwise anyone with an account at the provider could.
         </p>
-        <label className="pref-row">
-          <span className="pref-label grow">
-            Link existing accounts by verified address
-            <span className="pref-hint block">
+        <Field orientation="horizontal">
+          <Checkbox
+            id={`${ids}-link`}
+            checked={values.linkByEmail}
+            aria-describedby={`${ids}-link-hint`}
+            onCheckedChange={(on) => set('linkByEmail', on)}
+          />
+          <FieldContent>
+            <FieldLabel htmlFor={`${ids}-link`}>Link existing accounts by verified address</FieldLabel>
+            <FieldDescription id={`${ids}-link-hint`}>
               When the provider has verified someone’s address and it has an account here, the two
               are linked on their first sign-in. Off, people link it themselves while signed in.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            name="linkByEmail"
-            defaultChecked={provider?.linkByEmail ?? true}
+            </FieldDescription>
+          </FieldContent>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox
+            id={`${ids}-enabled`}
+            checked={values.enabled}
+            aria-describedby={`${ids}-enabled-hint`}
+            onCheckedChange={(on) => set('enabled', on)}
           />
-        </label>
-        <label className="pref-row">
-          <span className="pref-label grow">
-            On the sign-in page
-            <span className="pref-hint block">Off keeps it set up without offering it.</span>
-          </span>
-          <input type="checkbox" name="enabled" defaultChecked={provider?.enabled ?? true} />
-        </label>
-        <div className="console-form-actions">
-          <button className="btn btn-primary" type="submit" disabled={busy}>
+          <FieldContent>
+            <FieldLabel htmlFor={`${ids}-enabled`}>On the sign-in page</FieldLabel>
+            <FieldDescription id={`${ids}-enabled-hint`}>
+              Off keeps it set up without offering it.
+            </FieldDescription>
+          </FieldContent>
+        </Field>
+        <div className="flex flex-wrap gap-2">
+          {/* Busy, not gone: a button disabled under the pointer would drop focus to the
+              page while the provider is being checked. */}
+          <Button type="submit" disabled={busy} focusableWhenDisabled>
             {busy ? 'Checking…' : provider ? 'Save' : 'Connect'}
-          </button>
+          </Button>
           {onCancel && (
-            <button className="btn btn-ghost" type="button" onClick={onCancel}>
+            <Button type="button" variant="ghost" onClick={onCancel}>
               Cancel
-            </button>
+            </Button>
           )}
         </div>
       </form>

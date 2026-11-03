@@ -6,7 +6,7 @@ import { ExportsCard } from '../../console/ExportsCard.tsx';
 
 export function ExportSection() {
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <ExportsCard
         scope="workspace"
         title="Export the workspace"

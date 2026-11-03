@@ -6,14 +6,27 @@
  * same-origin access.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { FeedbackTicket } from "@blob/shared";
 import { api } from "../../../lib/api.ts";
 import { useStore } from "../../../lib/store.ts";
+import { Badge } from "../../../components/ui/badge.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from "../../../components/ui/item.tsx";
+import { ToggleGroup, ToggleGroupItem } from "../../../components/ui/toggle-group.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
-import { Card, CardNotice } from "../../console/Card.tsx";
+import { Card, CardNotice, CardRow, CardRows } from "../../console/Card.tsx";
 
 type Filter = "open" | "closed" | "all";
+
+const FILTERS: Array<{ value: Filter; label: string }> = [
+  { value: "open", label: "Open" },
+  { value: "closed", label: "Closed" },
+  { value: "all", label: "All" },
+];
+
+/** A bug is the one kind that is urgent; a feature request is the one that is wanted. */
+const KIND_BADGE = { bug: "destructive", feature: "secondary", feedback: "outline" } as const;
 
 export function FeedbackSection({
   onError,
@@ -26,6 +39,7 @@ export function FeedbackSection({
   const [openId, setOpenId] = useState<string | null>(null);
   const [showing, setShowing] = useState<"log" | "snapshot" | null>(null);
   const [loading, setLoading] = useState(true);
+  const detailId = useId();
 
   useEffect(() => {
     // A filter switched while a slower request is still in flight would otherwise let
@@ -74,26 +88,28 @@ export function FeedbackSection({
   }
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card>
-        <div className="console-toolbar">
-          <div className="chip-row">
-            {(["open", "closed", "all"] as Filter[]).map((value) => (
-              <button
-                key={value}
-                className="chip"
-                aria-pressed={filter === value}
-                onClick={() => {
-                  setOpenId(null);
-                  setLoading(true);
-                  setFilter(value);
-                }}
-              >
-                {value === "open" ? "Open" : value === "closed" ? "Closed" : "All"}
-              </button>
-            ))}
-          </div>
-        </div>
+        <ToggleGroup
+          aria-label="Show"
+          variant="outline"
+          spacing={0}
+          value={[filter]}
+          // Pressing the one that is chosen would leave no filter at all.
+          onValueChange={([next]) => {
+            const chosen = FILTERS.find((f) => f.value === next);
+            if (!chosen) return;
+            setOpenId(null);
+            setLoading(true);
+            setFilter(chosen.value);
+          }}
+        >
+          {FILTERS.map((f) => (
+            <ToggleGroupItem key={f.value} value={f.value}>
+              {f.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
 
         {loading && <CardNotice>Loading…</CardNotice>}
         {!loading && tickets.length === 0 && (
@@ -104,107 +120,116 @@ export function FeedbackSection({
         )}
 
         {tickets.length > 0 && (
-          <div className="console-list">
+          <CardRows>
             {tickets.map((ticket) => {
               const expanded = openId === ticket.id;
               const reporter = ticket.reporterId
                 ? users[ticket.reporterId]
                 : undefined;
+              const titleId = `${detailId}-${ticket.id}-title`;
+              const panelId = `${detailId}-${ticket.id}`;
 
               return (
-                <div key={ticket.id} className="console-list-item">
-                  {/* The row is its own flex box, so Open sits at the row's end. It was
-                      the child of a `.block` that `.admin-row` outranked, and sat
-                      against the title however wide the row was. */}
-                  <div className="admin-row">
-                    <span className="feedback-kind" data-kind={ticket.kind}>
-                      {ticket.kind}
-                    </span>
-                    <div className="grow min-0">
-                      <div className="admin-row-title">{ticket.title}</div>
-                      <div className="admin-row-meta">
-                        {reporter?.displayName ?? "Someone who has since left"} ·{" "}
-                        {formatRelative(ticket.createdAt)}
-                        {ticket.status === "closed" && " · closed"}
-                      </div>
-                    </div>
-                    <button
-                      className="btn"
+                <CardRow key={ticket.id}>
+                  <Badge variant={KIND_BADGE[ticket.kind]} className="capitalize">
+                    {ticket.kind}
+                  </Badge>
+                  <ItemContent>
+                    <ItemTitle id={titleId}>{ticket.title}</ItemTitle>
+                    <ItemDescription>
+                      {reporter?.displayName ?? "Someone who has since left"} ·{" "}
+                      {formatRelative(ticket.createdAt)}
+                      {ticket.status === "closed" && " · closed"}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    {/* One word for the state it is in, kept: `aria-expanded` says whether
+                        it is open. Named by the ticket as well, as every row has one. */}
+                    <Button
+                      id={`${panelId}-toggle`}
+                      variant="outline"
+                      aria-expanded={expanded}
+                      aria-controls={expanded ? panelId : undefined}
+                      aria-labelledby={`${panelId}-toggle ${titleId}`}
                       onClick={() => {
                         setShowing(null);
                         setOpenId(expanded ? null : ticket.id);
                       }}
                     >
-                      {expanded ? "Hide" : "Open"}
-                    </button>
-                  </div>
+                      Details
+                    </Button>
+                  </ItemActions>
 
                   {expanded && (
-                    <div className="feedback-detail">
-                      {ticket.body && <p className="feedback-body">{ticket.body}</p>}
+                    <div
+                      id={panelId}
+                      className="flex basis-full flex-col gap-3.5 rounded-lg border bg-muted/50 p-4"
+                    >
+                      {ticket.body && <p className="text-sm whitespace-pre-wrap">{ticket.body}</p>}
 
                       {Object.keys(ticket.environment).length > 0 && (
-                        <dl className="feedback-env">
+                        <dl className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-x-4 gap-y-2">
                           {Object.entries(ticket.environment).map(([key, value]) => (
                             <div key={key}>
-                              <dt>{key}</dt>
-                              <dd>{value}</dd>
+                              <dt className="text-xs text-muted-foreground">{key}</dt>
+                              <dd className="text-sm wrap-anywhere">{value}</dd>
                             </div>
                           ))}
                         </dl>
                       )}
 
-                      <div className="chip-row">
-                        {ticket.consoleLog && (
-                          <button
-                            className="chip"
-                            aria-pressed={showing === "log"}
-                            onClick={() =>
-                              setShowing(showing === "log" ? null : "log")
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Showing the log, the snapshot or neither: a choice of one that
+                            may be none, so pressing the one that is shown puts it away. */}
+                        {(ticket.consoleLog || ticket.hasSnapshot) && (
+                          <ToggleGroup
+                            aria-label="Attached"
+                            variant="outline"
+                            size="sm"
+                            value={showing ? [showing] : []}
+                            onValueChange={([next]) =>
+                              setShowing(next === "log" || next === "snapshot" ? next : null)
                             }
                           >
-                            Console log
-                          </button>
+                            {ticket.consoleLog && (
+                              <ToggleGroupItem value="log">Console log</ToggleGroupItem>
+                            )}
+                            {ticket.hasSnapshot && (
+                              <ToggleGroupItem value="snapshot">Page snapshot</ToggleGroupItem>
+                            )}
+                          </ToggleGroup>
                         )}
-                        {ticket.hasSnapshot && (
-                          <button
-                            className="chip"
-                            aria-pressed={showing === "snapshot"}
+                        <div className="ml-auto flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
                             onClick={() =>
-                              setShowing(showing === "snapshot" ? null : "snapshot")
+                              void setStatus(
+                                ticket,
+                                ticket.status === "open" ? "closed" : "open",
+                              )
                             }
                           >
-                            Page snapshot
-                          </button>
-                        )}
-                        <span className="grow" />
-                        <button
-                          className="btn"
-                          onClick={() =>
-                            void setStatus(
-                              ticket,
-                              ticket.status === "open" ? "closed" : "open",
-                            )
-                          }
-                        >
-                          {ticket.status === "open" ? "Close" : "Reopen"}
-                        </button>
-                        <button
-                          className="btn feedback-delete"
-                          aria-label={`Delete "${ticket.title}"`}
-                          onClick={() => void remove(ticket)}
-                        >
-                          Delete
-                        </button>
+                            {ticket.status === "open" ? "Close" : "Reopen"}
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            aria-label={`Delete "${ticket.title}"`}
+                            onClick={() => void remove(ticket)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
 
                       {showing === "log" && (
-                        <pre className="feedback-log">{ticket.consoleLog}</pre>
+                        <pre className="max-h-80 overflow-auto rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+                          {ticket.consoleLog}
+                        </pre>
                       )}
 
                       {showing === "snapshot" && (
                         <iframe
-                          className="feedback-snapshot"
+                          className="h-[460px] w-full rounded-lg border bg-background"
                           title={`Page snapshot for ${ticket.title}`}
                           src={api.feedback.snapshotUrl(ticket.id)}
                           sandbox=""
@@ -212,10 +237,10 @@ export function FeedbackSection({
                       )}
                     </div>
                   )}
-                </div>
+                </CardRow>
               );
             })}
-          </div>
+          </CardRows>
         )}
       </Card>
     </div>

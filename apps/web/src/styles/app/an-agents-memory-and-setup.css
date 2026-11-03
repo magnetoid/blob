@@ -1,0 +1,145 @@
+/* ─── an agent's memory and setup ─────────────────────────────────────────── */
+/* What `features/agentic/` still draws with the classes the consoles used before they
+   moved onto shadcn: an agent's memory and notes as a ruled list (`MemoryList`,
+   `NoteList`), the card that hands over its credentials with the commands that connect it
+   (`JanusSetup`, `DesktopAgentSetup`), and the title line of its terminal
+   (`AgentTerminal`), which shares the card's row parts. In the consoles each is drawn in a
+   `data-legacy` island (`styles/app/base.css`); the terminal also opens in a
+   conversation's panel. This sheet goes when that markup is converted. */
+
+/* A list of things with their actions: each row ruled from the next, and washed under the
+   pointer. */
+.console-list > :is(.admin-row, .console-list-item) {
+  padding: var(--space-3) var(--card-pad-x);
+  border-bottom: 1px solid var(--hairline-soft);
+  font-variant-numeric: tabular-nums;
+  transition: background var(--dur-fast) var(--ease-color);
+}
+
+.console-list > :is(.admin-row, .console-list-item):last-child {
+  border-bottom: 0;
+}
+
+.console-list > :is(.admin-row, .console-list-item):hover {
+  background: var(--console-row-hover);
+}
+
+/* An item that wraps a row — each memory and each note is one — keeps the row's layout
+   and leaves the padding and the rule to the item. */
+.console-list-item > .admin-row {
+  padding: 0;
+  border-bottom: 0;
+}
+
+/* A note's Save and Cancel, under the box it is edited in. */
+.console-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+/* What the console's page (`features/console/ConsoleShell.tsx`) declares for the lists
+   above, which are only ever drawn there. */
+.admin-page {
+  /* The wash a row takes under the pointer, mixed toward --surface-hover rather than
+     being it: every row of a long list turning the full hover step read as a stripe,
+     not a highlight. --surface-row-hover is no use on a card — in dark it is darker
+     than --surface, so a hovered row would sink instead of lifting. */
+  --console-row-hover: color-mix(in oklab, var(--surface-hover) 60%, var(--surface));
+}
+
+/* A field drawn here in the console — a note being edited, the address the bridge points
+   at — shows focus as a ring, as the console's own fields do, rather than as a one-pixel
+   change of hue. */
+.admin-page .input:focus {
+  box-shadow: 0 0 0 1px var(--blob-accent);
+}
+
+/* Credentials shown once, and the setup that follows them: a card on the page like any
+   other, elevated rather than bordered. */
+.admin-secret-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--blob-radius-lg);
+  background: var(--surface);
+  box-shadow: var(--elev-1);
+}
+
+/* The commands that connect a desktop agent.
+ *
+ * A block someone is going to select and paste, so it scrolls sideways rather than
+ * wrapping: a wrapped `export` line looks like two commands and pastes as one broken one.
+ */
+.admin-command-block {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--blob-radius-lg);
+  background: var(--surface-muted);
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+  user-select: all;
+}
+
+.admin-command-block code {
+  font-family: var(--blob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  background: none;
+  padding: 0;
+}
+
+/* A row's parts: what it is, a line about it, and what can be done to it. The setup card
+   and the terminal borrow the first two for their headings. */
+.admin-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.admin-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-row);
+  font-weight: 600;
+}
+
+.admin-row-meta {
+  margin-top: 3px;
+  font-size: var(--text-meta);
+  color: var(--text-4);
+}
+
+.admin-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* The terminal's state beside its title: connecting, open, closed or failed. */
+.role-pill {
+  padding: 1px 7px;
+  border: 1px solid var(--blob-accent-border);
+  border-radius: var(--blob-radius-md);
+  background: var(--blob-accent-wash);
+  color: var(--blob-accent);
+  font-size: var(--blob-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.role-pill[data-muted] {
+  border-color: var(--hairline);
+  background: var(--surface-muted);
+  color: var(--text-4);
+}

@@ -33,10 +33,12 @@ function HistoryCard() {
   return (
     <Card title="How long things are kept">
       {windows.length > 0 && (
-        <p className="pref-hint m-0">This workspace removes {windows.join(" and ")}.</p>
+        <p className="text-sm text-muted-foreground">
+          This workspace removes {windows.join(" and ")}.
+        </p>
       )}
       {held && (
-        <p className="pref-hint m-0">
+        <p className="text-sm text-muted-foreground">
           You are on legal hold: what you write, and every conversation you are in, is kept
           past this workspace’s retention. An admin placed the hold; the people you talk
           with are not told.
@@ -51,8 +53,8 @@ export function YouSection(props: ConsoleSectionProps) {
   if (!currentUser) return null;
 
   return (
-    <div className="console-stack">
-      <p className="pref-hint m-0">
+    <div className="flex flex-col gap-6">
+      <p className="text-sm text-muted-foreground">
         Signed in as {currentUser.displayName} · {currentUser.email}
       </p>
       <ProfileCard />
