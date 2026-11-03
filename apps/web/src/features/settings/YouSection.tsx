@@ -54,9 +54,7 @@ export function YouSection(props: ConsoleSectionProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* `m-0`: outside any card this is plain markup in the page's island, which has the
-          browser's paragraph margins back. */}
-      <p className="m-0 text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Signed in as {currentUser.displayName} · {currentUser.email}
       </p>
       <ProfileCard />

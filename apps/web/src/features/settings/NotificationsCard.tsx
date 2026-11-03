@@ -337,6 +337,9 @@ export function NotificationsCard() {
             {myGroups.map((group) => (
               <div key={group.id} className="flex items-center gap-3">
                 <Label htmlFor={`mute-${group.id}`} className="flex-1 font-normal">
+                  {/* Said before the handle to a screen reader, so "on" reads as notifications
+                      on rather than as the group silenced; the name still holds what is shown. */}
+                  <span className="sr-only">Notifications for </span>
                   <code className="font-mono text-xs">@{group.handle}</code>{" "}
                   <span className="text-muted-foreground">{group.name}</span>
                 </Label>

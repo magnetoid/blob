@@ -30,12 +30,13 @@ describe('the channels an agent follows', () => {
     });
     render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
 
-    // One switch for each channel it is in, named by the channel, on while it follows it.
-    const launch = await screen.findByRole('switch', { name: '#launch' });
+    // One switch for each channel it is in, named for whose follow it is and which channel,
+    // on while it follows it.
+    const launch = await screen.findByRole('switch', { name: 'Helper follows #launch' });
     await waitFor(() => expect(launch.getAttribute('aria-checked')).toBe('true'));
-    const general = screen.getByRole('switch', { name: '#general' });
+    const general = screen.getByRole('switch', { name: 'Helper follows #general' });
     expect(general.getAttribute('aria-checked')).toBe('false');
-    expect(screen.queryByRole('switch', { name: '#random' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Helper follows #random' })).toBeNull();
     expect(screen.getByText(/not only what mentions it/)).toBeTruthy();
   });
 
@@ -47,7 +48,7 @@ describe('the channels an agent follows', () => {
     const unfollow = vi.spyOn(api.admin, 'unfollowChannel').mockResolvedValue({ channels: [] });
     render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
 
-    const general = await screen.findByRole('switch', { name: '#general' });
+    const general = await screen.findByRole('switch', { name: 'Helper follows #general' });
     await waitFor(() => expect(general.getAttribute('aria-disabled')).toBeNull());
     fireEvent.click(general);
     await waitFor(() => expect(general.getAttribute('aria-checked')).toBe('true'));
@@ -93,7 +94,7 @@ describe('the channels an agent follows', () => {
     // Pressing it before the list arrives would follow a channel that is already followed.
     vi.spyOn(api.admin, 'agentFollows').mockReturnValue(new Promise(() => undefined));
     render(<AgentFollows pluginId="p1" agentName="Helper" channels={CHANNELS} act={act} />);
-    expect(screen.getByRole('switch', { name: '#general' }).getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByRole('switch', { name: 'Helper follows #general' }).getAttribute('aria-disabled')).toBe('true');
   });
 
   it('says to add it to a channel first when it is in none', async () => {

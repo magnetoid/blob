@@ -203,4 +203,25 @@ describe('the section menu on a narrow screen', () => {
       window.removeEventListener('keydown', onWindowKey);
     }
   });
+
+  // The modal makes everything outside it inert, so to a touch screen reader the backdrop
+  // is no way out and there is no Escape: the sheet needs a control that is named.
+  it('has a named close, which closes the sheet and puts focus back on the trigger', async () => {
+    narrow();
+    render(shell('general', undefined, GROUPS));
+    const trigger = screen.getByRole('button', { name: 'Open the section menu' });
+    fireEvent.click(trigger);
+    const sheet = await screen.findByRole('dialog');
+    await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+
+    const close = screen.getByRole('button', { name: 'Close the section menu' });
+    expect(sheet.contains(close)).toBe(true);
+    // It comes after the nav, so the dialog opens on the rows and not on the way out.
+    expect(document.activeElement).not.toBe(close);
+
+    fireEvent.click(close);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(trigger);
+  });
 });

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -22,7 +23,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { PanelLeftIcon } from "lucide-react"
+import { PanelLeftIcon, XIcon } from "lucide-react"
 
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
@@ -141,6 +142,7 @@ function Sidebar({
   variant = "sidebar",
   collapsible = "offcanvas",
   label = "Sidebar",
+  closeLabel = "Close",
   className,
   children,
   dir,
@@ -151,6 +153,8 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none"
   /** What the sheet is called below the breakpoint, where it is a dialog. */
   label?: string
+  /** What the sheet's close button is called, for a screen reader that has no Escape. */
+  closeLabel?: string
 }) {
   const { isMobile, state, openMobile, setOpenMobile, openerRef } = useSidebar()
 
@@ -177,7 +181,9 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground"
+          // The generated close is named only "Close"; the one below says which menu.
+          showCloseButton={false}
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -198,6 +204,21 @@ function Sidebar({
             <SheetTitle>{label}</SheetTitle>
           </SheetHeader>
           <div className="flex h-full w-full flex-col">{children}</div>
+          {/* The backdrop is no way out for a screen reader on a phone, where the page
+              behind the modal is inert and there is no Escape. After the children, so
+              the dialog still opens on the nav and not on this. */}
+          <SheetClose
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-3 right-3"
+                aria-label={closeLabel}
+              />
+            }
+          >
+            <XIcon />
+          </SheetClose>
         </SheetContent>
       </Sheet>
     )

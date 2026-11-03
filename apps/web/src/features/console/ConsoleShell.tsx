@@ -131,6 +131,7 @@ export function ConsoleShell({
           variant="inset"
           collapsible="offcanvas"
           label="Section menu"
+          closeLabel="Close the section menu"
           className="top-(--topbar-height) h-auto"
         >
           <ConsoleNav

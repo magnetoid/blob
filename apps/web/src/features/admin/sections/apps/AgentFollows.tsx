@@ -114,7 +114,12 @@ export function AgentFollows({
               <CardRow key={channel.id}>
                 <ItemContent>
                   <ItemTitle>
-                    <Label htmlFor={switchId}>{where}</Label>
+                    {/* The switch is named by what is shown, and what it does goes in front of
+                        it unseen: a bare "#general" does not say whose follow this is. */}
+                    <Label htmlFor={switchId}>
+                      <span className="sr-only">{agentName} follows </span>
+                      {where}
+                    </Label>
                   </ItemTitle>
                 </ItemContent>
                 <ItemActions>

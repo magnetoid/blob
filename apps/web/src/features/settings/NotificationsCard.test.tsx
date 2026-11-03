@@ -197,17 +197,20 @@ describe('group mentions', () => {
     } as never);
     render(<NotificationsCard />);
 
-    // Named for the group it is shown beside, described by what silencing one does.
+    // Named for what it does to the group shown beside it, so "on" cannot be heard as
+    // "silenced", and described by what silencing one does.
     const mention = screen.getByRole('switch', {
-      name: '@design Design',
+      name: 'Notifications for @design Design',
       description: /@-mentions of it stop counting as mentions of you/,
     });
     expect(mention.getAttribute('aria-checked')).toBe('true');
 
     fireEvent.click(mention);
     await waitFor(() => expect(setMuted).toHaveBeenCalledWith('g1', true));
-    expect(screen.getByRole('switch', { name: '@design Design' }).getAttribute('aria-checked')).toBe(
-      'false',
-    );
+    expect(
+      screen
+        .getByRole('switch', { name: 'Notifications for @design Design' })
+        .getAttribute('aria-checked'),
+    ).toBe('false');
   });
 });

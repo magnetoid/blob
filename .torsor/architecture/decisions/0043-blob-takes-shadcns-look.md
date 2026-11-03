@@ -395,8 +395,9 @@ attribute. What it decided, and why:
 Phase 3 drew `/settings`, `/admin` and `/server` with shadcn's parts — the frame and its
 nav, every section under `features/admin/` and `features/settings/`, the server's pages and
 the theme editor — and deleted the legacy CSS wherever a console was its last user. The
-consoles are still three lazy chunks, so none of it reaches the first load. Five calls were
-made without the user, and are recorded here as the plan promised:
+consoles are still three lazy chunks, so none of their JavaScript reaches the first load
+(their utilities in the stylesheet do; see the budget below). Five calls were made without
+the user, and are recorded here as the plan promised:
 
 - **The console nav is shadcn's Sidebar** (`components/ui/sidebar.tsx`, framing all three
   in `features/console/ConsoleShell.tsx`). From 768px the nav is a column on the ground
@@ -458,6 +459,15 @@ And what the phase settled on the way:
   focus. A table scrolls sideways below `md` and never clips. A textarea that can hold long
   text is bounded. A card's list, settings and table are `CardRows`, `CardFields` and
   `CardTable` (`features/console/Card.tsx`).
-- **The budget.** The consoles add nothing to the first load but the class groups they
-  give `cn-tables.ts`. It measured 232.2 KB as the phase closed, so `BUDGET_KB` is 234 — the
-  measure rounded up, plus 1 KB — 26 KB under the ceiling.
+- **The budget.** In JavaScript the consoles add nothing to the first load but the class
+  groups they give `cn-tables.ts`. It measured 232.2 KB as the phase closed, so `BUDGET_KB`
+  is 234 — the measure rounded up, plus 1 KB — 26 KB under the ceiling. The stylesheet is
+  another matter. The consoles' Tailwind utilities land in the one first-load stylesheet,
+  `dist/assets/index-*.css`, which every first paint loads, and it grew from 40.7 KB
+  gzipped at phase 2's tip to 46.2 KB at the end of phase 3 (240.7 to 293.9 KB raw). That
+  is after deleting 3,139 lines of legacy CSS, the source in `styles/app/` going from 325
+  to 255 KB. `scripts/bundle-budget.mjs` measures only the JavaScript `index.html` asks
+  for, so it cannot see this. The spec leaves CSS unbudgeted but says it "should end
+  smaller than it starts", and it started at 31.5 KB gzipped. Taking that back is phase
+  7's, where a stylesheet of the consoles' own, loaded with their chunk, is one way to
+  look at it.
