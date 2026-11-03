@@ -24,16 +24,20 @@ export function Issues({ id, issues }: { id: string; issues: JanusIssue[] }) {
     // The region wraps the list rather than being it: `role="status"` on the `<ul>` would
     // take the list semantics with it, and a screen reader would lose "3 items".
     <div id={id} role="status" aria-live="polite">
-      <ul className="janus-issues">
+      <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-sm">
         {issues.map((issue, index) => (
           // Janus can answer with two issues carrying the same words and different hints,
           // so the index is the only honest identity here. The list is replaced whole on
           // every save, never reordered, which is what makes that safe.
           <li key={index} data-severity={issue.severity}>
-            <span className={issue.severity === "error" ? "error-text" : "muted"}>
+            <span className={issue.severity === "error" ? "text-destructive" : "text-muted-foreground"}>
               {issue.message}
             </span>
-            {issue.hint && <code className="janus-issue-hint">{issue.hint}</code>}
+            {issue.hint && (
+              <code className="ml-1.5 font-mono text-xs wrap-anywhere text-muted-foreground">
+                {issue.hint}
+              </code>
+            )}
           </li>
         ))}
       </ul>

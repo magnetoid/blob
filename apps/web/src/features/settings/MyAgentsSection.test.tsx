@@ -142,7 +142,10 @@ describe('what your agents spent', () => {
     });
     render(<MyAgentsSection onError={vi.fn()} isOwner={false} />);
     const heading = await screen.findByRole('heading', { name: 'What they spent' });
-    const row = heading.closest('[data-slot="card"]')!.querySelector('tbody tr')!;
+    const card = heading.closest<HTMLElement>('[data-slot="card"]')!;
+    // The table carries the card's name, since it is the card's whole content.
+    expect(within(card).getByRole('table', { name: 'What they spent' })).toBeTruthy();
+    const row = card.querySelector('tbody tr')!;
     expect(row.textContent).toMatch(/Pip/);
     expect(row.textContent).toMatch(/9/);
     expect(row.textContent).toMatch(/€0\.15/);

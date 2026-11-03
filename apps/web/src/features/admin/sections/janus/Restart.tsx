@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { api, ApiError } from "../../../../lib/api.ts";
+import { Button } from "../../../../components/ui/button.tsx";
 import { Card } from "../../../console/Card.tsx";
 import type { RestartWatch } from "./apply.ts";
 import { issues as readIssues } from "./config.ts";
@@ -62,14 +63,13 @@ export function Restart({
         </>
       }
       actions={
-        <button
-          type="button"
-          className="btn"
+        <Button
+          variant="outline"
           disabled={disabled || asking || restart.restarting}
           onClick={() => void onClick()}
         >
           Restart Janus
-        </button>
+        </Button>
       }
     />
   );

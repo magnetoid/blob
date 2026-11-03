@@ -11,6 +11,7 @@
  */
 
 import type { JanusOverview } from "../../../../lib/api.ts";
+import { Card } from "../../../console/Card.tsx";
 
 /** Janus's image tag, as `.env.example` and both compose files pin it. */
 const JANUS_VERSION = "0.18.0";
@@ -62,17 +63,14 @@ export function Setup({
   }
 
   return (
-    <div className="admin-secret-card block">
-      {/* Two states, and only one of them is a fault. The server saying
-          `janus_not_configured` means the stack has no Janus at all; a workspace merely
-          without the row is seeded on the next start of the app, which is what `Installs`
-          says a few lines below — so one headline for both read as the page contradicting
-          itself. */}
-      <div className="admin-row-title">
-        {notConfigured ? "Janus is not running in this stack" : "This workspace has no Janus yet"}
-      </div>
-      <div className="admin-row-meta">
-        {notConfigured ? (
+    // Two states, and only one of them is a fault. The server saying `janus_not_configured`
+    // means the stack has no Janus at all; a workspace merely without the row is seeded on
+    // the next start of the app, which is what `Installs` says a few lines below — so one
+    // headline for both read as the page contradicting itself.
+    <Card
+      title={notConfigured ? "Janus is not running in this stack" : "This workspace has no Janus yet"}
+      description={
+        notConfigured ? (
           <>
             Blob ships no agent of its own. Janus runs beside it as its own service, and a
             workspace gets it through the ordinary install path once Blob has been told
@@ -85,34 +83,35 @@ export function Setup({
             on the next start of the app, through the ordinary install path. These are the
             values it is seeded from, where Blob runs.
           </>
-        )}
-      </div>
-
-      {/* Spans, not divs: a `pre` takes phrasing content, and `.block` is how the rest of
-          this file already makes a line of its own. */}
-      <pre className="admin-command-block">
+        )
+      }
+    >
+      {/* Spans, not divs: a `pre` takes phrasing content, and `block` is how each line gets
+          a line of its own. It scrolls sideways rather than wrapping, as a command does
+          elsewhere, and one click selects it whole. */}
+      <pre className="m-0 overflow-x-auto rounded-lg border bg-muted p-3.5 font-mono text-[13px] leading-relaxed whitespace-pre select-all">
         {LINES.map((line) => (
           <span key={line.name} className="block" data-env-line={line.name}>
             <code>{line.text}</code>
             {missing(line.name) && (
-              <span className="error-text"> — not set on this server</span>
+              <span className="text-destructive"> — not set on this server</span>
             )}
           </span>
         ))}
       </pre>
 
-      <p className="pref-hint m-0">
+      <div className="flex flex-col gap-1.5">
         {LINES.map((line) => (
-          <span key={line.name} className="block">
-            <strong>{line.name}</strong> — {line.hint}
-          </span>
+          <p key={line.name} className="m-0 text-sm text-muted-foreground">
+            <strong className="font-semibold text-foreground">{line.name}</strong> — {line.hint}
+          </p>
         ))}
-      </p>
+      </div>
 
-      <p className="pref-hint m-0">
+      <p className="m-0 text-sm text-muted-foreground">
         The two secrets are shared with the <code>janus</code> service and are never
         stored in Blob. Nothing on this page shows one, or ever will.
       </p>
-    </div>
+    </Card>
   );
 }

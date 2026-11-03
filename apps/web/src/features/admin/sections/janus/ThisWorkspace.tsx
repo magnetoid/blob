@@ -12,7 +12,7 @@
  * control that has quietly gone missing reads as a thing Blob cannot do.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import {
   api,
   ApiError,
@@ -20,7 +20,18 @@ import {
 } from "../../../../lib/api.ts";
 import { useStore } from "../../../../lib/store.ts";
 import { showChannel } from "../../../../lib/navigation.ts";
-import { Card, CardNotice } from "../../../console/Card.tsx";
+import { Alert, AlertDescription } from "../../../../components/ui/alert.tsx";
+import { Badge } from "../../../../components/ui/badge.tsx";
+import { Button } from "../../../../components/ui/button.tsx";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+} from "../../../../components/ui/field.tsx";
+import { Switch } from "../../../../components/ui/switch.tsx";
+import { Textarea } from "../../../../components/ui/textarea.tsx";
+import { Card, CardFields, CardNotice } from "../../../console/Card.tsx";
 import { useAdminAction, useAdminData } from "../../../console/hooks.ts";
 import { AppChannelList } from "../apps/AppChannelList.tsx";
 import { BudgetRow } from "../apps/BudgetRow.tsx";
@@ -30,18 +41,6 @@ import { isSeededJanus } from "./seeded.ts";
 
 /** Janus's own ceiling for `forwardedProps.instructions`, which the route enforces. */
 const INSTRUCTIONS_MAX = 4000;
-
-/**
- * The sentences a control has to be announced *with*, not merely beside.
- *
- * Both controls can be dead, and the reason is the whole point of drawing them dead
- * rather than hiding them — but a screen reader on a disabled switch read out a switch
- * that is off and dead and never the paragraph next to it. Fixed ids rather than
- * generated ones: there is one Janus on the page, so there is one of each.
- */
-const EVERYWHERE_HINT = "janus-everywhere-hint";
-const INSTRUCTIONS_HINT = "janus-instructions-hint";
-const INSTRUCTIONS_COUNT = "janus-instructions-count";
 
 export function ThisWorkspace({
   plugin,
@@ -76,6 +75,11 @@ export function ThisWorkspace({
     onChanged();
   }, [reload, onChanged]);
   const act = useAdminAction(onError, refresh);
+  // The sentence a control has to be announced *with*, not merely beside: the switch can
+  // be dead, and the reason is the whole point of drawing it dead rather than hiding it —
+  // but a screen reader on a disabled switch read out a switch that is off and dead and
+  // never the paragraph next to it.
+  const everywhere = useId();
 
   const seeded = isSeededJanus(plugin);
   const enabled = plugin.status === "enabled";
@@ -112,9 +116,13 @@ export function ThisWorkspace({
         title={
           <>
             {plugin.name}
-            <span className="role-pill" data-status={plugin.status}>
-              {enabled ? "enabled" : plugin.status}
-            </span>
+            <Badge
+              variant={
+                enabled ? "secondary" : plugin.status === "failed" ? "destructive" : "outline"
+              }
+            >
+              {plugin.status.replace("_", " ")}
+            </Badge>
           </>
         }
         description={
@@ -126,26 +134,29 @@ export function ThisWorkspace({
         }
         actions={
           <>
-            <button
-              type="button"
-              className="btn btn-ghost"
+            <Button
+              variant="ghost"
               onClick={() => void act(() => api.admin.setPluginEnabled(plugin.id, !enabled))}
             >
               {enabled ? "Disable" : "Enable"}
-            </button>
-            <button
-              type="button"
-              className="btn"
+            </Button>
+            <Button
+              variant="outline"
               disabled={!plugin.botUserId || !enabled}
               onClick={() => void sayHello()}
             >
               Say hello
-            </button>
+            </Button>
           </>
         }
       >
         {plugin.lastError && (
-          <div className="connection-banner">Last failure: {plugin.lastError}</div>
+          // Polite: it is where the agent stood when the page opened, not news.
+          <Alert variant="destructive" role="status">
+            <AlertDescription className="wrap-anywhere">
+              Last failure: {plugin.lastError}
+            </AlertDescription>
+          </Alert>
         )}
         <RecentErrors errors={plugin.recentErrors} />
       </Card>
@@ -166,31 +177,29 @@ export function ThisWorkspace({
             {loading ? "Loading…" : "The channels it is in could not be read."}
           </CardNotice>
         )}
-        <div className="pref-row">
-          <div className="grow">
-            <div className="pref-label">Join every public channel automatically</div>
-            <div className="pref-hint" id={EVERYWHERE_HINT}>
-              {seeded
-                ? "Public channels founded from now on. Today's channels are the list above — turning this off never removes it from a room it is already in."
-                : inertReason}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="toggle"
-            aria-pressed={plugin.inEveryPublicChannel && seeded}
-            aria-label="Join every public channel automatically"
-            aria-describedby={EVERYWHERE_HINT}
-            disabled={!seeded}
-            onClick={() =>
-              void act(() =>
-                api.admin.setPluginEverywhere(plugin.id, !plugin.inEveryPublicChannel),
-              )
-            }
-          >
-            <span />
-          </button>
-        </div>
+        <CardFields>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel htmlFor={`${everywhere}-switch`}>
+                Join every public channel automatically
+              </FieldLabel>
+              <FieldDescription id={`${everywhere}-hint`}>
+                {seeded
+                  ? "Public channels founded from now on. Today's channels are the list above — turning this off never removes it from a room it is already in."
+                  : inertReason}
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              id={`${everywhere}-switch`}
+              aria-describedby={`${everywhere}-hint`}
+              checked={plugin.inEveryPublicChannel && seeded}
+              disabled={!seeded}
+              onCheckedChange={(on) =>
+                void act(() => api.admin.setPluginEverywhere(plugin.id, on))
+              }
+            />
+          </Field>
+        </CardFields>
       </Card>
 
       <Card
@@ -217,16 +226,12 @@ export function ThisWorkspace({
           <CardNotice>
             {loading ? "Loading…" : "The recent runs could not be read."}
           </CardNotice>
-        ) : data.runs.length === 0 ? (
+        ) : (
           <RunLog
             pluginId={plugin.id}
             runs={data.runs}
             emptyLabel="Nobody here has asked Janus anything yet."
           />
-        ) : (
-          <div className="console-list">
-            <RunLog pluginId={plugin.id} runs={data.runs} />
-          </div>
         )}
       </Card>
     </>
@@ -257,20 +262,28 @@ function Instructions({
   const saved = plugin.instructions ?? "";
   const [text, setText] = useState(saved);
   const trimmed = text.trim();
+  const ids = useId();
 
   // Its own card, so the count and the Save share the card's footer: the count is what
-  // decides whether Save will be refused, and it now sits beside it.
+  // decides whether Save will be refused, and it now sits beside it. The card's title is
+  // the box's label, so a click on it puts the cursor there; and its description — what it
+  // is, or why it is dead — is read with the box, with the count, the other thing
+  // somebody typing in it cannot see.
   return (
     <Card
-      title="Instructions"
+      title={<label htmlFor={`${ids}-box`}>Instructions</label>}
+      description={
+        seeded
+          ? "Sent with every run as a standing instruction — how to answer here, what this team calls things, what to leave alone. It is not a message: nobody in the conversation sees it, and the agent keeps no copy between runs."
+          : inertReason
+      }
+      descriptionId={`${ids}-hint`}
       footer={
         <>
-          <span className="pref-hint" id={INSTRUCTIONS_COUNT}>
+          <span id={`${ids}-count`} className="text-sm text-muted-foreground">
             {text.length} / {INSTRUCTIONS_MAX}
           </span>
-          <button
-            type="button"
-            className="btn btn-primary"
+          <Button
             disabled={!seeded || trimmed === saved}
             onClick={() =>
               // Empty means "nothing to say", sent as an explicit null rather than "" so
@@ -281,21 +294,14 @@ function Instructions({
             }
           >
             Save instructions
-          </button>
+          </Button>
         </>
       }
     >
-      <div className="pref-hint" id={INSTRUCTIONS_HINT}>
-        {seeded
-          ? "Sent with every run as a standing instruction — how to answer here, what this team calls things, what to leave alone. It is not a message: nobody in the conversation sees it, and the agent keeps no copy between runs."
-          : inertReason}
-      </div>
-      <textarea
-        className="input agentic-textarea"
-        aria-label={`Instructions for ${plugin.name}`}
-        // Its reason and its count: the two things somebody typing in here cannot see,
-        // and the count is the one that decides whether Save will be refused.
-        aria-describedby={`${INSTRUCTIONS_HINT} ${INSTRUCTIONS_COUNT}`}
+      <Textarea
+        id={`${ids}-box`}
+        className="min-h-23 resize-y"
+        aria-describedby={`${ids}-hint ${ids}-count`}
         placeholder="Answer briefly. Ask before writing to anything outside this channel."
         value={text}
         disabled={!seeded}

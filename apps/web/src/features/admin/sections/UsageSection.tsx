@@ -9,7 +9,7 @@
  * change, and a contract is not the list price — so the admin enters their own.
  */
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import {
   api,
   type ModelPrice,
@@ -19,8 +19,19 @@ import {
   type UsageReport,
 } from '../../../lib/api.ts';
 import { formatCost, formatCount } from '../../../lib/format.ts';
+import { Button } from '../../../components/ui/button.tsx';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '../../../components/ui/field.tsx';
+import { Input } from '../../../components/ui/input.tsx';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table.tsx';
+import { ToggleGroup, ToggleGroupItem } from '../../../components/ui/toggle-group.tsx';
 import type { ConsoleSectionProps } from '../../console/ConsoleShell.tsx';
-import { Card, CardNotice } from '../../console/Card.tsx';
+import { Card, CardFields, CardNotice, CardTable } from '../../console/Card.tsx';
 import { useAdminData } from '../../console/hooks.ts';
 import { UsageTable } from '../../console/UsageTable.tsx';
 
@@ -46,24 +57,28 @@ export function UsageSection({ onError }: ConsoleSectionProps) {
     'Could not load usage.',
   );
 
+  // One window is always chosen: pressing the one that is would leave none.
   const picker = (
-    <div className="chip-row" role="group" aria-label="Window">
-      {WINDOWS.map((window) => (
-        <button
-          key={window.days}
-          type="button"
-          className="chip"
-          aria-pressed={days === window.days}
-          onClick={() => setDays(window.days)}
-        >
-          {window.label}
-        </button>
+    <ToggleGroup
+      aria-label="Window"
+      variant="outline"
+      spacing={0}
+      value={[String(days)]}
+      onValueChange={([next]) => {
+        const chosen = WINDOWS.find((option) => String(option.days) === next);
+        if (chosen) setDays(chosen.days);
+      }}
+    >
+      {WINDOWS.map((option) => (
+        <ToggleGroupItem key={option.days} value={String(option.days)}>
+          {option.label}
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card
         title="Agents"
         description="Runs in the window and the tokens each agent reported. An agent that reports no tokens counts none — that is a fact about its report, not its cost."
@@ -75,7 +90,7 @@ export function UsageSection({ onError }: ConsoleSectionProps) {
           <CardNotice>No agent ran in the last {windowWords(data.days)}.</CardNotice>
         )}
         {data && data.agents.length > 0 && (
-          <UsageTable lines={data.agents} currency={data.currency} heading="Agent" />
+          <UsageTable label="Agents" lines={data.agents} currency={data.currency} heading="Agent" />
         )}
       </Card>
 
@@ -84,7 +99,7 @@ export function UsageSection({ onError }: ConsoleSectionProps) {
           title="People"
           description="Whose request the runs were answering — the person who started each one, however many agents it passed through."
         >
-          <UsageTable lines={data.people} currency={data.currency} heading="Person" />
+          <UsageTable label="People" lines={data.people} currency={data.currency} heading="Person" />
         </Card>
       )}
 
@@ -97,6 +112,7 @@ export function UsageSection({ onError }: ConsoleSectionProps) {
             <CardNotice>None used a model in the last {windowWords(data.days)}.</CardNotice>
           ) : (
             <UsageTable
+              label="Blob’s own model"
               lines={data.blob}
               currency={data.currency}
               heading="Feature"
@@ -116,6 +132,9 @@ function windowWords(days: number): string {
   return days === 1 ? '24 hours' : `${days} days`;
 }
 
+/** A number in that line, read before the words around it. */
+const FIGURE = 'font-semibold text-foreground';
+
 /** The window in one line: what everything together cost, as far as it could be priced. */
 function Totals({ report }: { report: UsageReport }) {
   const lines: UsageLine[] = [...report.agents, ...report.blob];
@@ -126,12 +145,13 @@ function Totals({ report }: { report: UsageReport }) {
   const partial = lines.some((line) => line.tokens > 0 && (line.cost === null || !line.costComplete));
   if (runs === 0 && tokens === 0) return null;
   return (
-    <p className="usage-totals">
-      <strong>{formatCount(tokens)}</strong> tokens over {runs} run{runs === 1 ? '' : 's'}
+    <p className="m-0 text-sm text-muted-foreground tabular-nums">
+      <strong className={FIGURE}>{formatCount(tokens)}</strong> tokens over {runs} run
+      {runs === 1 ? '' : 's'}
       {priced.length > 0 && (
         <>
           {' · '}
-          <strong>{formatCost(cost, report.currency)}</strong>
+          <strong className={FIGURE}>{formatCost(cost, report.currency)}</strong>
           {partial && ' and some tokens with no price'}
         </>
       )}
@@ -212,6 +232,7 @@ function PricesForm({
   const [rows, setRows] = useState<PriceDraft[]>(() => mergeRows([], saved.prices, models));
   const [adding, setAdding] = useState('');
   const [busy, setBusy] = useState(false);
+  const fields = useId();
 
   const currencyOk = currency === '' || /^[A-Z]{3}$/.test(currency);
   const parsed = rows.map((row) => ({
@@ -267,96 +288,98 @@ function PricesForm({
       title="Prices"
       description="What your provider charges per million tokens, model by model. Blob ships no prices: they change, and yours may not be the list price."
       footer={
-        <div className="usage-prices-footer">
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!currencyOk || invalid || busy}
-            onClick={() => void save()}
-          >
+        <>
+          {/* There before anything is said in it, so the words are announced when they
+              arrive; first in the strip, so it reads first and Save keeps the end. */}
+          <span role="status" className="text-sm text-muted-foreground">
+            {justSaved ? 'Saved.' : ''}
+          </span>
+          {invalid && <FieldError>Give a model both prices, from 0 to 100000.</FieldError>}
+          <Button disabled={!currencyOk || invalid || busy} onClick={() => void save()}>
             {busy ? 'Saving…' : 'Save prices'}
-          </button>
-          {justSaved && <span className="muted">Saved.</span>}
-          {invalid && (
-            <span className="usage-prices-error">Give a model both prices, from 0 to 100000.</span>
-          )}
-        </div>
+          </Button>
+        </>
       }
     >
-      <label className="pref-row">
-        <span className="pref-label grow">
-          Currency
-          <span className="pref-hint block">Three letters, like EUR or USD.</span>
-        </span>
-        <input
-          className="input usage-currency"
-          value={currency}
-          maxLength={3}
-          placeholder="EUR"
-          aria-invalid={!currencyOk || undefined}
-          onChange={(event) => {
-            onEdited();
-            setCurrency(event.target.value.toUpperCase().replace(/[^A-Z]/g, ''));
-          }}
-        />
-      </label>
+      <CardFields>
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor={`${fields}-currency`}>Currency</FieldLabel>
+            <FieldDescription id={`${fields}-currency-hint`}>
+              Three letters, like EUR or USD.
+            </FieldDescription>
+          </FieldContent>
+          <Input
+            id={`${fields}-currency`}
+            className="w-24 uppercase"
+            value={currency}
+            maxLength={3}
+            placeholder="EUR"
+            aria-invalid={!currencyOk || undefined}
+            aria-describedby={`${fields}-currency-hint`}
+            onChange={(event) => {
+              onEdited();
+              setCurrency(event.target.value.toUpperCase().replace(/[^A-Z]/g, ''));
+            }}
+          />
+        </Field>
+      </CardFields>
 
       {rows.length === 0 ? (
         <CardNotice>
           No model has reported tokens yet. Add one by name to price it before it does.
         </CardNotice>
       ) : (
-        <div className="console-table-wrap">
-          <table className="admin-table usage-prices">
-            <thead>
-              <tr>
-                <th scope="col">Model</th>
-                <th scope="col" className="num">
-                  Seen
-                </th>
-                <th scope="col" className="num">
-                  Input / 1M
-                </th>
-                <th scope="col" className="num">
-                  Output / 1M
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.model}>
-                  <td>
-                    <code>{row.model}</code>
-                  </td>
-                  <td className="num">{row.tokens > 0 ? formatCount(row.tokens) : '—'}</td>
-                  <td className="num">
-                    <input
-                      className="input usage-price"
-                      inputMode="decimal"
-                      aria-label={`Input price for ${row.model}`}
-                      value={row.input}
-                      onChange={(event) => set(row.model, 'input', event.target.value)}
-                    />
-                  </td>
-                  <td className="num">
-                    <input
-                      className="input usage-price"
-                      inputMode="decimal"
-                      aria-label={`Output price for ${row.model}`}
-                      value={row.output}
-                      onChange={(event) => set(row.model, 'output', event.target.value)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CardTable label="Model prices">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Model</TableHead>
+              <TableHead scope="col" className="text-right">
+                Seen
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                Input / 1M
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                Output / 1M
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.model}>
+                <TableCell>
+                  <code className="font-mono text-xs">{row.model}</code>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {row.tokens > 0 ? formatCount(row.tokens) : '—'}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Input
+                    className="w-28 text-right tabular-nums"
+                    inputMode="decimal"
+                    aria-label={`Input price for ${row.model}`}
+                    value={row.input}
+                    onChange={(event) => set(row.model, 'input', event.target.value)}
+                  />
+                </TableCell>
+                <TableCell className="text-right">
+                  <Input
+                    className="w-28 text-right tabular-nums"
+                    inputMode="decimal"
+                    aria-label={`Output price for ${row.model}`}
+                    value={row.output}
+                    onChange={(event) => set(row.model, 'output', event.target.value)}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </CardTable>
       )}
 
-      <div className="console-inline-form">
-        <input
-          className="input"
+      <div className="flex max-w-xl gap-2">
+        <Input
           value={adding}
           maxLength={80}
           placeholder="Another model, exactly as agents name it"
@@ -366,9 +389,9 @@ function PricesForm({
             if (event.key === 'Enter') add();
           }}
         />
-        <button type="button" className="btn" disabled={!adding.trim()} onClick={add}>
+        <Button variant="outline" disabled={!adding.trim()} onClick={add}>
           Add
-        </button>
+        </Button>
       </div>
     </Card>
   );

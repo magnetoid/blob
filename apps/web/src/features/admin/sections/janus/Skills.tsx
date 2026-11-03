@@ -6,7 +6,15 @@
  * agent's machine, which is the line ADR 0007 draws.
  */
 
-import { Card, CardNotice } from "../../../console/Card.tsx";
+import { Alert, AlertDescription } from "../../../../components/ui/alert.tsx";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../../components/ui/table.tsx";
+import { Card, CardNotice, CardTable } from "../../../console/Card.tsx";
 import type { JanusSkill } from "./config.ts";
 
 export function Skills({ skills, error }: { skills: JanusSkill[]; error: string | null }) {
@@ -14,36 +22,37 @@ export function Skills({ skills, error }: { skills: JanusSkill[]; error: string 
     <Card
       title="Skills"
       description="Installed on Janus itself, and the same for every workspace here. Adding or removing one is done where Janus runs."
-      className="janus-part"
     >
-      {error && <p className="error-text">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription className="wrap-anywhere">{error}</AlertDescription>
+        </Alert>
+      )}
 
       {skills.length === 0 ? (
         !error && <CardNotice>Janus has no skills installed.</CardNotice>
       ) : (
-        <div className="console-table-wrap">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th scope="col">Skill</th>
-                <th scope="col">What it is for</th>
-              </tr>
-            </thead>
-            <tbody>
-              {skills.map((skill) => (
-                <tr key={skill.name}>
-                  <td>
-                    <div className="admin-row-title">{skill.name}</div>
-                    {skill.category && (
-                      <div className="admin-row-meta">{skill.category}</div>
-                    )}
-                  </td>
-                  <td>{skill.description}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CardTable label="Skills">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Skill</TableHead>
+              <TableHead scope="col">What it is for</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {skills.map((skill) => (
+              <TableRow key={skill.name}>
+                <TableCell className="align-top whitespace-normal">
+                  <div className="font-medium">{skill.name}</div>
+                  {skill.category && (
+                    <div className="text-xs text-muted-foreground">{skill.category}</div>
+                  )}
+                </TableCell>
+                <TableCell className="align-top whitespace-normal">{skill.description}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </CardTable>
       )}
     </Card>
   );

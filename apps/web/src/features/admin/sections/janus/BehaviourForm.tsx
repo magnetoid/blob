@@ -8,8 +8,12 @@
  * to `max_turns: "80"` — which is a refusal that reads like the page is broken.
  */
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { JanusConfigChange } from "../../../../lib/api.ts";
+import { Button } from "../../../../components/ui/button.tsx";
+import { Field, FieldDescription, FieldLabel } from "../../../../components/ui/field.tsx";
+import { Input } from "../../../../components/ui/input.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../../components/ui/native-select.tsx";
 import { Card } from "../../../console/Card.tsx";
 import { type JanusSave } from "./apply.ts";
 import { Issues } from "./Issues.tsx";
@@ -17,6 +21,10 @@ import { withCurrent, type JanusConfig } from "./config.ts";
 
 /** What this form's Save points `aria-describedby` at when Janus has answered. */
 const ISSUES_ID = "janus-behaviour-issues";
+
+/** Two fields across where they fit, and one where they do not. */
+const FIELD_GRID =
+  "grid grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-x-5 gap-y-4";
 
 /**
  * The scale, for a config body that does not enumerate it.
@@ -49,6 +57,7 @@ export function BehaviourForm({
   // Not `timeout`/`setTimeout`: that pair shadows the global of the same name.
   const [idle, setIdle] = useState(text(saved.gateway_timeout));
   const [personality, setPersonality] = useState(saved.personality);
+  const fields = useId();
 
   const dead = disabled || save.saving;
 
@@ -68,76 +77,68 @@ export function BehaviourForm({
   return (
     <Card
       title="Behaviour"
-      className="janus-part"
       footer={
-        <button
-          type="button"
-          className="btn btn-primary"
+        <Button
           disabled={dead || !change.agent}
           aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
           onClick={() => void save.run(change)}
         >
           Save behaviour
-        </button>
+        </Button>
       }
     >
-      <div className="janus-form">
-        <div className="field">
-          <label className="field-label" htmlFor="janus-effort">
-            Reasoning effort
-          </label>
-          <select
-            id="janus-effort"
-            className="input"
+      <div className={FIELD_GRID}>
+        <Field>
+          <FieldLabel htmlFor={`${fields}-effort`}>Reasoning effort</FieldLabel>
+          <NativeSelect
+            id={`${fields}-effort`}
+            className="w-full"
+            aria-describedby={`${fields}-effort-hint`}
             value={effort}
             disabled={dead}
             onChange={(event) => setEffort(event.target.value)}
           >
             {withCurrent(EFFORTS, effort).map((name) => (
-              <option key={name} value={name} disabled={name === ""}>
+              <NativeSelectOption key={name} value={name} disabled={name === ""}>
                 {name || "—"}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
-          <span className="pref-hint">
+          </NativeSelect>
+          <FieldDescription id={`${fields}-effort-hint`}>
             How much of a turn goes into thinking before answering. Higher is slower and
             costs more.
-          </span>
-        </div>
+          </FieldDescription>
+        </Field>
 
-        <div className="field">
-          <label className="field-label" htmlFor="janus-max-turns">
-            Max turns
-          </label>
-          <input
-            id="janus-max-turns"
-            className="input"
+        <Field>
+          <FieldLabel htmlFor={`${fields}-max-turns`}>Max turns</FieldLabel>
+          <Input
+            id={`${fields}-max-turns`}
+            aria-describedby={`${fields}-max-turns-hint`}
             type="number"
             min={1}
             value={maxTurns}
             disabled={dead}
             onChange={(event) => setMaxTurns(event.target.value)}
           />
-          <span className="pref-hint">
+          <FieldDescription id={`${fields}-max-turns-hint`}>
             How many times it may call a tool and think again within one run before it has
             to answer with what it has.
-          </span>
-        </div>
+          </FieldDescription>
+        </Field>
 
-        <div className="field">
-          <label className="field-label" htmlFor="janus-timeout">
-            Inactivity timeout
-          </label>
-          <input
-            id="janus-timeout"
-            className="input"
+        <Field>
+          <FieldLabel htmlFor={`${fields}-timeout`}>Inactivity timeout</FieldLabel>
+          <Input
+            id={`${fields}-timeout`}
+            aria-describedby={`${fields}-timeout-hint`}
             type="number"
             min={0}
             value={idle}
             disabled={dead}
             onChange={(event) => setIdle(event.target.value)}
           />
-          <span className="pref-hint">
+          <FieldDescription id={`${fields}-timeout-hint`}>
             Seconds a run may go quiet before Janus gives up on it — not how long it may
             take, so a run calling tools for an hour is never cut off. 0 is no limit at
             all. Janus calls this <code>agent.gateway_timeout</code>. A run Blob starts
@@ -146,31 +147,30 @@ export function BehaviourForm({
             <code>AGUI_MAX_RUN_SEC</code> over the whole run — and whichever runs out
             first cuts the stream, so this is the ceiling for Janus's other callers rather
             than the floor for a mention.
-          </span>
-        </div>
+          </FieldDescription>
+        </Field>
 
-        <div className="field">
-          <label className="field-label" htmlFor="janus-personality">
-            Personality
-          </label>
-          <select
-            id="janus-personality"
-            className="input"
+        <Field>
+          <FieldLabel htmlFor={`${fields}-personality`}>Personality</FieldLabel>
+          <NativeSelect
+            id={`${fields}-personality`}
+            className="w-full"
+            aria-describedby={`${fields}-personality-hint`}
             value={personality}
             disabled={dead}
             onChange={(event) => setPersonality(event.target.value)}
           >
             {withCurrent(config.personalities, personality).map((name) => (
-              <option key={name} value={name} disabled={name === ""}>
+              <NativeSelectOption key={name} value={name} disabled={name === ""}>
                 {name || "—"}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
-          <span className="pref-hint">
+          </NativeSelect>
+          <FieldDescription id={`${fields}-personality-hint`}>
             Janus's own, and the server's for every workspace. What one workspace wants
             said differently belongs in its instructions above.
-          </span>
-        </div>
+          </FieldDescription>
+        </Field>
       </div>
 
       <Issues id={ISSUES_ID} issues={save.issues} />

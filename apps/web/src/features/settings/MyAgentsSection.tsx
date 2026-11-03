@@ -157,6 +157,7 @@ function SpendCard({ onError }: { onError: (message: string | null) => void }) {
         <CardNotice>None of your agents ran this week.</CardNotice>
       ) : (
         <UsageTable
+          label="What they spent"
           lines={data.agents}
           currency={data.currency}
           heading="Agent"

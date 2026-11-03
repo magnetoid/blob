@@ -1,12 +1,23 @@
 /** Incoming URLs that let another system post into a channel. */
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useId, useState, type FormEvent } from "react";
 import { api, type AdminWebhook } from "../../../lib/api.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { DialogPresence } from "../../../components/Dialog.tsx";
 import { useStore } from "../../../lib/store.ts";
+import { Button } from "../../../components/ui/button.tsx";
+import { Field, FieldLabel } from "../../../components/ui/field.tsx";
+import { Input } from "../../../components/ui/input.tsx";
+import {
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "../../../components/ui/item.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../components/ui/native-select.tsx";
 import { formatRelative } from "../../messages/messageFormatting.ts";
-import { Card, CardNotice } from "../../console/Card.tsx";
+import { Card, CardNotice, CardRow, CardRows } from "../../console/Card.tsx";
+import { CopyField } from "../../console/CopyField.tsx";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 export function WebhooksSection({
@@ -19,6 +30,7 @@ export function WebhooksSection({
   // alert() the browser can swallow — and can be copied rather than retyped.
   const [created, setCreated] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<AdminWebhook | null>(null);
+  const fields = useId();
 
   const load = useCallback(() => api.admin.webhooks(), []);
   const { data, loading, reload } = useAdminData(
@@ -47,49 +59,50 @@ export function WebhooksSection({
   }
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card
         title="New webhook"
         description="Post into a channel from CI or a cron job. The URL is shown once — store it somewhere safe."
       >
-        <form className="console-inline-form" onSubmit={submit}>
-          <label className="field">
-            <span className="field-label">Channel</span>
-            <select className="input" name="channel" defaultValue="">
-              <option value="" disabled>
+        {/* The fields and the button on one line while they fit, and the button on the
+            fields' bottom edge. */}
+        <form className="flex flex-wrap items-end gap-3" onSubmit={submit}>
+          <Field className="w-auto max-w-xs min-w-48 flex-1 basis-48">
+            <FieldLabel htmlFor={`${fields}-channel`}>Channel</FieldLabel>
+            <NativeSelect
+              id={`${fields}-channel`}
+              className="w-full"
+              name="channel"
+              defaultValue=""
+            >
+              <NativeSelectOption value="" disabled>
                 Pick one
-              </option>
+              </NativeSelectOption>
               {Object.values(channels)
                 .filter((c) => c.name && !c.archivedAt)
                 .map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <NativeSelectOption key={c.id} value={c.id}>
                     #{c.name}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">Name</span>
-            <input className="input" name="label" placeholder="CI" />
-          </label>
-          <button className="btn" type="submit">
+            </NativeSelect>
+          </Field>
+          <Field className="w-auto max-w-xs min-w-48 flex-1 basis-48">
+            <FieldLabel htmlFor={`${fields}-name`}>Name</FieldLabel>
+            <Input id={`${fields}-name`} name="label" placeholder="CI" />
+          </Field>
+          <Button variant="outline" type="submit">
             Create
-          </button>
+          </Button>
         </form>
 
         {created && (
-          <div className="draft-chip console-copy">
-            <span className="grow ellipsis">{created}</span>
-            <button
-              className="btn btn-ghost"
-              onClick={() => void navigator.clipboard.writeText(created)}
-            >
-              Copy
-            </button>
-            <button className="btn btn-ghost" onClick={() => setCreated(null)}>
+          <>
+            <CopyField label="Webhook URL" value={created} />
+            <Button variant="ghost" className="self-start" onClick={() => setCreated(null)}>
               Done
-            </button>
-          </div>
+            </Button>
+          </>
         )}
       </Card>
 
@@ -102,27 +115,29 @@ export function WebhooksSection({
           ) : webhooks.length === 0 ? (
             <CardNotice>No webhooks yet.</CardNotice>
           ) : (
-            <div className="console-list">
+            <CardRows aria-label="Webhooks">
               {webhooks.map((hook) => (
-                <div className="admin-row" key={hook.id}>
-                  <div className="grow min-0">
-                    <div className="admin-row-title">{hook.name}</div>
-                    <div className="admin-row-meta">
+                <CardRow key={hook.id}>
+                  <ItemContent>
+                    <ItemTitle>{hook.name}</ItemTitle>
+                    <ItemDescription>
                       {hook.lastUsedAt
                         ? `Last used ${formatRelative(hook.lastUsedAt)}`
                         : "Never used"}
-                    </div>
-                  </div>
-                  <button
-                    className="btn"
-                    aria-label={`Revoke ${hook.name}`}
-                    onClick={() => setRevoking(hook)}
-                  >
-                    Revoke
-                  </button>
-                </div>
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Button
+                      variant="ghost"
+                      aria-label={`Revoke ${hook.name}`}
+                      onClick={() => setRevoking(hook)}
+                    >
+                      Revoke
+                    </Button>
+                  </ItemActions>
+                </CardRow>
               ))}
-            </div>
+            </CardRows>
           )}
         </Card>
       )}

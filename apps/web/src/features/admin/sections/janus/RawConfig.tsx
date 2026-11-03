@@ -17,7 +17,10 @@
  * exist to make that impossible; this box is for people who accept it.
  */
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { Button } from "../../../../components/ui/button.tsx";
+import { Field, FieldDescription, FieldLabel } from "../../../../components/ui/field.tsx";
+import { Textarea } from "../../../../components/ui/textarea.tsx";
 import { Card } from "../../../console/Card.tsx";
 import { type JanusSave } from "./apply.ts";
 import { Issues } from "./Issues.tsx";
@@ -36,6 +39,7 @@ export function RawConfig({
   save: JanusSave;
 }) {
   const [text, setText] = useState(config.raw);
+  const fields = useId();
   const dead = disabled || save.saving;
 
   return (
@@ -50,39 +54,37 @@ export function RawConfig({
           with a model that does not will save here and fail at the next run.
         </>
       }
-      className="janus-part"
       footer={
-        <button
-          type="button"
-          className="btn btn-primary"
+        <Button
           aria-describedby={save.issues.length > 0 ? ISSUES_ID : undefined}
           disabled={dead || text === config.raw}
           onClick={() => void save.run({ raw: text })}
         >
           Save config.yaml
-        </button>
+        </Button>
       }
     >
-      <div className="field">
-        <label className="field-label" htmlFor="janus-raw">
-          config.yaml
-        </label>
-        <textarea
-          id="janus-raw"
-          className="input janus-raw"
+      <Field>
+        <FieldLabel htmlFor={`${fields}-raw`}>config.yaml</FieldLabel>
+        {/* Tall enough to read a config file in, and it grows rather than scrolls a few
+            lines at a time. A file is indentation, so it is monospaced and never wrapped;
+            it keeps a phone's 16px so focusing it does not zoom the page. */}
+        <Textarea
+          id={`${fields}-raw`}
+          aria-describedby={`${fields}-raw-hint`}
+          className="min-h-65 resize-y font-mono leading-relaxed whitespace-pre [tab-size:2] md:text-[13px]"
           value={text}
           disabled={dead}
           spellCheck={false}
           onChange={(event) => setText(event.target.value)}
         />
-      </div>
-
-      <p className="pref-hint">
-        Keys written into this file are shown as <code>«redacted»</code> — Blob never has
-        the value to show. A save must put the real key back, or replace it with a{" "}
-        <code>${"{VAR}"}</code> reference to the environment, which is left alone. Saving
-        the placeholder is refused rather than written.
-      </p>
+        <FieldDescription id={`${fields}-raw-hint`}>
+          Keys written into this file are shown as <code>«redacted»</code> — Blob never has
+          the value to show. A save must put the real key back, or replace it with a{" "}
+          <code>${"{VAR}"}</code> reference to the environment, which is left alone. Saving
+          the placeholder is refused rather than written.
+        </FieldDescription>
+      </Field>
 
       <Issues id={ISSUES_ID} issues={save.issues} />
     </Card>

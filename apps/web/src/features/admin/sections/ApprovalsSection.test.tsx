@@ -4,7 +4,7 @@
  * admin can read it.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { AgentRunView } from '@blob/shared';
 import { api, type PendingApproval } from '../../../lib/api.ts';
 import { formatMoment } from '../../../lib/format.ts';
@@ -56,11 +56,34 @@ describe('the Approvals page', () => {
     const cancel = vi.spyOn(api.agentRuns, 'cancel').mockResolvedValue({ ok: true });
     render(<ApprovalsSection />);
 
-    expect(await screen.findByText('Helper, waiting for Ana’s answer')).toBeTruthy();
-    expect(screen.getByText('“Include the risks?”')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    // A list of what is waiting, one row for each, and the row says which it is.
+    const list = await screen.findByRole('list', { name: 'What agents are waiting on' });
+    const row = within(list).getByRole('listitem');
+    expect(within(row).getByText('Helper, waiting for Ana’s answer')).toBeTruthy();
+    expect(within(row).getByText('“Include the risks?”')).toBeTruthy();
+    expect(within(row).getByRole('button', { name: 'Open #general' })).toBeTruthy();
+    fireEvent.click(within(row).getByRole('button', { name: 'Stop Helper' }));
     await waitFor(() => expect(cancel).toHaveBeenCalledWith('r1'));
-    expect(screen.getByRole('button', { name: 'Open' })).toBeTruthy();
+  });
+
+  it('names the row each button is for, since every row has an Open and a Stop', async () => {
+    vi.spyOn(api.admin, 'pendingApprovals').mockResolvedValue({
+      pending: [
+        item({ run: run({ id: 'r1', agentName: 'Helper' }) }),
+        item({
+          channelName: null,
+          channelKind: 'dm',
+          run: run({ id: 'r2', agentName: 'Scout', channelId: 'c2' }),
+        }),
+      ],
+    });
+    render(<ApprovalsSection />);
+
+    const rows = await screen.findAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]!).getByRole('button', { name: 'Stop Helper' })).toBeTruthy();
+    expect(within(rows[1]!).getByRole('button', { name: 'Stop Scout' })).toBeTruthy();
+    expect(within(rows[1]!).getByRole('button', { name: 'Open a direct message' })).toBeTruthy();
   });
 
   it('keeps a private room’s words in it, and offers nothing to press', async () => {
@@ -71,8 +94,8 @@ describe('the Approvals page', () => {
 
     expect(await screen.findByText(/In #quiet-room/)).toBeTruthy();
     expect(screen.getByText('In a conversation you are not in: what it asks stays there.')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Open' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Stop/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Open/ })).toBeNull();
   });
 
   it('says when a follow-up comes back, and what for', async () => {
@@ -88,6 +111,13 @@ describe('the Approvals page', () => {
 
     expect(await screen.findByText(`Helper, coming back ${formatMoment(at)}`)).toBeTruthy();
     expect(screen.getByText('“check the deploy”')).toBeTruthy();
+  });
+
+  it('says it is loading before it knows whether anything is waiting', () => {
+    vi.spyOn(api.admin, 'pendingApprovals').mockReturnValue(new Promise(() => {}));
+    render(<ApprovalsSection />);
+    expect(screen.getByText('Loading…')).toBeTruthy();
+    expect(screen.queryByText('Nothing is waiting on anybody.')).toBeNull();
   });
 
   it('says so when nothing is waiting', async () => {

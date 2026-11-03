@@ -13,8 +13,16 @@
 
 import { useState } from 'react';
 import { api, type WorkspaceAssistantToken } from '../../../lib/api.ts';
+import { Badge } from '../../../components/ui/badge.tsx';
+import { Button } from '../../../components/ui/button.tsx';
+import {
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from '../../../components/ui/item.tsx';
 import type { ConsoleSectionProps } from '../../console/ConsoleShell.tsx';
-import { Card, CardNotice, CardRows } from '../../console/Card.tsx';
+import { Card, CardNotice, CardRow, CardRows } from '../../console/Card.tsx';
 import { ConnectedAppRow } from '../../console/ConnectedAppRow.tsx';
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 import { formatEnds } from '../../../lib/format.ts';
@@ -38,7 +46,7 @@ export function AssistantsAdminSection({ onError }: ConsoleSectionProps) {
   const grants = apps.data?.grants ?? [];
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card
         title="Connected apps"
         description={
@@ -52,8 +60,8 @@ export function AssistantsAdminSection({ onError }: ConsoleSectionProps) {
         {!apps.loading && grants.length === 0 && (
           <CardNotice>No app has signed in to this workspace.</CardNotice>
         )}
-        {/* ConnectedAppRow is a row of CardRows, as it is in Settings. The pasted tokens
-            below stay on the old list until this page is converted. */}
+        {/* ConnectedAppRow is a row of CardRows, as it is in Settings, and so are the
+            pasted tokens below. */}
         {grants.length > 0 && (
           <CardRows>
             {grants.map((grant) => (
@@ -85,11 +93,11 @@ export function AssistantsAdminSection({ onError }: ConsoleSectionProps) {
           <CardNotice>Nobody has made a token for this workspace.</CardNotice>
         )}
         {tokens.length > 0 && (
-          <div className="console-list">
+          <CardRows aria-label="Tokens">
             {tokens.map((token) => (
               <WorkspaceTokenRow key={token.id} token={token} act={act} />
             ))}
-          </div>
+          </CardRows>
         )}
       </Card>
     </div>
@@ -106,43 +114,41 @@ function WorkspaceTokenRow({
   const [confirming, setConfirming] = useState(false);
   const writes = token.scopes.includes('write');
   return (
-    <div className="console-list-item">
-      <div className="admin-row">
-        <div className="grow min-0">
-          <div className="admin-row-title">
-            {token.ownerName} · {token.name}
-            <span className="role-pill" data-muted={!writes}>
-              {writes ? 'reads and posts' : 'reads only'}
-            </span>
-          </div>
-          <div className="admin-row-meta">
-            {token.lastUsedAt
-              ? `Last used ${new Date(token.lastUsedAt).toLocaleString()}`
-              : 'Never used'}
-            {' · '}
-            {formatEnds(token.expiresAt)}
-          </div>
-        </div>
-        <div className="admin-row-actions">
-          {confirming ? (
-            <>
-              <button
-                className="btn btn-danger"
-                onClick={() => void act(() => api.admin.revokeAssistantToken(token.id))}
-              >
-                Revoke {token.ownerName}&rsquo;s {token.name}
-              </button>
-              <button className="btn btn-ghost" onClick={() => setConfirming(false)}>
-                Keep
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-ghost" onClick={() => setConfirming(true)}>
-              Revoke
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <CardRow>
+      <ItemContent>
+        <ItemTitle>
+          {token.ownerName} · {token.name}
+          <Badge variant={writes ? 'secondary' : 'outline'}>
+            {writes ? 'reads and posts' : 'reads only'}
+          </Badge>
+        </ItemTitle>
+        <ItemDescription>
+          {token.lastUsedAt
+            ? `Last used ${new Date(token.lastUsedAt).toLocaleString()}`
+            : 'Never used'}
+          {' · '}
+          {formatEnds(token.expiresAt)}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        {confirming ? (
+          <>
+            <Button
+              variant="destructive"
+              onClick={() => void act(() => api.admin.revokeAssistantToken(token.id))}
+            >
+              Revoke {token.ownerName}&rsquo;s {token.name}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirming(false)}>
+              Keep
+            </Button>
+          </>
+        ) : (
+          <Button variant="ghost" onClick={() => setConfirming(true)}>
+            Revoke
+          </Button>
+        )}
+      </ItemActions>
+    </CardRow>
   );
 }

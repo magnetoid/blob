@@ -1,12 +1,20 @@
 /** Every app's recent deliveries, and a way to send a failed one again. */
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import {
   api,
   type AdminWorkspaceDelivery,
 } from '../../../lib/api.ts';
+import { Badge } from '../../../components/ui/badge.tsx';
+import { Button } from '../../../components/ui/button.tsx';
+import {
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from '../../../components/ui/item.tsx';
 import { formatRelative } from '../../messages/messageFormatting.ts';
-import { Card, CardNotice } from '../../console/Card.tsx';
+import { Card, CardNotice, CardRow, CardRows } from '../../console/Card.tsx';
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 export function DeliveriesSection({
@@ -22,7 +30,6 @@ export function DeliveriesSection({
     'Could not load deliveries.',
   );
   const act = useAdminAction(onError, reload);
-  const [openId, setOpenId] = useState<string | null>(null);
   const deliveries = data?.deliveries ?? [];
 
   // No data and no request in flight means the load failed. The error above says so, and
@@ -31,24 +38,18 @@ export function DeliveriesSection({
   if (data === null && !loading) return null;
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card>
         {data === null ? (
           <CardNotice>Loading…</CardNotice>
         ) : deliveries.length === 0 ? (
           <CardNotice>No delivery attempts recorded yet.</CardNotice>
         ) : (
-          <div className="console-list">
+          <CardRows aria-label="Deliveries">
             {deliveries.map((delivery) => (
               <DeliveryRow
                 key={delivery.id}
                 delivery={delivery}
-                open={openId === delivery.id}
-                onToggle={() =>
-                  setOpenId((current) =>
-                    current === delivery.id ? null : delivery.id,
-                  )
-                }
                 onReplay={() =>
                   void act(() =>
                     api.admin.replayPluginDelivery(
@@ -59,7 +60,7 @@ export function DeliveriesSection({
                 }
               />
             ))}
-          </div>
+          </CardRows>
         )}
       </Card>
     </div>
@@ -68,55 +69,45 @@ export function DeliveriesSection({
 
 function DeliveryRow({
   delivery,
-  open,
-  onToggle,
   onReplay,
 }: {
   delivery: AdminWorkspaceDelivery;
-  open: boolean;
-  onToggle: () => void;
   onReplay: () => void;
 }) {
   const canReplay =
     delivery.status === 'failed' || delivery.status === 'dead';
   return (
-    <div className="admin-row">
-      <div className="grow min-0">
-        <button
-          type="button"
-          className="console-row-toggle"
-          onClick={onToggle}
-          aria-expanded={open}
-        >
-          <div className="admin-row-title">
-            {delivery.pluginName}
-            <span className="role-pill" data-muted>
-              {delivery.event}
-            </span>
-            <span
-              className="role-pill"
-              data-muted={delivery.status !== 'delivered'}
-            >
-              {delivery.status}
-            </span>
-          </div>
-          <div className="admin-row-meta">
-            {delivery.attempts} attempts · created{' '}
-            {formatRelative(delivery.createdAt)}
-            {delivery.deliveredAt &&
-              ` · delivered ${formatRelative(delivery.deliveredAt)}`}
-            {delivery.lastStatusCode && ` · HTTP ${delivery.lastStatusCode}`}
-            {delivery.lastError && ` · ${delivery.lastError}`}
-          </div>
-        </button>
-        {open && canReplay && (
-          <div className="console-row-more">
-            <button className="btn" type="button" onClick={onReplay}>
-              Replay
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+    <CardRow>
+      <ItemContent>
+        <ItemTitle>
+          {delivery.pluginName}
+          <Badge variant="outline">{delivery.event}</Badge>
+          <Badge variant={delivery.status === 'delivered' ? 'secondary' : 'outline'}>
+            {delivery.status}
+          </Badge>
+        </ItemTitle>
+        <ItemDescription>
+          {delivery.attempts} attempts · created{' '}
+          {formatRelative(delivery.createdAt)}
+          {delivery.deliveredAt &&
+            ` · delivered ${formatRelative(delivery.deliveredAt)}`}
+          {delivery.lastStatusCode && ` · HTTP ${delivery.lastStatusCode}`}
+          {delivery.lastError && ` · ${delivery.lastError}`}
+        </ItemDescription>
+      </ItemContent>
+      {/* Only where there is something to send again, and said for which: every failed row
+          has one. It used to open the row first, onto a panel holding only this button. */}
+      {canReplay && (
+        <ItemActions>
+          <Button
+            variant="outline"
+            aria-label={`Replay ${delivery.event} to ${delivery.pluginName}`}
+            onClick={onReplay}
+          >
+            Replay
+          </Button>
+        </ItemActions>
+      )}
+    </CardRow>
   );
 }

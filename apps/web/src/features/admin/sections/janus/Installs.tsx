@@ -7,7 +7,15 @@
  */
 
 import type { JanusInstall } from "../../../../lib/api.ts";
-import { Card } from "../../../console/Card.tsx";
+import { Badge } from "../../../../components/ui/badge.tsx";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../../components/ui/table.tsx";
+import { Card, CardTable } from "../../../console/Card.tsx";
 
 export function Installs({ installs }: { installs: JanusInstall[] }) {
   if (installs.length === 0) return null;
@@ -16,37 +24,47 @@ export function Installs({ installs }: { installs: JanusInstall[] }) {
       title="Every workspace on this server"
       description="The same Janus answers all of them. A workspace missing from this list has not been seeded yet — it is seeded on the next start of the app."
     >
-      <div className="console-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th scope="col">Workspace</th>
-              <th scope="col">Status</th>
-              <th scope="col" className="num">Channels</th>
-              <th scope="col" className="num">Runs 7d</th>
-            </tr>
-          </thead>
-          <tbody>
-            {installs.map((install) => (
-              <tr key={install.workspaceId}>
-                <td>
-                  <div className="admin-row-title">{install.workspaceName}</div>
-                  {install.isThisWorkspace && (
-                    <div className="admin-row-meta">this one</div>
-                  )}
-                </td>
-                <td>
-                  <span className="role-pill" data-status={install.status}>
-                    {install.status}
-                  </span>
-                </td>
-                <td className="num">{install.channelCount}</td>
-                <td className="num">{install.runsLastWeek}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <CardTable label="Workspaces">
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Workspace</TableHead>
+            <TableHead scope="col">Status</TableHead>
+            <TableHead scope="col" className="text-right">
+              Channels
+            </TableHead>
+            <TableHead scope="col" className="text-right">
+              Runs 7d
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {installs.map((install) => (
+            <TableRow key={install.workspaceId}>
+              <TableCell className="whitespace-normal">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{install.workspaceName}</span>
+                  {install.isThisWorkspace && <Badge variant="outline">this one</Badge>}
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant={
+                    install.status === "enabled"
+                      ? "secondary"
+                      : install.status === "failed"
+                        ? "destructive"
+                        : "outline"
+                  }
+                >
+                  {install.status}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{install.channelCount}</TableCell>
+              <TableCell className="text-right tabular-nums">{install.runsLastWeek}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </CardTable>
     </Card>
   );
 }
