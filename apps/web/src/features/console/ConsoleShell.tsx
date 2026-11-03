@@ -11,12 +11,16 @@
  * sheet over the page, opened from the page's header and closed by choosing a section,
  * by Escape or by the backdrop, with focus handed back to the button that opened it.
  *
- * The body is still legacy markup until every section is converted, so it is a
- * `data-legacy` island (`styles/app/base.css`), and so is the top bar, which is another
- * feature's and sits inside the sidebar's provider. `.admin-main` is what the end-to-end
- * tests and the axe pass wait for. `.admin-page` is a hook the unconverted sections'
- * stylesheets still hang descendant rules on, and it names the size container
- * (`console-page`) the agents page asks how wide the column is.
+ * The body is converted markup, under its own `data-slot="console-body"`, so Tailwind's
+ * preflight holds there as it does inside any shadcn component (`styles/app/base.css`).
+ * While the sections were being converted it was a `data-legacy` island instead, and an
+ * island inside a card inside that one went unreached; closed, the islands a section still
+ * keeps — `features/agentic/`'s markup: an agent's memory and notes, its setup, its
+ * terminal, a run's card — are reached inside their cards. The top bar stays an island:
+ * it is another feature's and sits inside the sidebar's provider. `.admin-main` is what
+ * the end-to-end tests and the axe pass wait for. `.admin-page` is the element that is the
+ * size container (`console-page`) a section asks how wide the column is, and the hook the
+ * agentic rows' stylesheet reads its hover wash from.
  *
  * What differs between the consoles arrives as props. What a console gates for its body
  * — roles, sign-out — stays in the console.
@@ -181,7 +185,7 @@ export function ConsoleShell({
                   `backwards`, so nothing is left holding a transform after it lands; reduced
                   motion takes --motion-slide to zero and keeps the fade. */}
               <div
-                data-legacy
+                data-slot="console-body"
                 key={section}
                 className="mt-6 animate-in duration-(--dur-open) ease-(--blob-ease-out) fade-in fill-mode-backwards slide-in-from-bottom-(length:--motion-slide) sm:mt-8"
               >

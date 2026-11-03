@@ -1,0 +1,9 @@
+/* ─── a thread reply sent to the channel too ─────────────────────────────── */
+/* The thread composer's "Also send to #channel" row (`features/messages/ThreadPanel.tsx`).
+   It sat with the palette tiles, which are shadcn's radio group now. */
+.thread-also-send {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px var(--pane-gutter) 0;
+}

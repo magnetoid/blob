@@ -107,20 +107,6 @@
   color: var(--blob-accent-contrast);
 }
 
-.draft-chip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: max-content;
-  margin: 11px 14px 0;
-  padding: 8px 10px;
-  background: var(--surface-muted);
-  border: 1px solid var(--hairline-soft);
-  border-radius: var(--blob-radius-md);
-  font-size: var(--text-meta);
-  font-weight: 500;
-}
-
 /* Layout utilities. Deliberately few and deliberately literal: each one is a property
    that was written inline dozens of times, and nothing here invents a scale. */
 .grow {

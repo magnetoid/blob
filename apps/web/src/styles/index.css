@@ -30,12 +30,8 @@
 @source "../components/Avatar.tsx";
 @source "../components/EmptyState.tsx";
 @source "../components/ListSkeleton.tsx";
-@source "../features/console/ConsoleShell.tsx";
-@source "../features/console/ConsoleNav.tsx";
-@source "../features/console/Card.tsx";
-@source "../features/console/CopyField.tsx";
-@source "../features/console/ConnectedAppRow.tsx";
-@source "../features/console/ExportsCard.tsx";
+@source "../features/console";
+@source not "../features/console/**/*.test.{ts,tsx}";
 @source "../features/admin";
 @source not "../features/admin/**/*.test.{ts,tsx}";
 @source "../features/settings/SettingsConsole.tsx";
@@ -47,8 +43,8 @@
 @source "../features/settings/SecuritySection.tsx";
 @source "../features/settings/AssistantsSection.tsx";
 @source "../features/settings/MyAgentsSection.tsx";
-@source "../features/console/UsageTable.tsx";
-@source "../features/server/ServerConsole.tsx";
+@source "../features/server";
+@source not "../features/server/**/*.test.{ts,tsx}";
 @import "./theme.css";
 @import "./tokens.css" layer(legacy);
 @import "./app.css" layer(legacy);

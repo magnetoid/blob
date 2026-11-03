@@ -22,9 +22,7 @@
 @import "./app/command-palette.css";
 @import "./app/dialogs-settings.css";
 @import "./app/empty-states.css";
-@import "./app/the-console-page-cards.css";
-@import "./app/admin-console.css";
-@import "./app/the-agents-console.css";
+@import "./app/an-agents-memory-and-setup.css";
 @import "./app/message-blocks.css";
 @import "./app/an-agents-terminal.css";
 @import "./app/emoji-the-picker-and-custom-emoji-wherever-they-render.css";
@@ -41,7 +39,6 @@
 @import "./app/permalinks.css";
 @import "./app/whats-new.css";
 @import "./app/which-build-this-is.css";
-@import "./app/server-logs.css";
 @import "./app/unread-jump-bar.css";
 @import "./app/the-way-back-to-the-newest-message.css";
 @import "./app/narrow-viewports.css";
@@ -49,14 +46,13 @@
 @import "./app/a-long-answer-folded.css";
 @import "./app/the-agents-page.css";
 @import "./app/earlier-versions.css";
-@import "./app/admin-import.css";
 @import "./app/agent-run-cards.css";
 @import "./app/later-2.css";
 @import "./app/catch-me-up.css";
 @import "./app/help.css";
 @import "./app/who-somebody-is.css";
 @import "./app/new-message.css";
-@import "./app/choosing-a-palette.css";
+@import "./app/a-thread-reply-sent-to-the-channel-too.css";
 @import "./app/threads-you-follow.css";
 @import "./app/work-channels.css";
 @import "./app/an-artifacts-versions-and-review.css";

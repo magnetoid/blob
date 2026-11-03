@@ -57,8 +57,8 @@ function shell(section: string, resetKey?: string, groups: NavGroup[] = []) {
   );
 }
 
-/** The page's body: the island the section is drawn in. */
-const body = () => screen.getByRole('button', { name: 'Fail' }).closest('[data-legacy]');
+/** The page's body: the part the section is drawn in. */
+const body = () => screen.getByRole('button', { name: 'Fail' }).closest('[data-slot="console-body"]');
 
 /** A phone: the sidebar's breakpoint is read from the media query, as the stylesheet's is. */
 function narrow() {
@@ -133,6 +133,16 @@ describe('the console frame', () => {
   it('keeps the top bar a legacy island', () => {
     render(shell('general'));
     expect(screen.getByRole('banner').closest('[data-legacy]')).not.toBeNull();
+  });
+
+  // Every section is converted, so the body is no island: preflight holds in it as in any
+  // shadcn component. It is also why an island a section still keeps inside a card works —
+  // base.css's island clause cannot reach one inside a component inside another island.
+  it('draws the page body as converted markup, not as a legacy island', () => {
+    render(shell('general'));
+    expect(body()).not.toBeNull();
+    expect(body()?.closest('[data-legacy]')).toBeNull();
+    expect(screen.getByRole('main').querySelector('[data-legacy]')).toBeNull();
   });
 });
 

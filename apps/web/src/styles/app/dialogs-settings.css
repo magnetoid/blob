@@ -139,9 +139,8 @@
   background: var(--surface-hover-deep);
 }
 
-.btn-primary:active:not(:disabled),
-.btn-danger:active:not(:disabled) {
-  /* These two invert on hover, so a deeper neutral would read as releasing. */
+.btn-primary:active:not(:disabled) {
+  /* It is filled, so a deeper neutral would read as releasing. */
   filter: brightness(0.94);
 }
 

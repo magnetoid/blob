@@ -168,8 +168,10 @@ describe('styles/index.css', () => {
    * The consoles came in the same way, a file at a time, until `features/admin` was converted
    * whole — every section, the workspace console and the pages the server's console draws —
    * and is one entry; its tests are excluded in `index.css` with `@source not`, since their
-   * strings (`'table'`, `'hidden'`) are not classes. `features/console/` and
-   * `features/settings/` still go one file at a time.
+   * strings (`'table'`, `'hidden'`) are not classes. `features/console` and
+   * `features/server` followed when phase 3 closed, the same way. `features/settings/` still
+   * goes one file at a time: `WhatsNewView` is a pane in the chat, not a console page, and
+   * keeps its legacy markup until phase 6.
    */
   const CONVERTED = [
     'components/ui',
@@ -182,12 +184,7 @@ describe('styles/index.css', () => {
     'components/Avatar.tsx',
     'components/EmptyState.tsx',
     'components/ListSkeleton.tsx',
-    'features/console/ConsoleShell.tsx',
-    'features/console/ConsoleNav.tsx',
-    'features/console/Card.tsx',
-    'features/console/CopyField.tsx',
-    'features/console/ConnectedAppRow.tsx',
-    'features/console/ExportsCard.tsx',
+    'features/console',
     'features/admin',
     'features/settings/SettingsConsole.tsx',
     'features/settings/YouSection.tsx',
@@ -198,8 +195,7 @@ describe('styles/index.css', () => {
     'features/settings/SecuritySection.tsx',
     'features/settings/AssistantsSection.tsx',
     'features/settings/MyAgentsSection.tsx',
-    'features/console/UsageTable.tsx',
-    'features/server/ServerConsole.tsx',
+    'features/server',
   ];
 
   it('scans only converted paths', () => {
