@@ -406,9 +406,10 @@ made without the user, and are recorded here as the plan promised:
   effects are stripped: the `sidebar_state` cookie, which would ride on every request for
   nothing, and the ⌘B shortcut, which no Slack user's fingers expect. Phase 4 reuses the
   component for the channel list.
-- **The narrow breakpoint moved from 900px to 768px**, shadcn's own (`hooks/use-mobile.ts`),
-  which is where the chat's Meadow frame already starts (769px). Between 768 and 900 the
-  nav now stays beside the page instead of folding into a drawer.
+- **The narrow breakpoint moved from 900px to 768px**, shadcn's own (`hooks/use-mobile.ts`)
+  and Tailwind's `md`: the nearest step to where the chat's Meadow frame starts, one pixel
+  before it (769px, `styles/app/the-frame.css`). Between 768 and 900 the nav now stays
+  beside the page instead of folding into a drawer.
 - **Selects stay native** (`ui/native-select`), not Base UI's `Select`. A native select
   keeps the phone's own picker and the platform's keys, brings no popup code into the
   console chunk, and the ~30 select callers and their `fireEvent.change` tests keep their
@@ -430,11 +431,13 @@ And what the phase settled on the way:
   group at a time, the body was a `data-legacy` island, so what was not yet converted kept
   the browser defaults `styles/app/base.css` hands back. The cost was the one the phase 2
   addendum named: an island inside a component inside an island is not reached, so the
-  islands sections kept inside cards for `features/agentic/`'s markup — an agent's memory
-  and notes (`LegacyRows`), its terminal, a run's card in the run log — went without the
-  repair until the end. With every section converted the body is
-  `data-slot="console-body"`: preflight holds there as inside any shadcn part, and the
-  islands in its cards are reached. `base.css` did not change, because its island clause
+  islands sections kept inside cards — what an agent remembers and its notes
+  (`LegacyRows`) and its terminal, all `features/agentic/`'s, and the chat's own run card
+  (`features/messages/AgentRunCard.tsx`) in the run log — went without the repair until
+  the end. With every section converted the body is `data-slot="console-body"`: preflight
+  holds there as inside any shadcn part, and the islands in its cards are reached. The
+  setup panels — Janus's, the bridge's — are islands too, between the cards rather than
+  inside them. `base.css` did not change, because its island clause
   already reaches an island inside a component that no island encloses;
   `styles/legacyIsland.test.ts` now asks where the two clauses reach of a reader of their
   own small grammar (happy-dom answers `:not()` with descendant combinators wrongly), and

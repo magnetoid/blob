@@ -61,11 +61,13 @@ describe('the preflight repair', () => {
     const rules = repair();
     // Guard the guard: the block is some thirty rules, and an empty match proves nothing.
     expect(rules.length).toBeGreaterThan(20);
+    const repaired = `:where(${OUTSIDE}, ${ISLAND})`;
     for (const selector of rules) {
-      expect(selector, selector).toContain(OUTSIDE);
-      // Once per place the outside clause is used: a rule that keeps the old condition in
-      // one compound and the new one in another is half-converted.
-      expect(selector.split(ISLAND).length, selector).toBe(selector.split(OUTSIDE).length);
+      // The two clauses as one alternative, which is what the reader below is asked about.
+      expect(selector, selector).toContain(repaired);
+      // Wherever the outside clause is used: a rule that keeps the old condition in one
+      // compound and the new one in another is half-converted.
+      expect(selector.split(repaired).length, selector).toBe(selector.split(OUTSIDE).length);
     }
   });
 
@@ -151,7 +153,7 @@ describe('where the repair reaches', () => {
   /** Whether base.css hands the browser's defaults back to the last element of the path. */
   const reached = (...path: Path) => matches(`${OUTSIDE}, ${ISLAND}`, path);
 
-  it('reads the clauses as a browser does', () => {
+  it('reads the clauses as the selector spec defines them', () => {
     // Guard the reader on the plain cases first.
     expect(reached(NONE, NONE)).toBe(true);
     expect(reached(NONE, SLOT)).toBe(false);

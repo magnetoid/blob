@@ -226,11 +226,12 @@ and tests apply.
    the sidebar's inset variant), the top bar, ⌘K as Command, workspace switcher, Sheet on
    narrow screens. The Sidebar already exists: phase 3 added it as
    `components/ui/sidebar.tsx` for the consoles' nav, with the generated component's
-   `sidebar_state` cookie and ⌘B shortcut stripped, and its Sheet below 768px. The
-   channel list reuses that component rather than adding another. The top bar's account menu, the sidebar's section menu and ChannelMenu
-   move to `DropdownMenuTrigger` / `DropdownMenuItem`. That gives them shadcn's look and
-   Base UI's keys and dismissal. (The reopen-on-trigger-click bug this once listed was
-   fixed in phase 2's scaffolding, in `lib/useDismissal.ts`, and goes with it.)
+   `sidebar_state` cookie and ⌘B shortcut stripped, and its Sheet below 768px. The channel
+   list reuses that component rather than adding another. The top bar's account menu, the
+   sidebar's section menu and ChannelMenu move to `DropdownMenuTrigger` /
+   `DropdownMenuItem`. That gives them shadcn's look and Base UI's keys and dismissal.
+   (The reopen-on-trigger-click bug this once listed was fixed in phase 2's scaffolding,
+   in `lib/useDismissal.ts`, and goes with it.)
 5. **The conversation.** Message list, composer, threads, reactions, attachments, the
    right-hand panel, code blocks, agent run cards, unread and typing notices. Motion rules
    re-verified here. MessageMenu moves to `DropdownMenu`. SchedulePicker becomes a

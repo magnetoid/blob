@@ -11,7 +11,9 @@ function subscribe(onChange: () => void) {
 }
 
 /**
- * Below 768px — Tailwind's `md`, and where the chat's frame begins.
+ * Below 768px — Tailwind's `md`, the nearest step to where the chat's frame begins, and
+ * one pixel short of it: the frame is drawn from 769px (`styles/app/the-frame.css`), so
+ * at exactly 768 the console is framed and a channel is not.
  *
  * Asked of the media query, and on the first render. The generated hook read
  * `innerWidth` in an effect, so a phone drew the desktop sidebar for a frame before

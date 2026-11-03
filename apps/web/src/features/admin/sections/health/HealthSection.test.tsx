@@ -155,7 +155,7 @@ describe("the health dashboard", () => {
     render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
 
     expect(await screen.findByText("Summary metrics")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Focus Messages" }));
+    fireEvent.click(widget("Summary metrics").getByRole("button", { name: /^Messages/ }));
 
     expect(await screen.findByText("Messages detail")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Open detailed report" }));
@@ -568,14 +568,36 @@ describe("the trend chart", () => {
 });
 
 describe("the summary metrics", () => {
-  it("presses the metric the chart is showing, and names each tile by what it focuses", async () => {
+  it("presses the metric the chart is showing, and names each tile by what it says", async () => {
     render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
     await loaded();
     const metrics = widget("Summary metrics");
-    expect(await metrics.findByRole("button", { name: "Focus Live sockets", pressed: true })).toBeTruthy();
-    expect(metrics.getByRole("button", { name: "Focus Messages", pressed: false })).toBeTruthy();
-    fireEvent.click(metrics.getByRole("button", { name: "Focus People online" }));
-    expect(metrics.getByRole("button", { name: "Focus People online", pressed: true })).toBeTruthy();
-    expect(metrics.getByRole("button", { name: "Focus Live sockets", pressed: false })).toBeTruthy();
+    // The name is the tile's own words, label first — no "Focus …" over them, which a
+    // voice control user saying what they see would not reach (WCAG 2.5.3).
+    expect(await metrics.findByRole("button", { name: /^Live sockets/, pressed: true })).toBeTruthy();
+    expect(metrics.getByRole("button", { name: /^Messages/, pressed: false })).toBeTruthy();
+    fireEvent.click(metrics.getByRole("button", { name: /^People online/ }));
+    expect(metrics.getByRole("button", { name: /^People online/, pressed: true })).toBeTruthy();
+    expect(metrics.getByRole("button", { name: /^Live sockets/, pressed: false })).toBeTruthy();
+    expect(metrics.queryByRole("button", { name: /^Focus / })).toBeNull();
+  });
+
+  it("gives a pressed tile's quieter lines the foreground colour, not muted on the tint", async () => {
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await loaded();
+    const tile = await widget("Summary metrics").findByRole("button", { name: /^Live sockets/, pressed: true });
+    // Pressed, the outline button is tinted with the primary colour, and muted text on that
+    // tint failed axe's colour contrast. happy-dom computes no styles and resolves no
+    // `aria-pressed` variant, so what is pinned is the class that does it: every line but
+    // the value is muted until its button is pressed, then foreground. The value keeps its own.
+    expect(tile.className).toContain("group/button");
+    const [label, value, description, trend] = Array.from(tile.children) as HTMLElement[];
+    for (const line of [label!, description!, trend!]) {
+      expect(line.className).toContain("text-muted-foreground");
+      expect(line.className).toContain("group-aria-pressed/button:text-foreground");
+    }
+    expect(value!.className).toContain("text-foreground");
+    expect(value!.className).not.toContain("text-muted-foreground");
+    expect(value!.className).not.toContain("group-aria-pressed");
   });
 });

@@ -14,13 +14,14 @@
  * The body is converted markup, under its own `data-slot="console-body"`, so Tailwind's
  * preflight holds there as it does inside any shadcn component (`styles/app/base.css`).
  * While the sections were being converted it was a `data-legacy` island instead, and an
- * island inside a card inside that one went unreached; closed, the islands a section still
- * keeps — `features/agentic/`'s markup: an agent's memory and notes, its setup, its
- * terminal, a run's card — are reached inside their cards. The top bar stays an island:
- * it is another feature's and sits inside the sidebar's provider. `.admin-main` is what
- * the end-to-end tests and the axe pass wait for. `.admin-page` is the element that is the
- * size container (`console-page`) a section asks how wide the column is, and the hook the
- * agentic rows' stylesheet reads its hover wash from.
+ * island inside a card inside that one went unreached. Closed, it lets the islands the
+ * sections still keep be reached: what an agent remembers, its notes and its terminal
+ * (`features/agentic/`) and the chat's own run card (`features/messages/AgentRunCard.tsx`)
+ * are islands inside cards, and the setup panels — Janus's, the bridge's — are islands
+ * between them. The top bar stays an island: it is another feature's and sits inside the
+ * sidebar's provider. `.admin-main` is what the end-to-end tests and the axe pass wait
+ * for. `.admin-page` is the size container (`console-page`) sections ask for the column's
+ * width, and the element the agentic rows' stylesheet declares `--console-row-hover` on.
  *
  * What differs between the consoles arrives as props. What a console gates for its body
  * — roles, sign-out — stays in the console.
