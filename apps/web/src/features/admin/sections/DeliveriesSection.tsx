@@ -1,6 +1,6 @@
 /** Every app's recent deliveries, and a way to send a failed one again. */
 
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   api,
   type AdminWorkspaceDelivery,
@@ -51,7 +51,7 @@ export function DeliveriesSection({
                 key={delivery.id}
                 delivery={delivery}
                 onReplay={() =>
-                  void act(() =>
+                  act(() =>
                     api.admin.replayPluginDelivery(
                       delivery.pluginId,
                       delivery.id,
@@ -72,10 +72,28 @@ function DeliveryRow({
   onReplay,
 }: {
   delivery: AdminWorkspaceDelivery;
-  onReplay: () => void;
+  /** Resolves when the replay has been asked for, whatever the answer was. */
+  onReplay: () => Promise<void>;
 }) {
   const canReplay =
     delivery.status === 'failed' || delivery.status === 'dead';
+  // One replay at a time per row. The ref is what makes a double tap one send: state is
+  // not read until the next render, and two presses can land before it.
+  const inFlight = useRef(false);
+  const [replaying, setReplaying] = useState(false);
+
+  async function replay() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setReplaying(true);
+    try {
+      await onReplay();
+    } finally {
+      inFlight.current = false;
+      setReplaying(false);
+    }
+  }
+
   return (
     <CardRow>
       <ItemContent>
@@ -86,7 +104,8 @@ function DeliveryRow({
             {delivery.status}
           </Badge>
         </ItemTitle>
-        <ItemDescription>
+        {/* A last error can be one unbroken token — an address — so it wraps anywhere. */}
+        <ItemDescription className="wrap-anywhere">
           {delivery.attempts} attempts · created{' '}
           {formatRelative(delivery.createdAt)}
           {delivery.deliveredAt &&
@@ -102,7 +121,8 @@ function DeliveryRow({
           <Button
             variant="outline"
             aria-label={`Replay ${delivery.event} to ${delivery.pluginName}`}
-            onClick={onReplay}
+            disabled={replaying}
+            onClick={() => void replay()}
           >
             Replay
           </Button>

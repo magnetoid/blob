@@ -11,7 +11,7 @@
  * however many it has held, and disconnecting it ends all of them.
  */
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { api, type WorkspaceAssistantToken } from '../../../lib/api.ts';
 import { Badge } from '../../../components/ui/badge.tsx';
 import { Button } from '../../../components/ui/button.tsx';
@@ -113,6 +113,19 @@ function WorkspaceTokenRow({
 }) {
   const [confirming, setConfirming] = useState(false);
   const writes = token.scopes.includes('write');
+  // Pressing Revoke swaps the button for a pair, and Keep swaps it back; the button that
+  // was pressed is gone each time, and focus would drop to the page. It follows the person
+  // instead: into the confirm when the pair opens, and back to Revoke when they keep it.
+  const returning = useRef(false);
+  const focusConfirm = useCallback((node: HTMLButtonElement | null) => {
+    node?.focus();
+  }, []);
+  const focusRevoke = useCallback((node: HTMLButtonElement | null) => {
+    if (node && returning.current) {
+      returning.current = false;
+      node.focus();
+    }
+  }, []);
   return (
     <CardRow>
       <ItemContent>
@@ -134,17 +147,31 @@ function WorkspaceTokenRow({
         {confirming ? (
           <>
             <Button
+              ref={focusConfirm}
               variant="destructive"
               onClick={() => void act(() => api.admin.revokeAssistantToken(token.id))}
             >
               Revoke {token.ownerName}&rsquo;s {token.name}
             </Button>
-            <Button variant="ghost" onClick={() => setConfirming(false)}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                returning.current = true;
+                setConfirming(false);
+              }}
+            >
               Keep
             </Button>
           </>
         ) : (
-          <Button variant="ghost" onClick={() => setConfirming(true)}>
+          // Every row has one, so it names its token — and whose, since this list is
+          // everybody's. The confirm that replaces it says the same in the possessive.
+          <Button
+            ref={focusRevoke}
+            variant="ghost"
+            aria-label={`Revoke ${token.name} (${token.ownerName})`}
+            onClick={() => setConfirming(true)}
+          >
             Revoke
           </Button>
         )}

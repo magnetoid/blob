@@ -66,13 +66,16 @@ export function RawConfig({
     >
       <Field>
         <FieldLabel htmlFor={`${fields}-raw`}>config.yaml</FieldLabel>
-        {/* Tall enough to read a config file in, and it grows rather than scrolls a few
-            lines at a time. A file is indentation, so it is monospaced and never wrapped;
-            it keeps a phone's 16px so focusing it does not zoom the page. */}
+        {/* Tall enough to read a screenful of a config file in, and then the file scrolls
+            inside the box. shadcn's textarea sizes itself to its content, which made a
+            200-line file a box thousands of pixels tall with Save at the far end of it;
+            this one is a fixed height (`field-sizing-fixed`) that can be dragged taller,
+            to a cap. A file is indentation, so it is monospaced and never wrapped; it keeps
+            a phone's 16px so focusing it does not zoom the page. */}
         <Textarea
           id={`${fields}-raw`}
           aria-describedby={`${fields}-raw-hint`}
-          className="min-h-65 resize-y font-mono leading-relaxed whitespace-pre [tab-size:2] md:text-[13px]"
+          className="field-sizing-fixed h-65 max-h-[70vh] resize-y font-mono leading-relaxed whitespace-pre [tab-size:2] md:text-[13px]"
           value={text}
           disabled={dead}
           spellCheck={false}

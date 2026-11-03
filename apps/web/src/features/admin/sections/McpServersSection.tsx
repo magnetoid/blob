@@ -373,11 +373,15 @@ function ServerCard({
         <>
           <Button
             variant="outline"
-            aria-label={`Refresh tools of ${server.name}`}
             disabled={refreshing}
             onClick={() => void refresh()}
           >
+            {/* The server's name follows the words on the button, whichever they are, so the
+                name starts with what is read on it. */}
             {refreshing ? "Asking…" : "Refresh tools"}
+            <span className="sr-only">
+              {refreshing ? ` ${server.name} for its tools` : ` of ${server.name}`}
+            </span>
           </Button>
           <Button
             variant="outline"
@@ -462,7 +466,11 @@ function ServerCard({
                     {tool.title ?? tool.name}
                     {tool.readOnly && <Badge variant="outline">reads only</Badge>}
                   </ItemTitle>
-                  {tool.description && <ItemDescription>{tool.description}</ItemDescription>}
+                  {/* Whole, and wrapped anywhere: a URL in it is one word, and the card
+                      clips what runs past it. */}
+                  {tool.description && (
+                    <ItemDescription className="wrap-anywhere">{tool.description}</ItemDescription>
+                  )}
                 </ItemContent>
                 {/* On a line of its own on a phone, where the choices are as long as the row. */}
                 <ItemActions className="max-sm:basis-full">

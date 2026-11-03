@@ -165,16 +165,21 @@ describe('the price list', () => {
         .value,
     ).toBe('3');
 
-    // Half a price is not a price: Save waits for both, and says why where it is read.
+    // Half a price is not a price: Save waits for both, and says why where it is read — in
+    // the footer's one live region, politely, since it is true from the first keystroke of
+    // a price that is not finished and an alert would interrupt the typing.
+    const said = screen.getByRole('status');
+    expect(said.getAttribute('aria-live')).not.toBe('assertive');
     fireEvent.change(gptInput, { target: { value: '1.25' } });
-    expect(screen.getByRole('alert').textContent).toMatch(/Give a model both prices/);
+    expect(said.textContent).toMatch(/Give a model both prices/);
+    expect(screen.queryByRole('alert')).toBeNull();
     expect((screen.getByRole('button', { name: 'Save prices' }) as HTMLButtonElement).disabled).toBe(
       true,
     );
     fireEvent.change(screen.getByRole('textbox', { name: 'Output price for gpt-5' }), {
       target: { value: '10' },
     });
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(said.textContent).toBe('');
 
     // A model typed in by hand, left unpriced, is not sent. Enter adds it, as Add does.
     const adding = screen.getByRole('textbox', { name: 'Model name' });

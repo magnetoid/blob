@@ -7,7 +7,7 @@
  * list: still asking, and asked and failed.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { api, type AdminWorkspaceDelivery } from '../../../lib/api.ts';
 import { DeliveriesSection } from './DeliveriesSection.tsx';
 
@@ -88,6 +88,62 @@ describe('the deliveries list', () => {
     await waitFor(() => expect(replay).toHaveBeenCalledWith('p2', 'd2'));
     // Asked again afterwards, so the row shows what became of it.
     await waitFor(() => expect(api.admin.workspaceDeliveries).toHaveBeenCalledTimes(2));
+  });
+
+  it('sends a delivery again once, however fast it is pressed', async () => {
+    let done!: (delivery: AdminWorkspaceDelivery) => void;
+    const replay = vi.spyOn(api.admin, 'replayPluginDelivery').mockReturnValue(
+      new Promise<AdminWorkspaceDelivery>((resolve) => {
+        done = resolve;
+      }),
+    );
+    render(<DeliveriesSection onError={vi.fn()} />);
+
+    const button = await screen.findByRole('button', { name: 'Replay reaction.added to Hooks' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(replay).toHaveBeenCalledTimes(1);
+    // It says it is busy, and the other failed rows are not held up by this one.
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: 'Replay message.created to Scout' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+
+    await act(async () => {
+      done(delivery('d2'));
+    });
+    // Answered, the list is read again, and the button is free to be pressed once more.
+    await waitFor(() => expect(api.admin.workspaceDeliveries).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: 'Replay reaction.added to Hooks' }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Replay reaction.added to Hooks' }));
+    expect(replay).toHaveBeenCalledTimes(2);
+  });
+
+  it('frees the button again when the replay is refused', async () => {
+    vi.spyOn(api.admin, 'replayPluginDelivery').mockRejectedValue(new Error('no'));
+    render(<DeliveriesSection onError={vi.fn()} />);
+    const button = await screen.findByRole('button', { name: 'Replay reaction.added to Hooks' });
+    fireEvent.click(button);
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it('wraps what a delivery said at any character, so a long error is read whole', async () => {
+    const error = 'connect ECONNREFUSED https://hooks.example.com/' + 'x'.repeat(120);
+    vi.spyOn(api.admin, 'workspaceDeliveries').mockResolvedValue({
+      deliveries: [delivery('d9', { status: 'failed', lastError: error, deliveredAt: null })],
+    });
+    render(<DeliveriesSection onError={vi.fn()} />);
+
+    const said = await screen.findByText(new RegExp('ECONNREFUSED'));
+    expect(said.className).toContain('wrap-anywhere');
+    // Whole, not cut to two lines: the list it sits in (`CardRows`) undoes the item's clamp.
+    expect(said.closest('[data-slot="item-group"]')).toBeTruthy();
   });
 
   it('puts a refusal where the console shows errors, and keeps the list', async () => {

@@ -4,9 +4,10 @@
  *
  * Its header row stays in view while the page scrolls past it. A header that is sticky
  * inside a box that scrolls sideways sticks to that box and not to the page — overflow on
- * one axis makes the box a scroll container on both — so this table is the one that does
- * not scroll sideways (`CardTable` does), and happy-dom has no layout to prove that with:
- * the pins here are on the classes that carry the two rules.
+ * one axis makes the box a scroll container on both — so from `md` up this table does not
+ * scroll sideways (`CardTable` does). Below it, it does, as it always has: a column that
+ * clips there is a column nobody can read, at 320px or at 200% text. happy-dom has no layout
+ * to prove either with: the pins here are on the classes that carry the rules.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
@@ -82,7 +83,7 @@ describe('the usage table', () => {
     expect(within(screen.getByRole('row', { name: /^None/ })).getByText('no price')).toBeTruthy();
   });
 
-  it('pins its header to the page, and does not make a box of its own to scroll in', () => {
+  it('pins its header to the page from md up, and scrolls sideways below it', () => {
     render(<UsageTable label="Agents" lines={[line()]} currency="EUR" heading="Agent" />);
     const table = screen.getByRole('table', { name: 'Agents' });
     for (const head of within(table).getAllByRole('columnheader')) {
@@ -92,8 +93,12 @@ describe('the usage table', () => {
       expect(head.className).toContain('bg-card');
     }
     // shadcn's table draws a box that scrolls sideways (`overflow-x-auto`), which would
-    // hold the header to itself. The wrapper takes that off the box.
+    // hold the header to itself. From `md` the wrapper takes that off the box; below it the
+    // box is left as it is, so a phone can reach every column. A bare rule would clip there.
     const box = table.closest('[data-slot="table-container"]')!;
-    expect(box.parentElement!.className).toContain('data-[slot=table-container]:overflow-x-clip');
+    const wrapper = box.parentElement!.className;
+    expect(wrapper).toContain('md:**:data-[slot=table-container]:overflow-x-clip');
+    expect(wrapper).not.toMatch(/(^|\s)\*\*:data-\[slot=table-container\]:overflow-x-clip/);
+    expect(box.className).toContain('overflow-x-auto');
   });
 });

@@ -3,14 +3,18 @@
  * only as complete as the prices, and a row that is partly priced says so rather than
  * reading as less than it was.
  *
- * It keeps its header row in view while the page scrolls past it, and that is why it is not
- * a `CardTable`. A sticky cell sticks to the nearest ancestor that scrolls, and shadcn's
- * `Table` draws its table in a box with `overflow-x: auto` so a wide one can scroll
+ * From `md` up it keeps its header row in view while the page scrolls past it, and that is
+ * why it is not a `CardTable`. A sticky cell sticks to the nearest ancestor that scrolls, and
+ * shadcn's `Table` draws its table in a box with `overflow-x: auto` so a wide one can scroll
  * sideways — which, overflow on one axis making a box a scroll container on both, would
  * hold the header to a box that never scrolls up or down. So this table is flush with the
- * card the same way, and takes that box's overflow off (`clip` is not a scroll container);
- * what it gives up is the sideways scroll, so its cells wrap instead, and four short columns
- * fit a phone. */
+ * card the same way, and from `md` takes that box's overflow off (`clip` is not a scroll
+ * container); what it gives up there is the sideways scroll, so its cells wrap instead.
+ *
+ * Below `md` the box is left as it is. Four short columns fit most phones, but not every
+ * name or a cost with "+ unpriced" on it at 320px or at 200% text, and a column that clips is
+ * a column nobody can read; a scroll is the way to fail safe. The header is then not sticky,
+ * which is how this table has always been on a phone. */
 
 import { cn } from 'cn';
 import type { UsageLine } from '../../lib/api.ts';
@@ -52,7 +56,7 @@ export function UsageTable({
   showOwner?: boolean;
 }) {
   return (
-    <div className="-mx-(--card-spacing) **:data-[slot=table-container]:overflow-x-clip">
+    <div className="-mx-(--card-spacing) md:**:data-[slot=table-container]:overflow-x-clip">
       <Table className="[&_tr>:first-child]:pl-(--card-spacing) [&_tr>:last-child]:pr-(--card-spacing)">
         <TableCaption className="sr-only">{label}</TableCaption>
         {/* The header's rule is the cells' own (above), so the row's would be a second one. */}

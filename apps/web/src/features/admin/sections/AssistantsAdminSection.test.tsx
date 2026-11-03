@@ -37,9 +37,10 @@ describe('connected assistants', () => {
     expect(within(row).getByText('reads and posts')).toBeTruthy();
     expect(within(row).getByText(/^Never used · /)).toBeTruthy();
 
-    fireEvent.click(within(row).getByRole('button', { name: 'Revoke' }));
+    // Named for its row, since every row has one; the confirm names whose it is.
+    fireEvent.click(within(row).getByRole('button', { name: 'Revoke Claude Code (Bo)' }));
     expect(revoke).not.toHaveBeenCalled();
-    fireEvent.click(within(row).getByRole('button', { name: /Revoke Bo.s Claude Code/ }));
+    fireEvent.click(within(row).getByRole('button', { name: /^Revoke Bo.s Claude Code$/ }));
     await waitFor(() => expect(revoke).toHaveBeenCalledWith('t1'));
     expect(await screen.findByText(/Nobody has made a token/)).toBeTruthy();
   });
@@ -53,11 +54,29 @@ describe('connected assistants', () => {
     render(<AssistantsAdminSection onError={vi.fn()} isOwner={false} />);
 
     expect(await screen.findByText('reads only')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke Claude Code (Bo)' }));
     fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
-    expect(screen.getByRole('button', { name: 'Revoke' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Revoke Bo/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Revoke Claude Code (Bo)' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Revoke Bo/ })).toBeNull();
     expect(revoke).not.toHaveBeenCalled();
+  });
+
+  it('keeps focus with the person: into the confirm when it opens, and back when they keep it', async () => {
+    // The button they pressed is replaced by the pair, so focus would otherwise drop to the
+    // page and a keyboard user would start again from the top.
+    vi.spyOn(api.admin, 'oauthGrants').mockResolvedValue({ grants: [] });
+    vi.spyOn(api.admin, 'assistantTokens').mockResolvedValue({ tokens: [TOKEN] });
+    render(<AssistantsAdminSection onError={vi.fn()} isOwner={false} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke Claude Code (Bo)' }));
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: /^Revoke Bo.s Claude Code$/ }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Revoke Claude Code (Bo)' }),
+    );
   });
 
   it('says it is loading, and then that nobody has made a token', async () => {

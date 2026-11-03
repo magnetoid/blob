@@ -10,6 +10,7 @@
  */
 
 import { useId, useState } from 'react';
+import { cn } from 'cn';
 import {
   api,
   type ModelPrice,
@@ -24,7 +25,6 @@ import {
   Field,
   FieldContent,
   FieldDescription,
-  FieldError,
   FieldLabel,
 } from '../../../components/ui/field.tsx';
 import { Input } from '../../../components/ui/input.tsx';
@@ -289,12 +289,16 @@ function PricesForm({
       description="What your provider charges per million tokens, model by model. Blob ships no prices: they change, and yours may not be the list price."
       footer={
         <>
-          {/* There before anything is said in it, so the words are announced when they
-              arrive; first in the strip, so it reads first and Save keeps the end. */}
-          <span role="status" className="text-sm text-muted-foreground">
-            {justSaved ? 'Saved.' : ''}
+          {/* One live region for what the footer has to say, there before anything is said in
+              it, so the words are announced when they arrive; first in the strip, so it
+              reads first and Save keeps the end. Polite, not an alert: half a price is
+              unfinished from the first keystroke, and an alert would speak over the typing. */}
+          <span
+            role="status"
+            className={cn('text-sm', invalid ? 'text-destructive' : 'text-muted-foreground')}
+          >
+            {invalid ? 'Give a model both prices, from 0 to 100000.' : justSaved ? 'Saved.' : ''}
           </span>
-          {invalid && <FieldError>Give a model both prices, from 0 to 100000.</FieldError>}
           <Button disabled={!currencyOk || invalid || busy} onClick={() => void save()}>
             {busy ? 'Saving…' : 'Save prices'}
           </Button>

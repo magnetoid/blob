@@ -5,6 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -277,6 +278,48 @@ describe("the MCP servers page", () => {
     expect(
       serverCard("Docs").getByRole("switch", { name: "Janus may use Docs", checked: false }),
     ).toBeTruthy();
+  });
+
+  it("keeps the refresh button named for what it says, whichever it says", async () => {
+    // Its words change to "Asking…" while the server answers, and its name must still start
+    // with them (WCAG 2.5.3), so the server's name is spoken after the words rather than
+    // standing in for them.
+    let answer!: (server: McpServer) => void;
+    vi.spyOn(api.admin, "refreshMcpServer").mockReturnValue(
+      new Promise<McpServer>((resolve) => {
+        answer = resolve;
+      }),
+    );
+    render(<McpServersSection onError={vi.fn()} isOwner />);
+
+    const refresh = await screen.findByRole("button", { name: "Refresh tools of GitHub" });
+    expect(refresh.textContent).toBe("Refresh tools of GitHub");
+    fireEvent.click(refresh);
+
+    const asking = await screen.findByRole("button", { name: /^Asking… .*GitHub/ });
+    expect((asking as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => {
+      answer(GITHUB);
+    });
+    expect(await screen.findByRole("button", { name: "Refresh tools of GitHub" })).toBeTruthy();
+  });
+
+  it("wraps a tool’s description at any character, and shows it whole", async () => {
+    // A URL in a description is one unbroken word, and the card clips what runs past it.
+    const url = "https://example.com/docs/" + "a".repeat(120);
+    loaded([
+      {
+        ...GITHUB,
+        tools: [{ ...GITHUB.tools[0]!, description: `See ${url}` }],
+      },
+    ]);
+    render(<McpServersSection onError={vi.fn()} isOwner />);
+
+    const description = await screen.findByText(`See ${url}`);
+    expect(description.className).toContain("wrap-anywhere");
+    // Shown whole: the item's two-line clamp is undone by the list it sits in (`CardRows`),
+    // so it has to be in one.
+    expect(description.closest('[data-slot="item-group"]')).toBeTruthy();
   });
 
   it("switches a server off and on from its header", async () => {

@@ -385,6 +385,18 @@ describe('this workspace', () => {
     expect(toggle.getAttribute('aria-checked')).toBe('false');
   });
 
+  it('stops the instructions box growing at a height, and scrolls inside it', async () => {
+    // Up to 4,000 characters is a box a thousand pixels tall if it follows its content, and
+    // the count and Save are in the footer under it. It still grows from a few lines — and
+    // stops, so they stay in reach.
+    render(<JanusSection onError={vi.fn()} isOwner />);
+
+    const box = await screen.findByRole('textbox', { name: 'Instructions' });
+    expect(box.className).toContain('field-sizing-content');
+    expect(box.className).toContain('max-h-80');
+    expect(box.className).toContain('resize-y');
+  });
+
   it('clears the instructions with an explicit null when the box is emptied', async () => {
     // "" and null mean the same thing to the route, but the wire should say what the
     // screen says: this workspace now has nothing standing to tell its agent.
@@ -685,6 +697,21 @@ describe('this server', () => {
     expect(
       screen.getByRole('textbox', { name: 'config.yaml', description: /Keys written into this file/ }),
     ).toBeTruthy();
+  });
+
+  it('keeps config.yaml a box of its own that scrolls inside itself', async () => {
+    // happy-dom draws no layout, so this pins the classes that carry it. A textarea that
+    // sizes to its content (shadcn's default) turns a 200-line config into a box thousands of
+    // pixels tall, with Save at the far end of it; this one is a fixed height the person can
+    // drag taller, up to a cap, and the file scrolls inside it.
+    render(<JanusSection onError={vi.fn()} isOwner />);
+
+    const box = await screen.findByRole('textbox', { name: 'config.yaml' });
+    expect(box.className).toContain('field-sizing-fixed');
+    expect(box.className).not.toContain('field-sizing-content');
+    expect(box.className).toContain('h-65');
+    expect(box.className).toContain('max-h-[70vh]');
+    expect(box.className).toContain('resize-y');
   });
 
   it('saves the one field that changed, and nothing else', async () => {

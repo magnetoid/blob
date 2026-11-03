@@ -298,9 +298,11 @@ function Instructions({
         </>
       }
     >
+      {/* It grows with what is typed, from a few lines, and stops: up to 4,000 characters
+          is a box a thousand pixels tall, and the count and Save are under it. */}
       <Textarea
         id={`${ids}-box`}
-        className="min-h-23 resize-y"
+        className="max-h-80 min-h-23 resize-y"
         aria-describedby={`${ids}-hint ${ids}-count`}
         placeholder="Answer briefly. Ask before writing to anything outside this channel."
         value={text}
