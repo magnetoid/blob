@@ -371,7 +371,6 @@ export function HealthSection({
                 title="Service status"
                 description="Every dependency the server needs to answer."
                 size={prefs.sizes[widget]}
-                loading={refreshing}
                 controls={controlsFor(widget)}
               >
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,150px),1fr))] gap-2.5">
@@ -466,7 +465,6 @@ export function HealthSection({
                 title="Summary metrics"
                 description="Click a card to focus the chart and open the relevant drill-down."
                 size={prefs.sizes[widget]}
-                loading={refreshing}
                 controls={controlsFor(widget)}
               >
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,190px),1fr))] gap-2.5">
@@ -498,7 +496,6 @@ export function HealthSection({
                 title="Realtime trends"
                 description="Socket activity triggers refreshes, while the interval guarantees a fresh sample within two seconds."
                 size={prefs.sizes[widget]}
-                loading={refreshing}
                 controls={controlsFor(widget)}
               >
                 <TrendChart
@@ -528,7 +525,6 @@ export function HealthSection({
                 title={`${activeMetric.label} detail`}
                 description="Drill into the currently selected summary metric."
                 size={prefs.sizes[widget]}
-                loading={refreshing}
                 controls={controlsFor(widget)}
               >
                 <div className="flex flex-col gap-3">
@@ -583,7 +579,6 @@ export function HealthSection({
               title="Recent activity"
               description="Logs and audit events in one stream, filterable from the chart."
               size={prefs.sizes[widget]}
-              loading={refreshing}
               controls={controlsFor(widget)}
             >
               <ActivityFeed

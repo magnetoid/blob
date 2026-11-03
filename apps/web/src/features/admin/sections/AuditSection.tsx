@@ -131,7 +131,16 @@ export function AuditSection() {
                 <ItemContent>
                   <ItemTitle>
                     {humanizeAction(event.action)}
-                    {event.targetLabel && <Badge variant="outline">{event.targetLabel}</Badge>}
+                    {event.targetLabel && (
+                      // The target is data and may be one unbroken token; the card clips what
+                      // overflows it, so the badge wraps rather than being cut off.
+                      <Badge
+                        variant="outline"
+                        className="h-auto max-w-full shrink text-left whitespace-normal wrap-anywhere"
+                      >
+                        {event.targetLabel}
+                      </Badge>
+                    )}
                   </ItemTitle>
                   {/* An address and the metadata are data, and may be one unbroken token. */}
                   <ItemDescription className="wrap-anywhere">

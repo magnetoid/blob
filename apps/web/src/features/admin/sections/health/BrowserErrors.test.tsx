@@ -80,6 +80,50 @@ describe('errors in browsers', () => {
     expect(document.activeElement).toBe(clear);
   });
 
+  it('moves focus to what replaces the list when Clear empties it, instead of dropping it', async () => {
+    // Clear is the button that was pressed, and it leaves with the list it belonged to: focus
+    // would otherwise fall to the page and a keyboard user would start again from the top.
+    const errors = vi
+      .spyOn(api.admin, 'clientErrors')
+      .mockResolvedValueOnce({ errors: [FAULT] })
+      .mockResolvedValue({ errors: [] });
+    render(<BrowserErrors />);
+    const clear = await screen.findByRole('button', { name: 'Clear' });
+    clear.focus();
+    fireEvent.click(clear);
+
+    const said = await screen.findByText('No browser has reported an error.');
+    await waitFor(() => expect(document.activeElement).toBe(said));
+    expect(said.getAttribute('tabindex')).toBe('-1');
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+    expect(errors).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves focus where the person has moved it while Clear was working', async () => {
+    let finish: () => void = () => undefined;
+    vi.spyOn(api.admin, 'clientErrors')
+      .mockResolvedValueOnce({ errors: [FAULT] })
+      .mockResolvedValue({ errors: [] });
+    vi.spyOn(api.admin, 'clearClientErrors').mockReturnValue(
+      new Promise((resolve) => {
+        finish = () => resolve({ ok: true });
+      }),
+    );
+    render(
+      <>
+        <button type="button">Elsewhere</button>
+        <BrowserErrors />
+      </>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear' }));
+    const elsewhere = screen.getByRole('button', { name: 'Elsewhere' });
+    elsewhere.focus();
+    finish();
+
+    await screen.findByText('No browser has reported an error.');
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
   it('says so when nothing was reported', async () => {
     vi.spyOn(api.admin, 'clientErrors').mockResolvedValue({ errors: [] });
     render(<BrowserErrors />);

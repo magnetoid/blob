@@ -8,6 +8,8 @@
  * Coloured from the chart palette (`--chart-1` … `--chart-5`), the theme's own: the middle
  * of it reads on the plot in light and in dark, and a bar that is hovered or chosen moves
  * toward the end of the scale that contrasts with the plot in that scheme.
+ *
+ * Each bar is a column to press with the bar drawn in it — see `COLUMN` and `BAR`.
  */
 
 import { useCallback, useId, useRef, useState, type CSSProperties } from "react";
@@ -25,18 +27,42 @@ import {
 } from "./model.ts";
 import { chartWindow, sampleLabel } from "./series.ts";
 
-/** One bar. Its height is its value's share of the window's largest, so it is data and rides
- * in a custom property; it is stretched to the plot's full height and scaled down from the
- * bottom. The bar needs a real size from layout (`self-stretch`, `flex-1`), which happy-dom
- * does not have, so the tests pin the classes. */
+/**
+ * One point of the series: a column to press, and the bar drawn inside it.
+ *
+ * The button is the target and is the plot's full height whatever its value, so a low bar
+ * is as easy to press as a high one — a bar that is a hundredth of the largest, scaled down
+ * with the button it was, was a few pixels high to hit — and its focus ring and pinned
+ * outline are drawn on a box that is not scaled. It carries no colour of its own.
+ *
+ * The bar is its child, scaled from the bottom by its share of the window's largest. That
+ * is data, so it rides in a custom property. It is decoration (`aria-hidden`): the button is
+ * what has a name. It reads the column's state — hover, focus, pinned — through `group-*`,
+ * and the colours are the chart palette's, one end of it in light and the other in dark.
+ * Tailwind's `scale-y-*` sets the `scale` property, so that is what transitions.
+ *
+ * The column's width is what the plot has left over, shared by up to 96 points, so it can be
+ * a few pixels on a phone, and a column that narrow is not 44px wide under a finger. That is
+ * the exception to the touch size: it cannot be met by 96 columns in a phone's width. The
+ * height can be, and is — the plot is 220px. The space between bars is a margin on the bar
+ * (`w-4/5`), so it shrinks with the column; a `gap` could not, and 96 of them pushed the
+ * newest samples out of a box that clips.
+ */
+const COLUMN = [
+  "group flex min-w-0 flex-1 basis-0 items-stretch justify-center self-stretch rounded-sm",
+  // The ring is the focus. No bare `outline-none`: it sets `--tw-outline-style: none`, which
+  // `outline-2` below reads, and the pinned outline would never be drawn.
+  "hover:bg-foreground/5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+  // The pinned moment: an outline round the column, so it is not told by colour alone.
+  "aria-pressed:bg-foreground/5 aria-pressed:outline-2 aria-pressed:outline-ring",
+].join(" ");
+
 const BAR = [
-  "min-w-3.5 flex-1 basis-0 origin-bottom self-stretch scale-y-(--bar-scale) rounded-t-sm outline-none",
-  "bg-chart-2 hover:bg-chart-4 focus-visible:bg-chart-4 dark:hover:bg-chart-1 dark:focus-visible:bg-chart-1",
-  "focus-visible:ring-3 focus-visible:ring-ring/50",
-  // The pinned moment: the far end of the scale, and an outline round it so it is not
-  // told by colour alone.
-  "aria-pressed:bg-chart-5 aria-pressed:outline-2 aria-pressed:outline-offset-2 aria-pressed:outline-ring dark:aria-pressed:bg-chart-1",
-  "transition-[transform,background-color] duration-(--dur-micro) ease-(--ease-standard) motion-reduce:transition-none",
+  "w-4/5 min-w-px self-stretch origin-bottom scale-y-(--bar-scale) rounded-t-sm",
+  "bg-chart-2 group-hover:bg-chart-4 group-focus-visible:bg-chart-4",
+  "dark:group-hover:bg-chart-1 dark:group-focus-visible:bg-chart-1",
+  "group-aria-pressed:bg-chart-5 dark:group-aria-pressed:bg-chart-1",
+  "transition-[scale,background-color] duration-(--dur-micro) ease-(--ease-standard) motion-reduce:transition-none",
 ].join(" ");
 
 export function TrendChart({
@@ -160,7 +186,7 @@ export function TrendChart({
 
       <div
         data-slot="trend-plot"
-        className="flex min-h-55 touch-pan-y items-end gap-1.5 overflow-hidden rounded-lg border bg-muted/50 p-3"
+        className="flex min-h-55 touch-pan-y items-end overflow-hidden rounded-lg border bg-muted/50 p-3"
         onPointerDown={(event) => {
           gestureStart.current = event.clientX;
         }}
@@ -185,8 +211,7 @@ export function TrendChart({
               <button
                 key={sample.at}
                 type="button"
-                className={BAR}
-                style={{ "--bar-scale": scale } as CSSProperties}
+                className={COLUMN}
                 aria-pressed={active}
                 aria-label={`${metricDef.label} at ${sampleLabel(sample)}: ${metricDef.format(
                   sample.health,
@@ -199,7 +224,13 @@ export function TrendChart({
                 onMouseLeave={() => setHoveredSampleAt(null)}
                 onBlur={() => setHoveredSampleAt(null)}
                 onClick={() => onSelectSample(active ? null : sample.at)}
-              />
+              >
+                <span
+                  aria-hidden="true"
+                  className={BAR}
+                  style={{ "--bar-scale": scale } as CSSProperties}
+                />
+              </button>
             );
           })
         )}

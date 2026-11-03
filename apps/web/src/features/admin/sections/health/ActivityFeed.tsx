@@ -72,6 +72,10 @@ export function ActivityFeed({
                   <Badge variant={item.kind === "audit" ? "outline" : "secondary"}>
                     {item.kind === "log" ? "Log" : "Audit"}
                   </Badge>
+                  {/* The stripe down the row's edge is the level in colour; this is the same in
+                      words, so it is not told by colour alone. */}
+                  {item.tone === "danger" && <Badge variant="destructive">Error</Badge>}
+                  {item.tone === "warning" && <Badge variant="outline">Warning</Badge>}
                   <span>{formatRelative(item.at)}</span>
                 </div>
                 <ItemTitle className="leading-snug wrap-anywhere">{item.title}</ItemTitle>

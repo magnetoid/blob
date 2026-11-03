@@ -318,6 +318,26 @@ describe("the widgets", () => {
     expect(await screen.findByRole("button", { name: "Back up now" })).toBeTruthy();
   });
 
+  it("keeps focus on Move later when the widget reaches the end, where it goes inert", async () => {
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await screen.findByText("Recent activity");
+    fireEvent.click(screen.getByRole("button", { name: "Edit layout" }));
+    // The detail widget is second from last: one move later makes it last, so the button
+    // that was just pressed has nowhere left to go.
+    const later = screen.getByRole("button", { name: "Move later, detail widget" });
+    later.focus();
+    fireEvent.click(later);
+
+    const now = screen.getByRole("button", { name: "Move later, detail widget" });
+    expect(now.getAttribute("aria-disabled")).toBe("true");
+    // Inert, not natively disabled: a browser drops focus from a button that becomes so.
+    expect(now.hasAttribute("disabled")).toBe(false);
+    expect(document.activeElement).toBe(now);
+    fireEvent.click(now);
+    const order = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
+    expect(order.indexOf("Live sockets detail")).toBeGreaterThan(order.indexOf("Recent activity"));
+  });
+
   it("moves, resizes and hides a widget from its own buttons, named by the widget", async () => {
     render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
     await screen.findByText("Recent activity");
@@ -345,7 +365,88 @@ describe("the widgets", () => {
   });
 });
 
+describe("busy", () => {
+  it("is said for the first load only, and not on every refresh after it", async () => {
+    const seen = {
+      database: true,
+      redis: true,
+      mail: "ok",
+      push: true,
+      storage: "ok",
+      queueDepth: 3,
+      connections: 12,
+      usersOnline: 7,
+      messageCount: 420,
+      storageBytes: 4096,
+      version: "0.1.0",
+    };
+    let answer: (value: unknown) => void = () => undefined;
+    health.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const { container } = render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    // The first reading is on its way: the cards standing in for the widgets are busy.
+    expect(container.querySelectorAll('[aria-busy="true"]').length).toBeGreaterThan(0);
+
+    answer(seen);
+    await loaded();
+    expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(0);
+
+    // A socket event asks again, as it does most of the time the page is open; while that
+    // request is out the page says so in words and no widget is announced as busy.
+    let second: (value: unknown) => void = () => undefined;
+    health.mockReturnValueOnce(new Promise((resolve) => (second = resolve)));
+    socketListener?.({ t: "message.new" });
+    expect(await screen.findByText(/Refreshing now…/)).toBeTruthy();
+    expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(0);
+    second(seen);
+    await waitFor(() => expect(screen.queryByText(/Refreshing now…/)).toBeNull());
+  });
+});
+
 describe("the activity feed", () => {
+  it("says the level of a log in words, not only in the colour down its edge", async () => {
+    serverLogs.mockResolvedValue({
+      capacity: 500,
+      entries: [
+        {
+          at: "2026-09-08T10:00:00.000Z",
+          level: "ERROR",
+          logger: "blob.api",
+          message: "Unhandled error",
+          detail: null,
+          path: null,
+          method: null,
+        },
+        {
+          at: "2026-09-08T10:00:30.000Z",
+          level: "WARNING",
+          logger: "blob.worker",
+          message: "Queue is backing up",
+          detail: null,
+          path: null,
+          method: null,
+        },
+        {
+          at: "2026-09-08T10:00:40.000Z",
+          level: "INFO",
+          logger: "blob.worker",
+          message: "Plain note",
+          detail: null,
+          path: null,
+          method: null,
+        },
+      ],
+    });
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await loaded();
+    const list = await widget("Recent activity").findByRole("list", { name: "Recent activity" });
+    const row = (text: string) => within(list).getByText(text).closest('[role="listitem"]') as HTMLElement;
+    expect(within(row("Unhandled error")).getByText("Error")).toBeTruthy();
+    expect(within(row("Queue is backing up")).getByText("Warning")).toBeTruthy();
+    // An ordinary record and an audit event have no level to say.
+    expect(within(row("Plain note")).queryByText(/^(Error|Warning)$/)).toBeNull();
+    expect(within(row("settings updated")).queryByText(/^(Error|Warning)$/)).toBeNull();
+  });
+
   it("merges logs and audit, and filters to one kind, pressed shown", async () => {
     render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
     await loaded();
@@ -372,20 +473,62 @@ describe("the activity feed", () => {
 });
 
 describe("the trend chart", () => {
-  it("draws a bar per sample, named and sized by its value, from the chart palette", async () => {
+  it("draws a bar per sample: a whole column to press, with the bar drawn inside it", async () => {
     render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
     await loaded();
     const chart = widget("Realtime trends");
-    const bar = await chart.findByRole("button", { name: /^Live sockets at .*: 12$/ });
-    // Coloured from the theme's chart palette, never a literal; sized by a custom property
-    // that holds its share of the window's largest. The box needs a real size from layout
-    // (`flex-1`, `self-stretch`), which happy-dom has none of, so the classes are pinned.
-    expect(bar.className).toContain("bg-chart-2");
-    expect(bar.className).toContain("scale-y-(--bar-scale)");
-    expect(bar.className).toContain("flex-1");
+    const column = await chart.findByRole("button", { name: /^Live sockets at .*: 12$/ });
+    const bar = column.querySelector("span")!;
+    // happy-dom has no layout, so what is pinned is the classes that give the sizes.
+    //
+    // The button is the target: the plot's full height whatever the value, so a low bar is
+    // as easy to press as a high one, and its focus ring and pinned outline are drawn on a
+    // box that is not scaled. It carries no scale and no colour of its own.
+    expect(column.className).toContain("self-stretch");
+    expect(column.className).toContain("flex-1");
+    expect(column.className).not.toContain("scale-y");
+    expect(column.className).not.toContain("bg-chart");
+    expect(column.className).toContain("group");
+    expect(column.className).toContain("focus-visible:ring-3");
+    // Not a bare `outline-none`: it sets the style variable the pinned outline reads, and the
+    // outline would never be drawn.
+    expect(column.className.split(" ")).not.toContain("outline-none");
+    expect(column.className).toContain("aria-pressed:outline-2");
     expect(bar.className).toContain("self-stretch");
+
+    // The bar is the part that is scaled, from the bottom, by its share of the largest —
+    // data, so it rides in a custom property — and it is coloured from the theme's chart
+    // palette, never a literal. It is decoration: the button is what is named.
+    expect(bar.getAttribute("aria-hidden")).toBe("true");
+    expect(bar.className).toContain("origin-bottom");
+    expect(bar.className).toContain("scale-y-(--bar-scale)");
+    expect(bar.className).toContain("bg-chart-2");
     expect(bar.style.getPropertyValue("--bar-scale")).toBe("1");
-    expect(bar.getAttribute("aria-pressed")).toBe("false");
+    // Tailwind's `scale-y-*` sets the `scale` property, so that is what has to transition;
+    // `transition-transform` listing `transform` would leave the height jumping.
+    expect(bar.className).toContain("transition-[scale,background-color]");
+    expect(bar.className).not.toContain("transition-[transform");
+    // Hover, focus and the pinned moment move the bar's colour from the column it is in.
+    for (const state of ["group-hover:", "group-focus-visible:", "group-aria-pressed:"]) {
+      expect(bar.className).toContain(state);
+    }
+    expect(column.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("lets the bars shrink to fit, so the newest are never cut off", async () => {
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await loaded();
+    const chart = widget("Realtime trends");
+    const column = await chart.findByRole("button", { name: /^Live sockets at / });
+    const plot = column.closest('[data-slot="trend-plot"]')!;
+    // 96 columns of 14px with 6px between them are two thousand pixels in a box that clips:
+    // the right-hand end, the newest samples, went first. A column may now be as narrow as
+    // it has to be, and the space between bars is part of the column — a margin on the bar,
+    // so it shrinks with it — rather than a gap that cannot. (No layout here: classes.)
+    expect(column.className).toContain("min-w-0");
+    expect(column.className).not.toContain("min-w-3.5");
+    expect(plot.className).not.toMatch(/\bgap-/);
+    expect(column.querySelector("span")!.className).toContain("w-4/5");
   });
 
   it("chooses the series by its name, and the window it shows", async () => {

@@ -59,6 +59,19 @@ describe('the audit log', () => {
     expect(rows[1]!.textContent).not.toContain('10.0.0.1');
   });
 
+  it('lets a long target wrap inside its row, rather than cut it off', async () => {
+    const long = `#${'a-channel-name-that-is-one-long-unbroken-token-'.repeat(4)}`;
+    vi.spyOn(api.admin, 'audit').mockResolvedValue({ events: [event({ targetLabel: long })] });
+    render(<AuditSection />);
+    const badge = await screen.findByText(long);
+    // The target is data and may be one unbroken token. The card clips what overflows it, so
+    // a badge that cannot wrap would lose the end of the name; it wraps (no layout here, so
+    // the classes are what is pinned) and nothing is hidden.
+    for (const wraps of ['h-auto', 'max-w-full', 'whitespace-normal', 'wrap-anywhere']) {
+      expect(badge.className).toContain(wraps);
+    }
+  });
+
   it('says it is loading, then that nothing is recorded', async () => {
     let answer: (events: AuditEvent[]) => void = () => undefined;
     vi.spyOn(api.admin, 'audit').mockReturnValue(

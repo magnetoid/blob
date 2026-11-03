@@ -2,7 +2,7 @@
  *  newest seen first, with how often, where and in what. The server cut each report down
  *  before keeping it, so there is no address, id or query string here to read. */
 
-import { useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { api } from '../../../../lib/api.ts';
 import { showError } from '../../../../lib/toasts.ts';
 import { useFetch } from '../../../../lib/useFetch.ts';
@@ -25,12 +25,28 @@ export function BrowserErrors() {
   const inFlight = useRef(false);
   const errors = data?.errors ?? [];
 
+  // Clear is the button that was pressed, and it leaves with the list it belonged to, so
+  // focus would drop to the page. It goes to what replaces them — the notice that nothing
+  // has been reported — if it is still lost when that arrives: not if the person has moved
+  // on while the request was out. Asked for once, for the next reading.
+  const returning = useRef(false);
+  const focusNotice = useCallback((node: HTMLParagraphElement | null) => {
+    if (!node || !returning.current) return;
+    returning.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body) node.focus();
+  }, []);
+  useEffect(() => {
+    returning.current = false;
+  }, [data]);
+
   async function clear() {
     if (inFlight.current) return;
     inFlight.current = true;
     setClearing(true);
     try {
       await api.admin.clearClientErrors();
+      returning.current = true;
       reload();
     } catch (err) {
       showError(err);
@@ -56,7 +72,9 @@ export function BrowserErrors() {
       {data === null ? (
         <CardNotice>Loading…</CardNotice>
       ) : errors.length === 0 ? (
-        <CardNotice>No browser has reported an error.</CardNotice>
+        <CardNotice ref={focusNotice} tabIndex={-1} className="outline-none">
+          No browser has reported an error.
+        </CardNotice>
       ) : (
         <CardRows aria-label="Errors in browsers">
           {errors.map((fault) => (

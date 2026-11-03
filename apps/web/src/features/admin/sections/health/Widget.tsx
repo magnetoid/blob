@@ -15,14 +15,12 @@ export function DashboardWidget({
   title,
   description,
   size,
-  loading,
   controls,
   children,
 }: {
   title: string;
   description: string;
   size: WidgetSize;
-  loading?: boolean;
   /** Absent unless the person is arranging the page. */
   controls: React.ReactNode;
   children: React.ReactNode;
@@ -33,10 +31,10 @@ export function DashboardWidget({
       description={description}
       actions={controls || undefined}
       // Three across where the column has room for them, a wide one taking two of the three;
-      // one under the other where it has not. A refresh is a few hundred milliseconds every
-      // second or two, so it is said to assistive tech and not drawn: a card that dimmed on
-      // every poll would flicker for as long as the page was open.
-      aria-busy={loading || undefined}
+      // one under the other where it has not. Not `aria-busy`: a refresh is a request every
+      // second or two, and the socket asks for another on most events, so the widgets would
+      // be announced as busy for as long as the page was open. Busy is the first load's —
+      // the skeleton in HealthSection — and a refresh is said in the toolbar's words.
       data-widget-size={size}
       className={
         size === "wide"
@@ -70,12 +68,15 @@ export function WidgetControls({
   // visible words, which stay the start of the name.
   return (
     <div className="flex flex-wrap justify-end gap-2">
+      {/* Inert at either end, not disabled: moving a widget to the end is what makes its
+          button inert, and a browser drops focus from a button that becomes disabled. */}
       <Button
         variant="outline"
         size="sm"
         aria-label={`Move earlier, ${widget} widget`}
         onClick={() => onMove(-1)}
         disabled={!canMoveLeft}
+        focusableWhenDisabled
       >
         Move earlier
       </Button>
@@ -85,6 +86,7 @@ export function WidgetControls({
         aria-label={`Move later, ${widget} widget`}
         onClick={() => onMove(1)}
         disabled={!canMoveRight}
+        focusableWhenDisabled
       >
         Move later
       </Button>

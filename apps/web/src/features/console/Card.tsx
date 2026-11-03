@@ -135,10 +135,19 @@ export function CardHeading({
 
 /**
  * The line a card shows where its rows would be: nothing yet, nothing matched, or still
- * loading. One element for all three, so every page says it in the same place and type.
+ * loading. One element for all three, so every page says it in the same place and type. It
+ * takes a paragraph's props, so a page can make it the place focus goes (`tabIndex={-1}`
+ * and a ref) when what it replaced held the focus.
  */
-export function CardNotice({ children }: { children: ReactNode }) {
-  return <p className="px-4 py-6 text-center text-sm text-pretty text-muted-foreground">{children}</p>;
+export function CardNotice({ className, children, ...rest }: ComponentProps<'p'>) {
+  return (
+    <p
+      className={cn('px-4 py-6 text-center text-sm text-pretty text-muted-foreground', className)}
+      {...rest}
+    >
+      {children}
+    </p>
+  );
 }
 
 /**
