@@ -121,7 +121,10 @@ function DeliveryRow({
           <Button
             variant="outline"
             aria-label={`Replay ${delivery.event} to ${delivery.pluginName}`}
+            // Busy, not gone: a button disabled under the pointer would drop focus to the
+            // page while the request runs.
             disabled={replaying}
+            focusableWhenDisabled
             onClick={() => void replay()}
           >
             Replay

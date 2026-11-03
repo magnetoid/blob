@@ -52,6 +52,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** A busy Replay stays focusable (`focusableWhenDisabled`), so it says so with
+ *  `aria-disabled` rather than the `disabled` attribute. */
+function busy(button: HTMLElement): boolean {
+  return button.getAttribute('aria-disabled') === 'true' || (button as HTMLButtonElement).disabled;
+}
+
 describe('the deliveries list', () => {
   it('is a row for each attempt: the app, the event, how it ended and what it said', async () => {
     render(<DeliveriesSection onError={vi.fn()} />);
@@ -100,14 +106,19 @@ describe('the deliveries list', () => {
     render(<DeliveriesSection onError={vi.fn()} />);
 
     const button = await screen.findByRole('button', { name: 'Replay reaction.added to Hooks' });
+    button.focus();
     fireEvent.click(button);
     fireEvent.click(button);
     expect(replay).toHaveBeenCalledTimes(1);
-    // It says it is busy, and the other failed rows are not held up by this one.
-    expect((button as HTMLButtonElement).disabled).toBe(true);
+    // It says it is busy without letting go of focus, and the other failed rows are not
+    // held up by this one.
+    expect(busy(button)).toBe(true);
+    // A browser drops focus from a button that becomes `disabled`; happy-dom does not, so
+    // what is pinned is the mechanism — busy is said with `aria-disabled` alone.
+    expect(button.hasAttribute('disabled')).toBe(false);
+    expect(document.activeElement).toBe(button);
     expect(
-      (screen.getByRole('button', { name: 'Replay message.created to Scout' }) as HTMLButtonElement)
-        .disabled,
+      busy(screen.getByRole('button', { name: 'Replay message.created to Scout' })),
     ).toBe(false);
 
     await act(async () => {
@@ -116,10 +127,9 @@ describe('the deliveries list', () => {
     // Answered, the list is read again, and the button is free to be pressed once more.
     await waitFor(() => expect(api.admin.workspaceDeliveries).toHaveBeenCalledTimes(2));
     await waitFor(() =>
-      expect(
-        (screen.getByRole('button', { name: 'Replay reaction.added to Hooks' }) as HTMLButtonElement)
-          .disabled,
-      ).toBe(false),
+      expect(busy(screen.getByRole('button', { name: 'Replay reaction.added to Hooks' }))).toBe(
+        false,
+      ),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Replay reaction.added to Hooks' }));
     expect(replay).toHaveBeenCalledTimes(2);
@@ -130,7 +140,7 @@ describe('the deliveries list', () => {
     render(<DeliveriesSection onError={vi.fn()} />);
     const button = await screen.findByRole('button', { name: 'Replay reaction.added to Hooks' });
     fireEvent.click(button);
-    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect(busy(button)).toBe(false));
   });
 
   it('wraps what a delivery said at any character, so a long error is read whole', async () => {
