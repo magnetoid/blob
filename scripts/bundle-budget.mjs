@@ -16,7 +16,7 @@ import { gzipSync } from 'node:zlib';
 // more or less from one commit to the next — 239.6 KB, then 239.7, for one tree under
 // Vite 6 — and a budget with no room would fail a docs commit, a merge ref or a squash for
 // nothing the app does. Lower it with the app, keeping the 1 KB.
-const BUDGET_KB = 233;
+const BUDGET_KB = 234;
 const DIST = new URL('../apps/web/dist/', import.meta.url);
 /** Strings only livekit-client's own code carries. */
 const CALL_SDK = /LiveKitError|LiveKitReactNativeGlobal/;

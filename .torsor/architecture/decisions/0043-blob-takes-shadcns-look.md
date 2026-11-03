@@ -389,3 +389,72 @@ attribute. What it decided, and why:
   load, because `Icon.tsx` is one module (per-icon modules behind the same exports would
   fix it); and `cva` with `clsx`, about 0.6 KB, is there only for `ui/empty`'s
   `EmptyMedia` variants, which EmptyState does not use.
+
+## Phase 3: the three consoles (2026-11-03)
+
+Phase 3 drew `/settings`, `/admin` and `/server` with shadcn's parts — the frame and its
+nav, every section under `features/admin/` and `features/settings/`, the server's pages and
+the theme editor — and deleted the legacy CSS wherever a console was its last user. The
+consoles are still three lazy chunks, so none of it reaches the first load. Five calls were
+made without the user, and are recorded here as the plan promised:
+
+- **The console nav is shadcn's Sidebar** (`components/ui/sidebar.tsx`, framing all three
+  in `features/console/ConsoleShell.tsx`). From 768px the nav is a column on the ground
+  and the page is `SidebarInset` beside it; below, the nav is the Sidebar's Sheet, which
+  traps focus, closes on Escape and gives focus back to the button that opened it — the
+  drawer it replaced did none of the three. The generated component's two global side
+  effects are stripped: the `sidebar_state` cookie, which would ride on every request for
+  nothing, and the ⌘B shortcut, which no Slack user's fingers expect. Phase 4 reuses the
+  component for the channel list.
+- **The narrow breakpoint moved from 900px to 768px**, shadcn's own (`hooks/use-mobile.ts`),
+  which is where the chat's Meadow frame already starts (769px). Between 768 and 900 the
+  nav now stays beside the page instead of folding into a drawer.
+- **Selects stay native** (`ui/native-select`), not Base UI's `Select`. A native select
+  keeps the phone's own picker and the platform's keys, brings no popup code into the
+  console chunk, and the ~30 select callers and their `fireEvent.change` tests keep their
+  semantics.
+- **The charts stay hand-drawn**, coloured from the theme; shadcn's `chart` would bring
+  recharts, and nothing here needs it. They are not SVG, as the plan said: Health's trend
+  (`health/TrendChart.tsx`) is a row of full-height buttons, one per sample, each drawing its
+  bar scaled by a custom property and coloured from `--chart-1..5`, and Apps' "Runs this
+  week" is a row of bars in `--primary`, scaled the same way. Usage has no chart: it is a
+  table.
+- **`WhatsNewView` is not a console page.** It lives in `features/settings/` but renders as
+  a pane in the chat shell, so it keeps its legacy markup and `which-build-this-is.css`
+  until phase 6, and Tailwind still scans `features/settings/` a file at a time;
+  `features/console` and `features/server` are one `@source` each, as `features/admin` is.
+
+And what the phase settled on the way:
+
+- **The page body was an island, and is closed.** While the sections were converted a
+  group at a time, the body was a `data-legacy` island, so what was not yet converted kept
+  the browser defaults `styles/app/base.css` hands back. The cost was the one the phase 2
+  addendum named: an island inside a component inside an island is not reached, so the
+  islands sections kept inside cards for `features/agentic/`'s markup — an agent's memory
+  and notes (`LegacyRows`), its terminal, a run's card in the run log — went without the
+  repair until the end. With every section converted the body is
+  `data-slot="console-body"`: preflight holds there as inside any shadcn part, and the
+  islands in its cards are reached. `base.css` did not change, because its island clause
+  already reaches an island inside a component that no island encloses;
+  `styles/legacyIsland.test.ts` now asks where the two clauses reach of a reader of their
+  own small grammar (happy-dom answers `:not()` with descendant combinators wrongly), and
+  `ConsoleShell.test.tsx` holds the body to being no island. The top bar stays one, inside
+  the Sidebar's provider. The legacy rules `features/agentic/` still draws with the
+  consoles' old classes are one sheet, `app/an-agents-memory-and-setup.css`, which goes
+  when that markup is converted.
+- **Touch targets are the components'.** The 44px minimum under a coarse pointer is baked
+  into the ui components — `pointer-coarse:min-h-11` on the button, input, native select,
+  tabs, toggle and the sidebar's menu button, the width too on an icon button, and a 44px
+  invisible hit area round a switch and a checkbox, which keep the size they are drawn at —
+  and `components/ui/touchTargets.test.ts` holds them to it, so a call site cannot forget.
+  One exception: Health's trend columns are full height but cannot be 44px wide, since up
+  to 96 samples share the plot's width on a phone; the chart pans by a swipe instead.
+- **Rules for the phases after.** A hint is tied to its control with `aria-describedby`
+  (shadcn's `FieldDescription` carries no id). The visible label is the accessible name,
+  never an `aria-label` over it. A busy button is `focusableWhenDisabled`, so it keeps
+  focus. A table scrolls sideways below `md` and never clips. A textarea that can hold long
+  text is bounded. A card's list, settings and table are `CardRows`, `CardFields` and
+  `CardTable` (`features/console/Card.tsx`).
+- **The budget.** The consoles add nothing to the first load but the class groups they
+  give `cn-tables.ts`. It measured 232.2 KB as the phase closed, so `BUDGET_KB` is 234 — the
+  measure rounded up, plus 1 KB — 26 KB under the ceiling.
