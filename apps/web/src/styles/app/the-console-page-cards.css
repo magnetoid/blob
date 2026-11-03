@@ -1,16 +1,8 @@
-/* ─── the console page: cards ─────────────────────────────────────────────── */
-/* A card is the unit a page is read in, and `features/console/Card.tsx` is its markup. What
-   is left here is what the pages not yet converted still draw: their stack, and the lists,
-   tables and toolbars they put in it. */
-.console-stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-
-.console-input-number {
-  width: 110px;
-}
+/* ─── the console page: what the agents' memory still draws ───────────────── */
+/* A card is the unit a page is read in, and `features/console/Card.tsx` is its markup; the
+   pages themselves are shadcn's. What is left here is what `features/agentic/` — an agent's
+   memory and notes, drawn in an island inside a card — still renders with these classes: a
+   list of rows with their actions, and the form's buttons. */
 
 /* A list of things with their actions: each row ruled from the next, and washed under the
    pointer. */
@@ -36,56 +28,6 @@
   border-bottom: 0;
 }
 
-/* A table in a card: the card's padding comes back on its first and last cell, so its words
-   line up with the title above. */
-.console-table-wrap .admin-table :is(th, td):first-child {
-  padding-left: var(--card-pad-x);
-}
-
-.console-table-wrap .admin-table :is(th, td):last-child {
-  padding-right: var(--card-pad-x);
-}
-
-/* Search, filters and counts at the top of a list. */
-.console-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-}
-
-.console-toolbar > .chip-row {
-  flex: 1 1 auto;
-  margin: 0;
-}
-
-.console-toolbar > .console-filter {
-  flex: 0 1 320px;
-}
-
-.console-toolbar-note {
-  margin: 0;
-  font-size: var(--text-meta);
-  color: var(--text-4);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Fields on a grid — a new group, an emoji, the profile. Two across where they fit. */
-.console-form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: var(--space-4) var(--space-5);
-  max-width: 760px;
-}
-
-/* A form inside a card — its fields, a line under them, its buttons — closer together than
-   the cards on a page are (`.console-stack`). */
-.console-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
 .console-form-actions {
   display: flex;
   flex-wrap: wrap;
@@ -93,23 +35,14 @@
   gap: var(--space-2) var(--space-3);
 }
 
-/* A link, a token or a URL shown once, with its Copy — as wide as the card allows. */
-.console-copy {
-  width: 100%;
-  margin: 0;
-}
-
 /* What the frame (`features/console/ConsoleShell.tsx`) declared for the page under it,
-   while lists and tables drawn in this stylesheet still read them. */
+   while lists drawn in this stylesheet still read it. */
 .admin-page {
   /* The wash a row takes under the pointer, mixed toward --surface-hover rather than
      being it: every row of a long list turning the full hover step read as a stripe,
      not a highlight. --surface-row-hover is no use on a card — in dark it is darker
      than --surface, so a hovered row would sink instead of lifting. */
   --console-row-hover: color-mix(in oklab, var(--surface-hover) 60%, var(--surface));
-  /* A table's header row, which is sticky: the height it is drawn at and the scroll
-     padding its box keeps clear under it are one number, so they cannot drift apart. */
-  --table-head-height: 32px;
 }
 
 /* The console's inputs show focus as a ring, the way the nav's filter does, rather than

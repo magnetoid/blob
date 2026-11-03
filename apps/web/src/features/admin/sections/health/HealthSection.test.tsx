@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const health = vi.fn();
 const serverLogs = vi.fn();
@@ -192,7 +192,7 @@ describe("the health dashboard", () => {
     await screen.findByText("Recent activity");
 
     fireEvent.click(screen.getByRole("button", { name: "Edit layout" }));
-    fireEvent.click(screen.getByLabelText("Hide activity widget"));
+    fireEvent.click(screen.getByRole("button", { name: "Hide activity widget" }));
     expect(screen.getByRole("button", { name: "Add activity" })).toBeTruthy();
 
     view.unmount();
@@ -205,14 +205,234 @@ describe("the health dashboard", () => {
     render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
     await screen.findByText("Recent activity");
 
-    expect(screen.queryByLabelText("Hide activity widget")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Hide activity widget" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Reset layout" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit layout" }));
-    expect(screen.getByLabelText("Hide activity widget")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hide activity widget" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reset layout" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
-    expect(screen.queryByLabelText("Hide activity widget")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Hide activity widget" })).toBeNull();
+  });
+});
+
+/** The card a widget is drawn in, by its title. */
+function widget(title: string) {
+  return within(screen.getByRole("heading", { name: title }).closest('[data-slot="card"]')! as HTMLElement);
+}
+
+/** The page once it has its first reading: every widget is drawn. */
+async function loaded() {
+  await screen.findByRole("heading", { name: "Recent activity" });
+}
+
+describe("the widgets", () => {
+  it("draws each as a card with a heading, and says when it has not heard yet", async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    health.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    expect(screen.getByText("Waiting for the first live sample.")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Service status" })).toBeNull();
+
+    answer({
+      database: true,
+      redis: true,
+      mail: "ok",
+      push: true,
+      storage: "ok",
+      queueDepth: 3,
+      connections: 12,
+      usersOnline: 7,
+      messageCount: 420,
+      storageBytes: 4096,
+      version: "0.1.0",
+    });
+    for (const title of [
+      "Service status",
+      "Summary metrics",
+      "Realtime trends",
+      "Live sockets detail",
+      "Recent activity",
+      "Errors in browsers",
+    ]) {
+      expect((await screen.findByRole("heading", { name: title })).tagName).toBe("H2");
+    }
+  });
+
+  it("says health is unavailable when the first reading fails, and tells the frame why", async () => {
+    health.mockRejectedValue(new Error("Health is down."));
+    const onError = vi.fn();
+    render(<HealthSection onError={onError} isInstanceAdmin />);
+    expect(await screen.findByText("Health unavailable.")).toBeTruthy();
+    expect(onError).toHaveBeenCalledWith("Health is down.");
+  });
+
+  it("reads each service in words, and goes to the log from a tile only for the server's admin", async () => {
+    health.mockResolvedValue({
+      database: false,
+      redis: true,
+      mail: "unconfigured",
+      push: false,
+      storage: "private",
+      queueDepth: 3,
+      connections: 12,
+      usersOnline: 7,
+      messageCount: 420,
+      storageBytes: 4096,
+      version: "0.1.0",
+    });
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await loaded();
+    const services = widget("Service status");
+    expect(await services.findByText("Down")).toBeTruthy();
+    expect(services.getByText("Not configured")).toBeTruthy();
+    expect(services.getByText("No keys")).toBeTruthy();
+    expect(services.getByText("Not public")).toBeTruthy();
+    // A tile that is a control says so, and goes to the server's log.
+    fireEvent.click(services.getByRole("button", { name: /Database/ }));
+    expect(navigate).toHaveBeenCalledWith("/server/logs");
+  });
+
+  it("offers a backup now only to the server's admin, and only when backups are on", async () => {
+    health.mockResolvedValue({
+      database: true,
+      redis: true,
+      mail: "ok",
+      push: true,
+      storage: "ok",
+      queueDepth: 0,
+      connections: 0,
+      usersOnline: 0,
+      messageCount: 0,
+      storageBytes: 0,
+      version: "0.1.0",
+      backup: { enabled: true, at: null, ok: true, bytes: null, error: null },
+    });
+    const plain = render(<HealthSection onError={vi.fn()} />);
+    await screen.findByText("Database");
+    expect(screen.queryByRole("button", { name: "Back up now" })).toBeNull();
+    plain.unmount();
+
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    expect(await screen.findByRole("button", { name: "Back up now" })).toBeTruthy();
+  });
+
+  it("moves, resizes and hides a widget from its own buttons, named by the widget", async () => {
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await screen.findByText("Recent activity");
+    fireEvent.click(screen.getByRole("button", { name: "Edit layout" }));
+
+    // The first cannot move earlier and the last cannot move later.
+    expect(
+      screen.getByRole("button", { name: "Move earlier, services widget" }).getAttribute("aria-disabled") ??
+        (screen.getByRole("button", { name: "Move earlier, services widget" }) as HTMLButtonElement).disabled,
+    ).toBeTruthy();
+
+    const detail = screen.getByRole("heading", { name: "Live sockets detail" }).closest('[data-slot="card"]')!;
+    expect(detail.getAttribute("data-widget-size")).toBe("standard");
+    fireEvent.click(within(detail as HTMLElement).getByRole("button", { name: "Wide, detail widget" }));
+    expect(detail.getAttribute("data-widget-size")).toBe("wide");
+    expect(within(detail as HTMLElement).getByRole("button", { name: "Standard width, detail widget" })).toBeTruthy();
+
+    const trends = screen.getByRole("heading", { name: "Realtime trends" }).closest('[data-slot="card"]')!;
+
+    const order = () =>
+      screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
+    expect(order().indexOf("Realtime trends")).toBeLessThan(order().indexOf("Live sockets detail"));
+    fireEvent.click(within(trends as HTMLElement).getByRole("button", { name: "Move later, trends widget" }));
+    expect(order().indexOf("Realtime trends")).toBeGreaterThan(order().indexOf("Live sockets detail"));
+  });
+});
+
+describe("the activity feed", () => {
+  it("merges logs and audit, and filters to one kind, pressed shown", async () => {
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await loaded();
+    const feed = widget("Recent activity");
+    const list = await feed.findByRole("list", { name: "Recent activity" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(list).getByText("Queue is backing up")).toBeTruthy();
+    expect(within(list).getByText("settings updated")).toBeTruthy();
+
+    const filter = feed.getByRole("group", { name: "Show" });
+    expect(within(filter).getByRole("button", { name: "Everything", pressed: true })).toBeTruthy();
+    fireEvent.click(within(filter).getByRole("button", { name: "Audit" }));
+    expect(within(filter).getByRole("button", { name: "Audit", pressed: true })).toBeTruthy();
+    expect(within(feed.getByRole("list", { name: "Recent activity" })).getAllByRole("listitem")).toHaveLength(1);
+
+    // The one that is chosen stays chosen.
+    fireEvent.click(within(filter).getByRole("button", { name: "Audit" }));
+    expect(within(filter).getByRole("button", { name: "Audit", pressed: true })).toBeTruthy();
+
+    fireEvent.click(within(filter).getByRole("button", { name: "Logs" }));
+    expect(feed.getByText("Queue is backing up")).toBeTruthy();
+    expect(feed.queryByText("settings updated")).toBeNull();
+  });
+});
+
+describe("the trend chart", () => {
+  it("draws a bar per sample, named and sized by its value, from the chart palette", async () => {
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await loaded();
+    const chart = widget("Realtime trends");
+    const bar = await chart.findByRole("button", { name: /^Live sockets at .*: 12$/ });
+    // Coloured from the theme's chart palette, never a literal; sized by a custom property
+    // that holds its share of the window's largest. The box needs a real size from layout
+    // (`flex-1`, `self-stretch`), which happy-dom has none of, so the classes are pinned.
+    expect(bar.className).toContain("bg-chart-2");
+    expect(bar.className).toContain("scale-y-(--bar-scale)");
+    expect(bar.className).toContain("flex-1");
+    expect(bar.className).toContain("self-stretch");
+    expect(bar.style.getPropertyValue("--bar-scale")).toBe("1");
+    expect(bar.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("chooses the series by its name, and the window it shows", async () => {
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await loaded();
+    const chart = widget("Realtime trends");
+    const series = await chart.findByRole("group", { name: "Metric" });
+    expect(within(series).getByRole("button", { name: "Live sockets", pressed: true })).toBeTruthy();
+    fireEvent.click(within(series).getByRole("button", { name: "Messages" }));
+    expect(within(series).getByRole("button", { name: "Messages", pressed: true })).toBeTruthy();
+    expect(await chart.findByRole("button", { name: /^Messages at .*: 420$/ })).toBeTruthy();
+
+    const zoom = chart.getByRole("combobox", { name: "Window" }) as HTMLSelectElement;
+    expect(zoom.value).toBe("24");
+    fireEvent.change(zoom, { target: { value: "12" } });
+    expect(zoom.value).toBe("12");
+    // Fewer samples than the window, so there is nowhere older or newer to go.
+    expect(chart.getByRole("button", { name: "Older" }).hasAttribute("disabled")).toBe(true);
+    expect(chart.getByRole("button", { name: "Newer" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("pins a moment, filters the feed to what came after, and lets go of it", async () => {
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await loaded();
+    const chart = widget("Realtime trends");
+    const bar = await chart.findByRole("button", { name: /^Live sockets at / });
+    fireEvent.click(bar);
+    expect(bar.getAttribute("aria-pressed")).toBe("true");
+    expect(chart.getByText(/Activity is currently filtered to items after this point/)).toBeTruthy();
+    // The samples are from now and the fixtures from September, so nothing is after it.
+    expect(widget("Recent activity").getByText("No items match the current filters.")).toBeTruthy();
+
+    fireEvent.click(chart.getByRole("button", { name: "Clear chart filter" }));
+    expect(bar.getAttribute("aria-pressed")).toBe("false");
+    expect(widget("Recent activity").getByRole("list", { name: "Recent activity" })).toBeTruthy();
+  });
+});
+
+describe("the summary metrics", () => {
+  it("presses the metric the chart is showing, and names each tile by what it focuses", async () => {
+    render(<HealthSection onError={vi.fn()} isInstanceAdmin />);
+    await loaded();
+    const metrics = widget("Summary metrics");
+    expect(await metrics.findByRole("button", { name: "Focus Live sockets", pressed: true })).toBeTruthy();
+    expect(metrics.getByRole("button", { name: "Focus Messages", pressed: false })).toBeTruthy();
+    fireEvent.click(metrics.getByRole("button", { name: "Focus People online" }));
+    expect(metrics.getByRole("button", { name: "Focus People online", pressed: true })).toBeTruthy();
+    expect(metrics.getByRole("button", { name: "Focus Live sockets", pressed: false })).toBeTruthy();
   });
 });

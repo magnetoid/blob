@@ -17,7 +17,11 @@ import {
   type WorkspacePolicy,
   type InstanceWorkspace,
 } from "../../../lib/api.ts";
-import { Card } from "../../console/Card.tsx";
+import { Field, FieldContent, FieldDescription, FieldLabel } from "../../../components/ui/field.tsx";
+import { Input } from "../../../components/ui/input.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../components/ui/native-select.tsx";
+import { Switch } from "../../../components/ui/switch.tsx";
+import { Card, CardFields } from "../../console/Card.tsx";
 import { useAdminAction, useAdminData } from '../../console/hooks.ts';
 
 interface Capability {
@@ -74,40 +78,39 @@ export function AppPolicySection({
   const pickerId = useId();
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Card
         title="What this workspace may do"
         footer={
-          <p className="pref-hint">
+          <p className="m-0 text-sm text-pretty text-muted-foreground">
             A workspace admin cannot read or change any of this. Blocking a scope
             here stops it being granted to any app in that workspace, whatever its
             admins approve.
           </p>
         }
       >
-        <div className="pref-row">
-          <div className="grow">
-            <label className="pref-label" htmlFor={pickerId}>
-              Workspace
-            </label>
-          </div>
-          <select
-            id={pickerId}
-            className="input"
-            value={workspaceId ?? ""}
-            onChange={(event) => setSelected(event.target.value)}
-          >
-            {workspaces.map((workspace: InstanceWorkspace) => (
-              <option key={workspace.id} value={workspace.id}>
-                {workspace.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <CardFields>
+          <Field orientation="responsive">
+            <FieldLabel htmlFor={pickerId}>Workspace</FieldLabel>
+            <NativeSelect
+              id={pickerId}
+              value={workspaceId ?? ""}
+              onChange={(event) => setSelected(event.target.value)}
+            >
+              {workspaces.map((workspace: InstanceWorkspace) => (
+                <NativeSelectOption key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
 
-        {workspaceId && (
-          <PolicyEditor workspaceId={workspaceId} onError={onError} />
-        )}
+          {/* Keyed by the workspace: the numbers below are uncontrolled, and what one
+              workspace's page holds is not the next one's. */}
+          {workspaceId && (
+            <PolicyEditor key={workspaceId} workspaceId={workspaceId} onError={onError} />
+          )}
+        </CardFields>
       </Card>
     </div>
   );
@@ -131,6 +134,7 @@ function PolicyEditor({
     "Could not load this policy.",
   );
   const act = useAdminAction(onError, reload);
+  const ids = useId();
 
   if (!policy) return null;
 
@@ -149,43 +153,41 @@ function PolicyEditor({
         const cappedOff = capability.ceiling
           ? !policy[capability.ceiling]
           : false;
+        const id = `${ids}-${capability.key}`;
         return (
-          <div className="pref-row" key={capability.key}>
-            <div className="grow">
-              <div className="pref-label">{capability.label}</div>
-              <div className="pref-hint">
+          <Field orientation="horizontal" key={capability.key}>
+            <FieldContent>
+              <FieldLabel htmlFor={id}>{capability.label}</FieldLabel>
+              <FieldDescription id={`${id}-hint`}>
                 {cappedOff ? capability.ceilingHint : capability.hint}
-              </div>
-            </div>
-            <button
-              className="toggle"
-              aria-pressed={policy[capability.key] && !cappedOff}
-              aria-label={capability.label}
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              id={id}
+              aria-describedby={`${id}-hint`}
+              checked={policy[capability.key] && !cappedOff}
               disabled={cappedOff}
-              onClick={() =>
-                save({ [capability.key]: !policy[capability.key] })
-              }
-            >
-              <span />
-            </button>
-          </div>
+              onCheckedChange={(on) => save({ [capability.key]: on })}
+            />
+          </Field>
         );
       })}
 
-      <div className="pref-row">
-        <div className="grow">
-          <div className="pref-label">Most apps it may install</div>
-          <div className="pref-hint">
+      <Field orientation="horizontal">
+        <FieldContent>
+          <FieldLabel htmlFor={`${ids}-max-apps`}>Most apps it may install</FieldLabel>
+          <FieldDescription id={`${ids}-max-apps-hint`}>
             Leave empty for no limit. Reaching it stops the next install; it
             never stops editing an app that is already there.
-          </div>
-        </div>
-        <input
-          className="input console-input-number"
+          </FieldDescription>
+        </FieldContent>
+        <Input
+          id={`${ids}-max-apps`}
+          className="w-28"
           type="number"
           min={0}
           max={1000}
-          aria-label="Most apps it may install"
+          aria-describedby={`${ids}-max-apps-hint`}
           defaultValue={policy.maxApps ?? ""}
           onBlur={(event) => {
             const raw = event.target.value.trim();
@@ -195,23 +197,24 @@ function PolicyEditor({
             save({ maxApps: next });
           }}
         />
-      </div>
+      </Field>
 
-      <div className="pref-row">
-        <div className="grow">
-          <div className="pref-label">Agent-to-agent hops</div>
-          <div className="pref-hint">
+      <Field orientation="horizontal">
+        <FieldContent>
+          <FieldLabel htmlFor={`${ids}-hops`}>Agent-to-agent hops</FieldLabel>
+          <FieldDescription id={`${ids}-hops-hint`}>
             {policy.serverChainMaxDepth === 0
               ? "Off for the whole server: AGENT_CHAIN_MAX_DEPTH is 0, so only people can start an agent."
               : `How many times agents may hand a request between themselves after a person starts it. 0 means only people start agents. The server caps this at ${policy.serverChainMaxDepth}.`}
-          </div>
-        </div>
-        <input
-          className="input console-input-number"
+          </FieldDescription>
+        </FieldContent>
+        <Input
+          id={`${ids}-hops`}
+          className="w-28"
           type="number"
           min={0}
           max={16}
-          aria-label="Agent-to-agent hops"
+          aria-describedby={`${ids}-hops-hint`}
           disabled={policy.serverChainMaxDepth === 0}
           defaultValue={policy.agentChainMaxDepth}
           onBlur={(event) => {
@@ -221,7 +224,7 @@ function PolicyEditor({
             save({ agentChainMaxDepth: next });
           }}
         />
-      </div>
+      </Field>
     </>
   );
 }

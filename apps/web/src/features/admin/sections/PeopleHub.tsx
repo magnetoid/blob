@@ -59,11 +59,7 @@ export function PeopleHub(props: ConsoleSectionProps) {
           title="Accounts"
           description="Every account on this server — the server admin's view."
         >
-          {/* Accounts is still drawn in the legacy stylesheet (it is the server's page,
-              converted with the rest of them), so it sits in an island. */}
-          <div data-legacy>
-            <AccountsSection {...props} />
-          </div>
+          <AccountsSection {...props} />
         </Card>
       )}
     </div>

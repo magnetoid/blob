@@ -10,8 +10,16 @@
 
 import { api, type AdminStorage } from "../../../lib/api.ts";
 import { formatBytes } from "../../../lib/format.ts";
+import {
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../components/ui/table.tsx";
 import type { ConsoleSectionProps } from "../../console/ConsoleShell.tsx";
-import { Card, CardNotice } from "../../console/Card.tsx";
+import { Card, CardNotice, CardTable } from "../../console/Card.tsx";
 import { useAdminData } from "../../console/hooks.ts";
 
 const KIND_NAMES: Record<string, string> = {
@@ -47,42 +55,42 @@ function KeptCard({ storage }: { storage: AdminStorage }) {
       title="What is kept"
       description="Every file and voice recording sent here, and the room they take in the bucket."
     >
-      <div className="console-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th scope="col">Kind</th>
-              <th scope="col" className="num">
-                Count
-              </th>
-              <th scope="col" className="num">
-                Size
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {storage.byKind.map((row) => (
-              <tr key={row.kind}>
-                <th scope="row">{KIND_NAMES[row.kind] ?? row.kind}</th>
-                <td className="num">{row.count.toLocaleString()}</td>
-                <td className="num">{formatBytes(row.bytes)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row">Total</th>
-              <td className="num">
-                {storage.byKind
-                  .reduce((sum, row) => sum + row.count, 0)
-                  .toLocaleString()}
-              </td>
-              <td className="num">{formatBytes(storage.totalBytes)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      <p className="pref-hint m-0">
+      <CardTable label="What is kept">
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Kind</TableHead>
+            <TableHead scope="col" className="text-right">
+              Count
+            </TableHead>
+            <TableHead scope="col" className="text-right">
+              Size
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {storage.byKind.map((row) => (
+            <TableRow key={row.kind}>
+              <TableHead scope="row" className="h-auto p-2 font-normal">
+                {KIND_NAMES[row.kind] ?? row.kind}
+              </TableHead>
+              <TableCell className="text-right tabular-nums">{row.count.toLocaleString()}</TableCell>
+              <TableCell className="text-right tabular-nums">{formatBytes(row.bytes)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableHead scope="row" className="h-auto p-2">
+              Total
+            </TableHead>
+            <TableCell className="text-right tabular-nums">
+              {storage.byKind.reduce((sum, row) => sum + row.count, 0).toLocaleString()}
+            </TableCell>
+            <TableCell className="text-right tabular-nums">{formatBytes(storage.totalBytes)}</TableCell>
+          </TableRow>
+        </TableFooter>
+      </CardTable>
+      <p className="m-0 text-sm text-pretty text-muted-foreground">
         {storage.orphans === 0
           ? "No upload is waiting to be swept."
           : `${count(storage.orphans, "upload", "uploads")} began and never reached a message; the sweep removes those older than a day.`}
@@ -100,11 +108,11 @@ function SweepCard({ sweep }: { sweep: AdminStorage["lastSweep"] }) {
       {sweep === null ? (
         <CardNotice>Never run yet.</CardNotice>
       ) : sweep.error ? (
-        <p className="pref-hint m-0" data-testid="sweep-outcome">
+        <p className="m-0 text-sm text-pretty wrap-anywhere text-muted-foreground" data-testid="sweep-outcome">
           Failed {when(sweep.ranAt)}: {sweep.error}
         </p>
       ) : (
-        <p className="pref-hint m-0" data-testid="sweep-outcome">
+        <p className="m-0 text-sm text-pretty wrap-anywhere text-muted-foreground" data-testid="sweep-outcome">
           Ran {when(sweep.ranAt)} and removed{" "}
           {sweep.removed === 0
             ? "nothing"
@@ -125,7 +133,7 @@ export function StorageSection({ onError }: ConsoleSectionProps) {
   );
 
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       {!data && loading && (
         <Card title="What is kept">
           <CardNotice>Loading…</CardNotice>
@@ -138,7 +146,7 @@ export function StorageSection({ onError }: ConsoleSectionProps) {
           title="Bucket"
           description="Whether a browser can reach object storage, which is what an upload needs."
         >
-          <p className="pref-hint m-0" data-ok={data.probe === "ok"}>
+          <p className="m-0 text-sm text-pretty text-muted-foreground" data-ok={data.probe === "ok"}>
             {PROBE_WORDS[data.probe] ?? data.probe}
           </p>
         </Card>

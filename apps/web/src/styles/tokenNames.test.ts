@@ -146,9 +146,16 @@ describe('Blob design tokens', () => {
  * legacy import with no layer only changes who wins a tie.
  */
 describe('styles/index.css', () => {
-  /** Comments go first: the file's own prose names `@source` and `@layer`. */
+  /**
+   * Comments go first: the file's own prose names `@source` and `@layer`. A quoted string
+   * is kept whole, since a glob such as `**\/*.test.ts` has a `/*` and a `*\/` in it and is
+   * not a comment.
+   */
   const indexCss = () =>
-    readFileSync(join(STYLES, 'index.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    readFileSync(join(STYLES, 'index.css'), 'utf8').replace(
+      /"[^"\n]*"|\/\*[\s\S]*?\*\//g,
+      (match) => (match.startsWith('"') ? match : ''),
+    );
 
   /**
    * Directories and files Tailwind may scan, relative to `src/`. A phase that converts a
@@ -158,8 +165,11 @@ describe('styles/index.css', () => {
    * `EmojiPicker`'s grid is still legacy markup, in a `data-legacy` island, and none of its
    * class names is one of Tailwind's. `Icon.tsx` is not here: it draws Lucide's glyphs and
    * carries no utility; nor is `Menu.tsx`, whose panel wears the classes its callers pass.
-   * The consoles come in the same way, a file at a time: `features/console/` still holds
-   * lists and tables that are legacy markup until the sections that draw them are converted.
+   * The consoles came in the same way, a file at a time, until `features/admin` was converted
+   * whole — every section, the workspace console and the pages the server's console draws —
+   * and is one entry; its tests are excluded in `index.css` with `@source not`, since their
+   * strings (`'table'`, `'hidden'`) are not classes. `features/console/` and
+   * `features/settings/` still go one file at a time.
    */
   const CONVERTED = [
     'components/ui',
@@ -177,7 +187,8 @@ describe('styles/index.css', () => {
     'features/console/Card.tsx',
     'features/console/CopyField.tsx',
     'features/console/ConnectedAppRow.tsx',
-    'features/admin/AdminConsole.tsx',
+    'features/console/ExportsCard.tsx',
+    'features/admin',
     'features/settings/SettingsConsole.tsx',
     'features/settings/YouSection.tsx',
     'features/settings/ProfileCard.tsx',
@@ -187,52 +198,7 @@ describe('styles/index.css', () => {
     'features/settings/SecuritySection.tsx',
     'features/settings/AssistantsSection.tsx',
     'features/settings/MyAgentsSection.tsx',
-    'features/admin/sections/GeneralSection.tsx',
-    'features/admin/sections/ThemesSection.tsx',
-    'features/admin/sections/PeopleSection.tsx',
-    'features/admin/sections/PeopleHub.tsx',
-    'features/admin/sections/GroupsSection.tsx',
-    'features/admin/sections/InvitationsSection.tsx',
-    'features/admin/sections/ChannelsSection.tsx',
-    'features/admin/sections/EmojiSection.tsx',
-    'features/admin/sections/FeedbackSection.tsx',
-    'features/admin/sections/calls/CallsSection.tsx',
-    'features/admin/sections/calls/HuddlesSection.tsx',
-    'features/admin/sections/calls/MeetupsSection.tsx',
-    'features/admin/sections/calls/MediaServerPanel.tsx',
-    'features/admin/sections/AppsSection.tsx',
-    'features/admin/sections/AppSettings.tsx',
-    'features/admin/sections/apps/PluginCard.tsx',
-    'features/admin/sections/apps/InstallAppForm.tsx',
-    'features/admin/sections/apps/ConnectAgentForm.tsx',
-    'features/admin/sections/apps/AgentConfig.tsx',
-    'features/admin/sections/apps/AgentDeployment.tsx',
-    'features/admin/sections/apps/AgentFollows.tsx',
-    'features/admin/sections/apps/AppChannelList.tsx',
-    'features/admin/sections/apps/AgentMcpServers.tsx',
-    'features/admin/sections/apps/BudgetRow.tsx',
-    'features/admin/sections/apps/RunLog.tsx',
-    'features/admin/sections/apps/RecentErrors.tsx',
     'features/console/UsageTable.tsx',
-    'features/admin/sections/UsageSection.tsx',
-    'features/admin/sections/McpServersSection.tsx',
-    'features/admin/sections/ApprovalsSection.tsx',
-    'features/admin/sections/WebhooksSection.tsx',
-    'features/admin/sections/DeliveriesSection.tsx',
-    'features/admin/sections/AssistantsAdminSection.tsx',
-    'features/admin/sections/janus/BehaviourForm.tsx',
-    'features/admin/sections/janus/Installs.tsx',
-    'features/admin/sections/janus/Issues.tsx',
-    'features/admin/sections/janus/JanusSection.tsx',
-    'features/admin/sections/janus/ModelForm.tsx',
-    'features/admin/sections/janus/RawConfig.tsx',
-    'features/admin/sections/janus/Restart.tsx',
-    'features/admin/sections/janus/Setup.tsx',
-    'features/admin/sections/janus/Skills.tsx',
-    'features/admin/sections/janus/Status.tsx',
-    'features/admin/sections/janus/ThisServer.tsx',
-    'features/admin/sections/janus/ThisWorkspace.tsx',
-    'features/admin/sections/janus/Toolsets.tsx',
     'features/server/ServerConsole.tsx',
   ];
 

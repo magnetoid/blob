@@ -8,7 +8,7 @@
  */
 
 import { BrowserErrors } from './BrowserErrors.tsx';
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   api,
   type AdminHealth,
@@ -17,6 +17,11 @@ import {
 } from "../../../../lib/api.ts";
 import { socket } from "../../../../lib/socket.ts";
 import { showError, useToasts } from "../../../../lib/toasts.ts";
+import { Button } from "../../../../components/ui/button.tsx";
+import { Alert, AlertDescription } from "../../../../components/ui/alert.tsx";
+import { Label } from "../../../../components/ui/label.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../../components/ui/native-select.tsx";
+import { Skeleton } from "../../../../components/ui/skeleton.tsx";
 import { Card, CardNotice } from "../../../console/Card.tsx";
 import { navigate, pathForRoute } from "../../../../lib/router.ts";
 import { formatRelative } from "../../../messages/messageFormatting.ts";
@@ -79,6 +84,7 @@ export function HealthSection({
   // on every panel all the time, they were most of what the page showed.
   const [arranging, setArranging] = useState(false);
   const fetchSeq = useRef(0);
+  const refreshId = useId();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -251,26 +257,24 @@ export function HealthSection({
 
   if (!health && loading) {
     return (
-      <section className="dashboard-dashboard">
-        <div className="dashboard-toolbar">
-          <div className="dashboard-toolbar-subtitle">Waiting for the first live sample.</div>
-        </div>
-        <div className="dashboard-grid">
+      <div className="flex flex-col gap-6">
+        <p className="m-0 text-sm text-muted-foreground">Waiting for the first live sample.</p>
+        <div className="grid grid-cols-1 gap-6 @min-[961px]/console-page:grid-cols-3">
           {["services", "metrics", "trends"].map((card) => (
-            <div key={card} className="dashboard-widget" data-loading="true">
-              <div className="dashboard-loading-block" />
-              <div className="dashboard-loading-block dashboard-loading-block-short" />
-              <div className="dashboard-loading-block" />
-            </div>
+            <Card key={card} aria-busy="true">
+              <Skeleton className="h-4.5 w-full" />
+              <Skeleton className="h-4.5 w-3/5" />
+              <Skeleton className="h-4.5 w-full" />
+            </Card>
           ))}
         </div>
-      </section>
+      </div>
     );
   }
 
   if (!health) {
     return (
-      <div className="console-stack">
+      <div className="flex flex-col gap-6">
         <Card>
           <CardNotice>Health unavailable.</CardNotice>
         </Card>
@@ -279,20 +283,23 @@ export function HealthSection({
   }
 
   return (
-    <section className="dashboard-dashboard">
-      <div className="dashboard-toolbar">
-        <div className="dashboard-toolbar-subtitle" aria-live="polite">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="text-sm text-muted-foreground" aria-live="polite">
           {lastUpdatedAt
             ? `Last updated ${formatRelative(lastUpdatedAt)}.`
             : "Waiting for the first live sample."}
           {refreshing && " Refreshing now…"}
         </div>
 
-        <div className="dashboard-toolbar-actions">
-          <label className="dashboard-inline-control">
-            <span>Refresh</span>
-            <select
-              className="select"
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2">
+            <Label htmlFor={refreshId} className="text-muted-foreground">
+              Refresh
+            </Label>
+            <NativeSelect
+              id={refreshId}
+              size="sm"
               value={prefs.refreshMs}
               onChange={(event) =>
                 setPrefs((current) => ({
@@ -302,16 +309,16 @@ export function HealthSection({
               }
             >
               {REFRESH_OPTIONS.map((option) => (
-                <option key={option} value={option}>
+                <NativeSelectOption key={option} value={option}>
                   Every {option / 1000}s
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
-          </label>
+            </NativeSelect>
+          </div>
           {arranging && (
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost"
+              variant="ghost"
               onClick={() => {
                 setPrefs(DEFAULT_PREFS);
                 setPanOffset(0);
@@ -320,49 +327,42 @@ export function HealthSection({
               }}
             >
               Reset layout
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => setArranging((open) => !open)}
-          >
+          <Button type="button" variant="outline" onClick={() => setArranging((open) => !open)}>
             {arranging ? "Done" : "Edit layout"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => void loadDashboard()}
-          >
+          </Button>
+          <Button type="button" onClick={() => void loadDashboard()}>
             Refresh now
-          </button>
+          </Button>
         </div>
       </div>
 
       {hiddenWidgets.length > 0 && (
-        <div className="dashboard-hidden">
-          <span className="dashboard-hidden-label">Hidden widgets</span>
-          <div className="chip-row">
-            {hiddenWidgets.map((widget) => (
-              <button
-                key={widget}
-                type="button"
-                className="chip"
-                onClick={() =>
-                  setPrefs((current) => ({
-                    ...current,
-                    hidden: current.hidden.filter((entry) => entry !== widget),
-                  }))
-                }
-              >
-                Add {widget}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="text-xs font-semibold text-muted-foreground">Hidden widgets</span>
+          {hiddenWidgets.map((widget) => (
+            <Button
+              key={widget}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPrefs((current) => ({
+                  ...current,
+                  hidden: current.hidden.filter((entry) => entry !== widget),
+                }))
+              }
+            >
+              Add {widget}
+            </Button>
+          ))}
         </div>
       )}
 
-      <div className="dashboard-grid">
+      {/* Three across where the page's column has room for them (the widgets say how many
+          of the twelve they take), one under the other where it has not. */}
+      <div className="grid grid-cols-1 gap-6 @min-[961px]/console-page:grid-cols-12">
         {visibleWidgets.map((widget) => {
           if (widget === "services") {
             return (
@@ -374,7 +374,7 @@ export function HealthSection({
                 loading={refreshing}
                 controls={controlsFor(widget)}
               >
-                <div className="health-grid dashboard-service-grid">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,150px),1fr))] gap-2.5">
                   <ServiceTile
                     label="Database"
                     value={health.database ? "Reachable" : "Down"}
@@ -437,9 +437,10 @@ export function HealthSection({
                 {/* A backup before an upgrade, say (M3 · B4). The server's administrators,
                     as the route is: a backup is the whole server's, not one workspace's. */}
                 {isInstanceAdmin && health.backup?.enabled && (
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-ghost"
+                    variant="outline"
+                    className="self-start"
                     onClick={() =>
                       void api.admin
                         .backupNow()
@@ -452,7 +453,7 @@ export function HealthSection({
                     }
                   >
                     Back up now
-                  </button>
+                  </Button>
                 )}
               </DashboardWidget>
             );
@@ -468,7 +469,7 @@ export function HealthSection({
                 loading={refreshing}
                 controls={controlsFor(widget)}
               >
-                <div className="dashboard-metrics-grid">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,190px),1fr))] gap-2.5">
                   {METRICS.map((metric) => (
                     <MetricCard
                       key={metric.key}
@@ -530,14 +531,14 @@ export function HealthSection({
                 loading={refreshing}
                 controls={controlsFor(widget)}
               >
-                <div className="dashboard-detail">
-                  <div className="dashboard-detail-value">
+                <div className="flex flex-col gap-3">
+                  <div className="text-[length:clamp(1.4rem,3vw,2.4rem)] font-bold tabular-nums">
                     {activeMetric.format(health)}
                   </div>
-                  <div className="dashboard-detail-copy">
+                  <p className="m-0 text-sm leading-normal text-muted-foreground">
                     {activeMetric.description}
-                  </div>
-                  <div className="dashboard-detail-copy">
+                  </p>
+                  <p className="m-0 text-sm leading-normal text-muted-foreground">
                     {delta === null
                       ? "The dashboard is still collecting enough samples to calculate change."
                       : delta === 0
@@ -545,33 +546,31 @@ export function HealthSection({
                         : `Change over the latest sample: ${
                             delta > 0 ? "+" : ""
                           }${delta.toLocaleString()}.`}
-                  </div>
-                  <div className="dashboard-detail-actions">
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => navigate(activeMetric.route)}
-                    >
+                  </p>
+                  <div className="flex flex-wrap gap-2.5">
+                    <Button type="button" onClick={() => navigate(activeMetric.route)}>
                       Open detailed report
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
-                      className="btn btn-ghost"
+                      variant="ghost"
                       onClick={() =>
                         navigate(pathForRoute({ view: "server", section: "health" }))
                       }
                     >
                       Stay on dashboard
-                    </button>
+                    </Button>
                   </div>
                   {selectedSampleAt && (
-                    <div className="dashboard-callout">
-                      Activity is filtered to entries after {sampleLabel({
-                        at: selectedSampleAt,
-                        health,
-                      })}
-                      . Clear that in the trend widget to return to the full feed.
-                    </div>
+                    <Alert role="status">
+                      <AlertDescription>
+                        Activity is filtered to entries after {sampleLabel({
+                          at: selectedSampleAt,
+                          health,
+                        })}
+                        . Clear that in the trend widget to return to the full feed.
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </div>
               </DashboardWidget>
@@ -598,6 +597,6 @@ export function HealthSection({
         })}
       </div>
       <BrowserErrors />
-    </section>
+    </div>
   );
 }

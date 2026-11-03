@@ -25,15 +25,11 @@ describe('the People page', () => {
     expect(screen.getByText('accounts-part')).toBeTruthy();
   });
 
-  // Accounts is the server's page and still drawn by the legacy stylesheet; inside a
-  // shadcn card, legacy markup is marked as an island or the repair for preflight skips it.
-  it('draws Accounts, which is still legacy markup, as an island inside its card', () => {
-    render(<PeopleHub onError={vi.fn()} isOwner={false} isInstanceAdmin />);
-    const island = screen.getByText('accounts-part').closest('[data-legacy]');
-    expect(island).toBeTruthy();
-    expect(island!.closest('[data-slot="card"]')).toBeTruthy();
-    // The converted parts are not in one.
-    expect(screen.getByText('members-part').closest('[data-legacy]')).toBeNull();
+  // Accounts is converted like the rest, so it sits in its card with no island round it.
+  it('draws Accounts inside its card, with no legacy island', () => {
+    const { container } = render(<PeopleHub onError={vi.fn()} isOwner={false} isInstanceAdmin />);
+    expect(screen.getByText('accounts-part').closest('[data-slot="card"]')).toBeTruthy();
+    expect(container.querySelector('[data-legacy]')).toBeNull();
   });
 
   it('keeps accounts off anybody who does not run the server, its owner included', () => {

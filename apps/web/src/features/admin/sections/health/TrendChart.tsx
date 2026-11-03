@@ -1,11 +1,20 @@
 /** The metric chart: pick a series, scroll back through it, pin a moment.
  *
- * Hand-drawn SVG rather than a charting library. It plots one series of at most 96
+ * Hand-drawn rather than a charting library. It plots one series of at most 96
  * points and needs a click target per point, which is less code than configuring a
- * library to do the same and carries no dependency into the bundle.
+ * library to do the same and carries no dependency into the bundle. The bars are buttons,
+ * which is what makes each point a target with a name and a place in the tab order.
+ *
+ * Coloured from the chart palette (`--chart-1` … `--chart-5`), the theme's own: the middle
+ * of it reads on the plot in light and in dark, and a bar that is hovered or chosen moves
+ * toward the end of the scale that contrasts with the plot in that scheme.
  */
 
-import { useCallback, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useId, useRef, useState, type CSSProperties } from "react";
+import { Button } from "../../../../components/ui/button.tsx";
+import { Label } from "../../../../components/ui/label.tsx";
+import { NativeSelect, NativeSelectOption } from "../../../../components/ui/native-select.tsx";
+import { ToggleGroup, ToggleGroupItem } from "../../../../components/ui/toggle-group.tsx";
 import {
   METRICS,
   ZOOM_OPTIONS,
@@ -15,6 +24,20 @@ import {
   type HealthSample,
 } from "./model.ts";
 import { chartWindow, sampleLabel } from "./series.ts";
+
+/** One bar. Its height is its value's share of the window's largest, so it is data and rides
+ * in a custom property; it is stretched to the plot's full height and scaled down from the
+ * bottom. The bar needs a real size from layout (`self-stretch`, `flex-1`), which happy-dom
+ * does not have, so the tests pin the classes. */
+const BAR = [
+  "min-w-3.5 flex-1 basis-0 origin-bottom self-stretch scale-y-(--bar-scale) rounded-t-sm outline-none",
+  "bg-chart-2 hover:bg-chart-4 focus-visible:bg-chart-4 dark:hover:bg-chart-1 dark:focus-visible:bg-chart-1",
+  "focus-visible:ring-3 focus-visible:ring-ring/50",
+  // The pinned moment: the far end of the scale, and an outline round it so it is not
+  // told by colour alone.
+  "aria-pressed:bg-chart-5 aria-pressed:outline-2 aria-pressed:outline-offset-2 aria-pressed:outline-ring dark:aria-pressed:bg-chart-1",
+  "transition-[transform,background-color] duration-(--dur-micro) ease-(--ease-standard) motion-reduce:transition-none",
+].join(" ");
 
 export function TrendChart({
   metric,
@@ -43,6 +66,7 @@ export function TrendChart({
   const max = Math.max(...values, 1);
   const [hoveredSampleAt, setHoveredSampleAt] = useState<string | null>(null);
   const gestureStart = useRef<number | null>(null);
+  const windowId = useId();
 
   const currentSample =
     visible.find((sample) => sample.at === hoveredSampleAt) ??
@@ -65,61 +89,65 @@ export function TrendChart({
   );
 
   return (
-    <div className="dashboard-chart">
-      <div className="dashboard-chart-toolbar">
-        <div className="chip-row">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        {/* One series at a time, and pressing the one that is chosen would leave none. */}
+        <ToggleGroup
+          aria-label="Metric"
+          variant="outline"
+          size="sm"
+          className="flex-wrap"
+          value={[metric]}
+          onValueChange={([next]) => {
+            const chosen = METRICS.find((entry) => entry.key === next);
+            if (chosen) onSelectMetric(chosen.key);
+          }}
+        >
           {METRICS.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              className="chip"
-              aria-pressed={metric === entry.key}
-              onClick={() => onSelectMetric(entry.key)}
-            >
+            <ToggleGroupItem key={entry.key} value={entry.key}>
               {entry.label}
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
-        <div className="dashboard-chart-actions">
-          <label className="dashboard-inline-control">
-            <span>Window</span>
-            <select
-              className="select"
-              value={zoom}
-              onChange={(event) =>
-                onZoom(Number(event.target.value) as ChartZoom)
-              }
-            >
-              {ZOOM_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option} points
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className="btn btn-ghost"
+        </ToggleGroup>
+        <div className="flex flex-wrap items-center gap-2">
+          <Label htmlFor={windowId} className="text-muted-foreground">
+            Window
+          </Label>
+          <NativeSelect
+            id={windowId}
+            size="sm"
+            value={zoom}
+            onChange={(event) => onZoom(Number(event.target.value) as ChartZoom)}
+          >
+            {ZOOM_OPTIONS.map((option) => (
+              <NativeSelectOption key={option} value={option}>
+                {option} points
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => moveWindow(-1)}
             disabled={history.length <= zoom}
           >
             Older
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => moveWindow(1)}
             disabled={history.length <= zoom}
           >
             Newer
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="dashboard-chart-summary" aria-live="polite">
+      <div className="min-h-5.5 text-sm text-pretty text-muted-foreground" aria-live="polite">
         {currentSample ? (
           <>
-            <strong>{metricDef.label}</strong> was{" "}
+            <strong className="font-semibold text-foreground">{metricDef.label}</strong> was{" "}
             {metricDef.format(currentSample.health)} at{" "}
             {sampleLabel(currentSample)}.
             {selectedSampleAt === currentSample.at &&
@@ -131,7 +159,8 @@ export function TrendChart({
       </div>
 
       <div
-        className="dashboard-chart-plot"
+        data-slot="trend-plot"
+        className="flex min-h-55 touch-pan-y items-end gap-1.5 overflow-hidden rounded-lg border bg-muted/50 p-3"
         onPointerDown={(event) => {
           gestureStart.current = event.clientX;
         }}
@@ -144,7 +173,7 @@ export function TrendChart({
         }}
       >
         {visible.length === 0 ? (
-          <div className="dashboard-empty">
+          <div className="grid w-full place-items-center text-sm text-muted-foreground">
             Waiting for the first live sample…
           </div>
         ) : (
@@ -156,9 +185,9 @@ export function TrendChart({
               <button
                 key={sample.at}
                 type="button"
-                className="dashboard-bar"
-                data-active={active ? "true" : "false"}
+                className={BAR}
                 style={{ "--bar-scale": scale } as CSSProperties}
+                aria-pressed={active}
                 aria-label={`${metricDef.label} at ${sampleLabel(sample)}: ${metricDef.format(
                   sample.health,
                 )}`}
@@ -170,24 +199,18 @@ export function TrendChart({
                 onMouseLeave={() => setHoveredSampleAt(null)}
                 onBlur={() => setHoveredSampleAt(null)}
                 onClick={() => onSelectSample(active ? null : sample.at)}
-              >
-                <span className="sr-only">{sampleLabel(sample)}</span>
-              </button>
+              />
             );
           })
         )}
       </div>
 
-      <div className="dashboard-chart-footer">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 text-xs text-muted-foreground">
         <span>Swipe left or right on touch screens to pan the chart.</span>
         {selectedSampleAt && (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => onSelectSample(null)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => onSelectSample(null)}>
             Clear chart filter
-          </button>
+          </Button>
         )}
       </div>
     </div>

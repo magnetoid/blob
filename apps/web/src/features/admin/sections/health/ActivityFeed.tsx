@@ -4,6 +4,11 @@
  * feed merges them and the filter is there for when it does.
  */
 
+import { cn } from "cn";
+import { Badge } from "../../../../components/ui/badge.tsx";
+import { ItemContent, ItemDescription, ItemTitle } from "../../../../components/ui/item.tsx";
+import { ToggleGroup, ToggleGroupItem } from "../../../../components/ui/toggle-group.tsx";
+import { CardNotice, CardRow, CardRows } from "../../../console/Card.tsx";
 import { formatRelative } from "../../../messages/messageFormatting.ts";
 import { type FeedItem, type FeedKind } from "./model.ts";
 
@@ -20,44 +25,62 @@ export function ActivityFeed({
    *  is the workspace's audit trail, and a "Logs" filter would only ever be empty. */
   withLogs?: boolean;
 }) {
+  const options = [
+    { label: "Everything", value: "all" as const },
+    ...(withLogs ? [{ label: "Logs", value: "logs" as const }] : []),
+    { label: "Audit", value: "audit" as const },
+  ];
   return (
-    <div className="dashboard-feed">
-      <div className="chip-row">
-        {[
-          { label: "Everything", value: "all" as const },
-          ...(withLogs ? [{ label: "Logs", value: "logs" as const }] : []),
-          { label: "Audit", value: "audit" as const },
-        ].map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className="chip"
-            aria-pressed={kind === option.value}
-            onClick={() => onKindChange(option.value)}
-          >
+    <>
+      {/* One kind at a time, and pressing the one that is chosen would leave none. */}
+      <ToggleGroup
+        aria-label="Show"
+        variant="outline"
+        size="sm"
+        className="flex-wrap"
+        value={[kind]}
+        onValueChange={([next]) => {
+          const chosen = options.find((option) => option.value === next);
+          if (chosen) onKindChange(chosen.value);
+        }}
+      >
+        {options.map((option) => (
+          <ToggleGroupItem key={option.value} value={option.value}>
             {option.label}
-          </button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
 
-      <div className="dashboard-feed-list">
-        {items.length === 0 ? (
-          <p className="muted">No items match the current filters.</p>
-        ) : (
-          items.map((item) => (
-            <article key={item.id} className="dashboard-feed-item" data-tone={item.tone}>
-              <div className="dashboard-feed-topline">
-                <span className="role-pill" data-muted={item.kind === "audit" ? "true" : undefined}>
-                  {item.kind === "log" ? "Log" : "Audit"}
-                </span>
-                <span>{formatRelative(item.at)}</span>
-              </div>
-              <div className="dashboard-feed-title">{item.title}</div>
-              <div className="dashboard-feed-body">{item.body}</div>
-            </article>
-          ))
-        )}
-      </div>
-    </div>
+      {items.length === 0 ? (
+        <CardNotice>No items match the current filters.</CardNotice>
+      ) : (
+        // The stripe down a row's edge is the level of a log: an error and a warning have to
+        // be tellable apart without stopping to read.
+        <CardRows aria-label="Recent activity">
+          {items.map((item) => (
+            <CardRow
+              key={item.id}
+              data-tone={item.tone}
+              className={cn(
+                "border-l-3 border-l-input pl-[calc(var(--card-spacing)-3px)]",
+                item.tone === "warning" && "border-l-muted-foreground",
+                item.tone === "danger" && "border-l-destructive",
+              )}
+            >
+              <ItemContent>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant={item.kind === "audit" ? "outline" : "secondary"}>
+                    {item.kind === "log" ? "Log" : "Audit"}
+                  </Badge>
+                  <span>{formatRelative(item.at)}</span>
+                </div>
+                <ItemTitle className="leading-snug wrap-anywhere">{item.title}</ItemTitle>
+                {item.body && <ItemDescription className="wrap-anywhere">{item.body}</ItemDescription>}
+              </ItemContent>
+            </CardRow>
+          ))}
+        </CardRows>
+      )}
+    </>
   );
 }

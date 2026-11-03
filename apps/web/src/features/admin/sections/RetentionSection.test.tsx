@@ -77,7 +77,14 @@ describe('the windows', () => {
   it('counts what a draft would remove, and asks before saving it', async () => {
     vi.spyOn(api.admin, 'retention').mockResolvedValue(NOTHING);
     render(<RetentionSection />);
-    fireEvent.change(await screen.findByLabelText('Messages'), { target: { value: '90' } });
+    // The hint is tied to its select, so it is read with it.
+    fireEvent.change(
+      await screen.findByRole('combobox', {
+        name: 'Messages',
+        description: 'How long a message is kept after it is sent.',
+      }),
+      { target: { value: '90' } },
+    );
 
     await waitFor(() =>
       expect(api.admin.retentionPreview).toHaveBeenCalledWith({ messageDays: 90, fileDays: null }),
@@ -122,6 +129,7 @@ describe('legal holds', () => {
     vi.spyOn(api.admin, 'retention').mockResolvedValue(KEPT_A_YEAR);
     render(<RetentionSection />);
     const holds = await screen.findByRole('list', { name: 'On hold' });
+    expect(within(holds).getAllByRole('listitem')).toHaveLength(2);
     expect(within(holds).getByText('#lawsuit')).toBeTruthy();
     expect(within(holds).getByText('Max')).toBeTruthy();
 
@@ -145,9 +153,97 @@ describe('legal holds', () => {
       '#general',
     ]);
 
+    // Hold stays off until something is chosen, and is named for what it holds.
+    const hold = screen.getByRole('button', { name: 'Hold the chosen person' });
+    expect(hold.getAttribute('aria-disabled')).toBe('true');
     fireEvent.change(people, { target: { value: 'u1' } });
-    fireEvent.click(people.closest('.pref-row')!.querySelector('button')!);
+    expect(hold.getAttribute('aria-disabled')).not.toBe('true');
+    fireEvent.click(hold);
 
     await waitFor(() => expect(api.admin.holdPerson).toHaveBeenCalledWith('u1', true));
+  });
+
+  it('places a hold on a conversation', async () => {
+    vi.spyOn(api.admin, 'retention').mockResolvedValue(KEPT_A_YEAR);
+    render(<RetentionSection />);
+    const channels = (await screen.findByLabelText('Hold a conversation')) as HTMLSelectElement;
+    await waitFor(() => expect(channels.options.length).toBe(2));
+    fireEvent.change(channels, { target: { value: 'c1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hold the chosen conversation' }));
+
+    await waitFor(() => expect(api.admin.holdConversation).toHaveBeenCalledWith('c1', true));
+  });
+
+  it('says so when nothing is on hold', async () => {
+    vi.spyOn(api.admin, 'retention').mockResolvedValue(NOTHING);
+    render(<RetentionSection />);
+    expect(await screen.findByText('Nothing is on hold.')).toBeTruthy();
+    expect(screen.queryByRole('list', { name: 'On hold' })).toBeNull();
+  });
+});
+
+describe('the confirmation', () => {
+  // The confirm is the project's ConfirmDialog (an alert dialog on the Escape stack), not an
+  // inline two-press: one Escape has to close it and nothing under it.
+  it('closes only the confirm on Escape and returns focus to the button that opened it', async () => {
+    vi.spyOn(api.admin, 'retention').mockResolvedValue(NOTHING);
+    // Stands in for the shell's own shortcuts, which listen on `window` and would take a
+    // stray Escape as "close the thread" or "mark this channel read".
+    const shellHeard = vi.fn();
+    const onWindowKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') shellHeard();
+    };
+    window.addEventListener('keydown', onWindowKey);
+    try {
+      render(<RetentionSection />);
+      fireEvent.change(await screen.findByLabelText('Messages'), { target: { value: '90' } });
+      const save = card('How long things are kept').getByRole('button', { name: 'Save' });
+      // Pressed with focus on it, as a keyboard press (or a click in Chrome and Firefox) has:
+      // the dialog remembers what had focus as it opened, and hands it back.
+      save.focus();
+      fireEvent.click(save);
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Remove history past these windows?',
+      });
+      await waitFor(() => expect(document.activeElement).toBe(dialog));
+
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+      expect(document.activeElement).toBe(save);
+      // One Escape, one layer: nothing was saved, nothing behind the dialog heard the key,
+      // the page and the draft are still there.
+      expect(api.admin.setRetention).not.toHaveBeenCalled();
+      expect(shellHeard).not.toHaveBeenCalled();
+      expect(screen.getByRole('heading', { name: 'How long things are kept' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Legal holds' })).toBeTruthy();
+      expect((screen.getByLabelText('Messages') as HTMLSelectElement).value).toBe('90');
+    } finally {
+      window.removeEventListener('keydown', onWindowKey);
+    }
+  });
+
+  it('keeps focus on Save while it saves', async () => {
+    vi.spyOn(api.admin, 'retention').mockResolvedValue(KEPT_A_YEAR);
+    let finish: (view: RetentionView) => void = () => undefined;
+    vi.spyOn(api.admin, 'setRetention').mockReturnValue(
+      new Promise<RetentionView>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    render(<RetentionSection />);
+    // Keeping everything again needs no confirmation, so Save runs straight away.
+    fireEvent.change(await screen.findByLabelText('Messages'), { target: { value: '' } });
+    const save = card('How long things are kept').getByRole('button', { name: 'Save' });
+    save.focus();
+    fireEvent.click(save);
+
+    const busy = await screen.findByRole('button', { name: 'Saving…' });
+    expect(busy.getAttribute('aria-disabled')).toBe('true');
+    // Not natively disabled: a browser would move focus off a button that becomes so.
+    expect(busy.hasAttribute('disabled')).toBe(false);
+    expect(document.activeElement).toBe(busy);
+    finish(NOTHING);
+    await waitFor(() => expect(api.admin.setRetention).toHaveBeenCalledTimes(1));
   });
 });

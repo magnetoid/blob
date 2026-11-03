@@ -361,10 +361,8 @@ button {
     --tw-exit-rotate: 0 !important;
   }
 
-  .dashboard-bar,
   .poll-option-bar,
-  .thread-tools-toggle svg,
-  .import-meter-bar::-webkit-progress-value {
+  .thread-tools-toggle svg {
     transition: none;
   }
 }

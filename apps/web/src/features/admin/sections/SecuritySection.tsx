@@ -5,13 +5,18 @@ import { api, type SecurityCheck } from '../../../lib/api.ts';
 import { navigate } from '../../../lib/router.ts';
 import { showError } from '../../../lib/toasts.ts';
 import { useFetch } from '../../../lib/useFetch.ts';
-import { Card, CardNotice } from '../../console/Card.tsx';
+import { Badge } from '../../../components/ui/badge.tsx';
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from '../../../components/ui/item.tsx';
+import { Card, CardNotice, CardRow, CardRows } from '../../console/Card.tsx';
 
 const SAYS: Record<SecurityCheck['state'], string> = {
   ok: 'Good',
   attention: 'Worth a look',
   info: 'A choice',
 };
+
+/** A check that is worth a look is said in the signal colour; the rest are quiet. */
+const BADGE = { ok: 'secondary', attention: 'destructive', info: 'outline' } as const;
 
 /** Where each of the workspace's checks is changed. The server's are its environment's,
  *  so they link nowhere. */
@@ -26,10 +31,10 @@ const WHERE: Record<string, string> = {
 
 function Title({ check }: { check: SecurityCheck }) {
   const path = WHERE[check.id];
-  if (!path) return <span className="pref-label">{check.title}</span>;
+  if (!path) return <>{check.title}</>;
   return (
     <a
-      className="pref-label security-link"
+      className="rounded-xs underline-offset-4 outline-none hover:underline focus-visible:underline focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
       href={path}
       onClick={(event) => {
         // A modified click is somebody asking for a tab; a plain one stays in the console.
@@ -54,19 +59,21 @@ function Checks({
 }) {
   return (
     <Card title={title} description={description}>
-      <ul className="hold-list" aria-label={title}>
+      <CardRows aria-label={title}>
         {checks.map((check) => (
-          <li key={check.id} className="hold-row security-check" data-state={check.state}>
-            <span className="grow">
-              <Title check={check} />
-              <span className="pref-hint block">{check.detail}</span>
-            </span>
-            <span className="role-pill" data-muted={check.state === 'info' ? '' : undefined}>
-              {SAYS[check.state]}
-            </span>
-          </li>
+          <CardRow key={check.id} data-state={check.state}>
+            <ItemContent>
+              <ItemTitle>
+                <Title check={check} />
+              </ItemTitle>
+              <ItemDescription>{check.detail}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Badge variant={BADGE[check.state]}>{SAYS[check.state]}</Badge>
+            </ItemActions>
+          </CardRow>
         ))}
-      </ul>
+      </CardRows>
     </Card>
   );
 }
@@ -75,7 +82,7 @@ export function SecuritySection() {
   const { data } = useFetch(() => api.admin.security(), [], { onError: showError });
   if (!data) {
     return (
-      <div className="console-stack">
+      <div className="flex flex-col gap-6">
         <Card>
           <CardNotice>Loading…</CardNotice>
         </Card>
@@ -83,7 +90,7 @@ export function SecuritySection() {
     );
   }
   return (
-    <div className="console-stack">
+    <div className="flex flex-col gap-6">
       <Checks
         title="This workspace"
         description="How people and agents here sign in and act, and how long what they write is kept."
