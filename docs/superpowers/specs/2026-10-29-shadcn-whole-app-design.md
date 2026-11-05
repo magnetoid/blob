@@ -232,6 +232,27 @@ and tests apply.
    `DropdownMenuItem`. That gives them shadcn's look and Base UI's keys and dismissal.
    (The reopen-on-trigger-click bug this once listed was fixed in phase 2's scaffolding,
    in `lib/useDismissal.ts`, and goes with it.)
+
+   Acceptance, from a UX review of main at 645e812b (2026-11-05, 400 and 1440 px, light
+   and dark):
+   - On a phone the channel list opens from a trigger that looks like one. Today only the
+     workspace logo button opens it (`features/shell/TopBar.tsx`, "Open channel list"),
+     and nothing marks it as a menu.
+   - At 400 px the top tabs leave the Search button room and do not fade out mid-word
+     ("Channe…").
+   - **The user decides, before the plan does:** the top tabs (Messages, Activity, Files,
+     Channels) repeat the sidebar — Channels is Browse channels, Activity overlaps
+     Mentions — so the shell has two navigation systems where Slack has one. The review
+     recommends one, in the sidebar.
+   - The inset frame shows in dark mode. Today the card and the ground (`--bg-sidebar`)
+     are nearly the same black, so the frame light mode draws disappears.
+   - Tasks has a task icon (Lucide `ListTodo` or `SquareCheck`) rather than `FileIcon`,
+     everywhere at once: the sidebar (`features/channels/Sidebar.tsx`), Home's "Open
+     tasks" tile (`features/home/HomeView.tsx`) and the Tasks empty state
+     (`features/agentic/TasksView.tsx`).
+   - The sidebar's icons are centred on their labels. Today they are 14 px and their
+     centres sit about 1.7 px above the text's (Home, Mentions, Threads, Tasks and the
+     rest).
 5. **The conversation.** Message list, composer, threads, reactions, attachments, the
    right-hand panel, code blocks, agent run cards, unread and typing notices. Motion rules
    re-verified here. MessageMenu moves to `DropdownMenu`. SchedulePicker becomes a
@@ -260,9 +281,32 @@ and tests apply.
    `DropdownMenuContent` and `PopoverContent` portal with no container — beside the popup,
    in the dialog's portal node — so once a menu inside a dialog is a real one, `holds`
    widens to that portal node, or an Escape in the menu closes the dialog instead.
+
+   Acceptance, from the same review:
+   - A channel with little history opens onto Slack's start-of-channel intro ("This is
+     the very beginning of #name", with its description) once the whole history is
+     loaded, not onto blank space above the first message.
+   - The thread panel sets the root apart from the replies with an "N replies" divider
+     under it, as Slack does.
+   - The thread header's Follow is a real button (outline or ghost, showing its state);
+     today it reads as plain text.
+
+   Not a finding: times of 0:00 in the seeded workspace are its real midnight timestamps.
 6. **Everything else.** Auth and OAuth consent, home, search, channel directory, work
    channels and artifacts, decisions, agents and the terminal's chrome, calls (lazy chunk
    stays lazy), help, feedback, what's new.
+
+   Acceptance, from the same review:
+   - Home's Ask box with no agent installed does not offer an Ask button that looks
+     enabled beside a "No agent installed yet" placeholder (`features/home/HomeView.tsx`).
+     An admin is pointed to Agents & apps to install one; a member is told plainly, with
+     no button, or sees no box.
+   - Home with nothing going on still shows Unread and Your tasks on a 400 px phone's
+     first screen. Today four zero tiles fill it, so zero tiles collapse or hide. ("Here
+     now" leaves you out on purpose; that is not a bug.)
+   - Search with no message results, while another tab has some ("design" finds #design
+     under Channels), names the tabs that have results and links to them rather than
+     saying only "Nothing matched". Counts on the tabs are worth considering.
 7. **Cleanup.** Delete `styles/app/`, the bridges and the `legacy` layer; rewrite
    CLAUDE.md's design-layer section; ratchet the budget down to what it measures; refresh
    the README screenshots.
