@@ -105,6 +105,28 @@ describe('the command palette', () => {
     expect(active(input)?.getAttribute('aria-selected')).toBe('true');
   });
 
+  it('leaves Home and End to the caret, and ⌘↓ ⌘↑ to the first and last row', () => {
+    // An editable combobox's Home and End belong to the text (APG): cmdk would take them
+    // for the first and last row, and its preventDefault would keep the caret where it was.
+    const input = open();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const selected = active(input);
+    expect(selected?.textContent).toContain('engineering');
+
+    expect(fireEvent.keyDown(input, { key: 'End' })).toBe(true);
+    expect(active(input)).toBe(selected);
+    expect(fireEvent.keyDown(input, { key: 'Home' })).toBe(true);
+    expect(active(input)).toBe(selected);
+    expect(fireEvent.keyDown(input, { key: 'Home', shiftKey: true })).toBe(true);
+    expect(active(input)).toBe(selected);
+
+    const rows = document.querySelectorAll('[cmdk-item]');
+    fireEvent.keyDown(input, { key: 'ArrowDown', metaKey: true });
+    expect(active(input)).toBe(rows[rows.length - 1]);
+    fireEvent.keyDown(input, { key: 'ArrowUp', metaKey: true });
+    expect(active(input)).toBe(rows[0]);
+  });
+
   it('steps the scope with Tab and back with Shift+Tab', () => {
     // Tab is the scope key here, not a focus key: focus never leaves a combobox's input,
     // so the key is claimed — and a claimed Tab is one that moves nothing else.

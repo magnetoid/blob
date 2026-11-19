@@ -41,7 +41,8 @@ import { DraftsView } from '../features/messages/DraftsView.tsx';
 import { AgentTerminalPanel } from '../features/agentic/AgentTerminalPanel.tsx';
 import { FilePreviewPanel } from '../features/messages/FilePreviewPanel.tsx';
 import { closeFilePreview } from '../lib/filePreview.ts';
-// Lazy, and fetched beside the overlay chunk once the page is idle: cmdk is not first-load code.
+// A chunk of its own, fetched beside the overlay chunk once the page is idle: cmdk is not
+// first-load code.
 import { CommandPalette } from '../features/palette/lazyPalette.ts';
 import { SearchView } from '../features/search/SearchView.tsx';
 // Lazy: the consoles are ~3,000 lines of JSX an ordinary member never renders,
@@ -421,11 +422,10 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const panelPresent = panelOpen || (inConversation && threadPanelPresent);
 
   // ⌘K in every branch. Nothing is drawn until its chunk is here, which the idle preload
-  // has normally seen to; a press that comes first starts the fetch itself.
+  // has normally seen to; a press that comes first starts the fetch itself, and one that
+  // cannot fetch it is a toast and a closed palette, not a Suspense or a crash.
   const palette = paletteOpen && (
-    <Suspense fallback={null}>
-      <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
-    </Suspense>
+    <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
   );
 
   // In every branch: the bar, floating in the consoles because there is no channel list

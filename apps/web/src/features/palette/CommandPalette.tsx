@@ -617,6 +617,13 @@ export function CommandPalette({
               event.preventDefault();
               stepScope(event.shiftKey);
             }
+            if (event.key === "Home" || event.key === "End") {
+              // The caret's, as in an editable combobox (APG): the start or end of what is
+              // typed, with Shift selecting to it. cmdk would take them for the first and
+              // last row and refuse the caret its move; ⌘↑ and ⌘↓ still go there (and ⌥↑ ⌥↓
+              // a section at a time).
+              event.stopPropagation();
+            }
           }}
         >
           {!only && (
@@ -807,6 +814,9 @@ function ItemMark({ item }: { item: Item }) {
  * changes, so every commit in which React could have written cmdk's values is followed by
  * this. Between those React leaves both attributes alone: it writes a prop only when it
  * changes.
+ *
+ * It reads cmdk's own markup — `[cmdk-item]` and `aria-selected` — which is why cmdk is
+ * pinned (1.1.1): re-check this, and the a11y tests that pin it, on any cmdk bump.
  */
 function ComboboxState({ input }: { input: RefObject<HTMLInputElement | null> }) {
   useCommandState((state) => state.value);
