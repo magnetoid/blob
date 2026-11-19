@@ -80,7 +80,10 @@ component library itself. Nothing about the product's behaviour changes.
   Moving styling into Tailwind class strings moves bytes from the (unbudgeted) CSS into
   the (budgeted) entry JS, so phases 4 and 5 grow the entry chunk too — not only phase 2.
   `tailwind-merge` (behind `cn`), `cmdk` (Command) and the toast library are further
-  candidates for the first load; each is either lazy or measured.
+  candidates for the first load; each is either lazy or measured. Since phase 4 the
+  first-load stylesheet has a budget of its own too (`CSS_BUDGET_KB` in
+  `scripts/bundle-budget.mjs`), because phase 3's console utilities grew it with none of
+  their JavaScript on the first load.
 - **Tests key on class names.** About 346 `querySelector` calls in vitest files and a
   handful of e2e locators (`main.pane`, `.admin-main`, `article.message`,
   `.search-results`, `.console-copy .ellipsis`, `.attachment-chip[data-status]`). Each
@@ -206,12 +209,14 @@ and tests apply.
 
 ## Phases — one PR each, each shippable
 
-1. **Foundation.** This design and ADR 0043. Tailwind v4 + shadcn `init` with preset
+1. **Foundation.** *Done in #42 (2026-10-30).*
+   This design and ADR 0043. Tailwind v4 + shadcn `init` with preset
    `b0`; layer order; legacy CSS into `@layer legacy`; `--accent` rename; `b0` tokens
    with the legacy bridge; Inter and the dark variant; the themes re-key (server,
    migration, editor kept working). After this PR the whole app wears `b0`'s colours,
    font and radius, with today's components.
-2. **Primitives.** Add the shadcn components and replace `components/` (Dialog,
+2. **Primitives.** *Done in #43 (2026-11-02).*
+   Add the shadcn components and replace `components/` (Dialog,
    ConfirmDialog, Confirmation, Menu, Toasts, EmptyState, ListSkeleton, Avatar,
    PersonCard, ShortcutHelp, EmojiPicker's shell) and Icon → Lucide. The budget is
    re-measured and raised here, with the reason, within the 260 KB ceiling.
@@ -221,9 +226,11 @@ and tests apply.
    Phase 2 therefore keeps the legacy look and Blob's own keys and dismissal, and Base
    UI only places, animates and focuses the panel. That is scaffolding, and phases 4
    and 5 take it out.
-3. **The three consoles** (`features/console`, `admin`, `settings`, `server`), including
+3. **The three consoles.** *Done in #49 (2026-11-03).*
+   `features/console`, `admin`, `settings` and `server`, including
    the theme editor. Stays out of the main chunk.
-4. **The shell.** shadcn Sidebar for the channel list (the Meadow inset frame maps onto
+4. **The shell.** *Done 2026-11-19; ADR 0043's phase 4 addendum records how.*
+   shadcn Sidebar for the channel list (the Meadow inset frame maps onto
    the sidebar's inset variant), the top bar, ⌘K as Command, workspace switcher, Sheet on
    narrow screens. The Sidebar already exists: phase 3 added it as
    `components/ui/sidebar.tsx` for the consoles' nav, with the generated component's
