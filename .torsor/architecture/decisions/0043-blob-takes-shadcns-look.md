@@ -615,9 +615,10 @@ And what the phase settled on the way:
   - A generated component's static import of an overlay part is cut, not accepted: the
     sidebar's tooltip, `command.tsx`'s `CommandDialog`.
   - cmdk is bumped only with `ComboboxState` and the a11y tests that pin it checked again.
-- **The budget.** The JavaScript first load measures 238.9 KB, against main's 231.5 at
-  e6414252, so `BUDGET_KB` is 240 — the measure rounded up, plus 1 KB — 20 KB under the
-  ceiling. The growth is the shell, all of it in the task that put the sidebar on first
+- **The budget.** The JavaScript first load measures 239.7 KB, against main's 231.5 at
+  e6414252, so `BUDGET_KB` is 241 — the measure rounded up, plus 1 KB — 19 KB under the
+  ceiling. It was 238.9 until the last fix wave gave the shell's menus and a pending ⌘K
+  their layers on the Escape stack, which put `lib/useEscape.ts` on first paint (+0.8 KB). The growth is the shell, all of it in the task that put the sidebar on first
   paint (+9.3 KB): `ui/sidebar.tsx` and the converted list add about 5.6 KB to the entry
   chunk, and they bring Base UI's shared render and DOM helpers (`useRender`, `mergeProps`,
   floating-ui's DOM utilities; the `reason-parts` chunk, 2.6 KB), which on main lived only in

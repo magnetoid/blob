@@ -17,7 +17,7 @@ import { gzipSync } from 'node:zlib';
 // more or less from one commit to the next — 239.6 KB, then 239.7, for one tree under
 // Vite 6 — and a budget with no room would fail a docs commit, a merge ref or a squash for
 // nothing the app does. Lower it with the app, keeping the 1 KB.
-const BUDGET_KB = 240;
+const BUDGET_KB = 241;
 // The same rule for the stylesheet, which every first paint also waits for. Tailwind's
 // utilities land in it from every converted file, lazy chunks' files included — phase 3's
 // consoles took it from 40.7 to 46.2 KB with none of their JavaScript in the first load —
