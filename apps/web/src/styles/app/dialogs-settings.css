@@ -148,18 +148,11 @@
 .message-action:active,
 .menu-item:active,
 .user-menu-item:active:not(:disabled),
-.channel-row:active,
 .topbar-nav-btn:active {
   background: var(--surface-hover-deep);
   /* The deeper ground says "armed"; the scale says "you pressed it". Transform only,
      so a row that is 34px tall does not reflow the list under the finger. */
   transform: scale(var(--motion-press));
-}
-
-/* A row on the tinted ground is pressed deeper into that ground: the fixed step above
-   is lighter than the ground's own hover there, so a press would read as letting go. */
-.channel-row:active {
-  background: var(--ground-press);
 }
 
 /* The rest of the controls give too — every button, chip and switch, and the small
@@ -175,8 +168,6 @@
 .send-btn:active:not(:disabled),
 .reaction:active,
 .thread-summary:active,
-.sidebar-add:active,
-.sidebar-inline-add:active,
 .channel-kebab:active,
 .new-message-person:active:not(:disabled),
 .emoji-cell:active,
@@ -195,8 +186,6 @@
    and the emoji grid's move under hands that are typing, and a highlight a beat behind
    the key reads as lag; the emoji cell is handled beside its own rules. */
 .channel-kebab,
-.sidebar-add,
-.sidebar-inline-add,
 .message-action,
 .menu-item,
 .thread-summary,

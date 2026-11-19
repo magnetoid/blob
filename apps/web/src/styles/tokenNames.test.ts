@@ -184,6 +184,7 @@ describe('styles/index.css', () => {
     'components/Avatar.tsx',
     'components/EmptyState.tsx',
     'components/ListSkeleton.tsx',
+    'features/channels/Sidebar.tsx',
     'features/console',
     'features/admin',
     'features/settings/SettingsConsole.tsx',

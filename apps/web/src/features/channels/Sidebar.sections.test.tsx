@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { SidebarSection } from '@blob/shared';
+import { SidebarProvider } from '../../components/ui/sidebar.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import { MoveToSectionDialog } from './SectionDialogs.tsx';
 import { useStore } from '../../lib/store.ts';
@@ -47,6 +48,14 @@ function seed(sections: SidebarSection[]) {
   } as never);
 }
 
+/** The list as the shell draws it, inside the sidebar's provider. */
+const draw = () =>
+  render(
+    <SidebarProvider>
+      <Sidebar />
+    </SidebarProvider>,
+  );
+
 const CLIENTS: SidebarSection = { id: 's1', name: 'Clients', channelIds: ['c2', 'c3'], collapsed: false };
 
 beforeEach(() => setSidebarSections.mockClear());
@@ -55,27 +64,32 @@ afterEach(cleanup);
 describe('a section of your own', () => {
   it('holds its conversations, and they leave Channels', () => {
     seed([CLIENTS]);
-    render(<Sidebar />);
+    draw();
     const clients = screen.getByRole('region', { name: 'Clients' });
     expect(within(clients).getByText('acme')).toBeTruthy();
     expect(within(clients).getByText('globex')).toBeTruthy();
     expect(screen.getAllByText('acme')).toHaveLength(1);
     expect(screen.getByText('general')).toBeTruthy();
+    // Its options are its own, beside its name: the trigger the section menu hangs from.
+    const options = within(clients).getByRole('button', { name: 'Options for Clients' });
+    expect(options.getAttribute('aria-haspopup')).toBe('menu');
   });
 
   it('folds from its heading, still showing what is unread', () => {
     seed([{ ...CLIENTS, collapsed: true }]);
-    render(<Sidebar />);
+    draw();
     const clients = screen.getByRole('region', { name: 'Clients' });
     expect(within(clients).queryByText('acme')).toBeNull();
     expect(within(clients).getByText('globex')).toBeTruthy();
-    fireEvent.click(within(clients).getByRole('button', { name: 'Clients' }));
+    const toggle = within(clients).getByRole('button', { name: 'Clients' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
     expect(setSidebarSections).toHaveBeenCalledWith([{ ...CLIENTS, collapsed: false }]);
   });
 
   it('says how to fill it while it is empty', () => {
     seed([{ ...CLIENTS, channelIds: [] }]);
-    render(<Sidebar />);
+    draw();
     expect(screen.getByText('Move a conversation here from its ··· menu.')).toBeTruthy();
   });
 });

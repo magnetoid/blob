@@ -92,10 +92,10 @@
   }
 }
 
-/* Played by .badge — the sidebar's mention and saved counts — on every re-mount, which
-   is every change of the number it carries; and by Save for later and Follow when they
-   are turned on. Never all the way from transparent: the thing is still there, it is
-   only worth one more glance. */
+/* Played by the sidebar's mention and saved counts (`features/channels/Sidebar.tsx`) on
+   every re-mount, which is every change of the number it carries; and by Save for later
+   and Follow when they are turned on. Never all the way from transparent: the thing is
+   still there, it is only worth one more glance. */
 @keyframes badge-pop {
   from {
     transform: scale(var(--motion-scale-in));

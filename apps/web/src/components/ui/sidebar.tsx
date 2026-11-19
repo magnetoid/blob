@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { loadedOverlays } from "@/lib/overlays"
+import { useEscapeLayer, type StandIn } from "@/lib/useEscape"
 import { PanelLeftIcon } from "lucide-react"
 
 // The sheet below 768px is Base UI's dialog, so it comes from the overlay chunk
@@ -161,6 +162,25 @@ function Sidebar({
   const [sheetOpened, setSheetOpened] = React.useState(false)
   if (isMobile && openMobile && !sheetOpened) setSheetOpened(true)
 
+  // The sheet's place on the Escape stack (`lib/useEscape.ts`), taken as it opens, as every
+  // dialog's is. Base UI answers a key from inside the drawn sheet itself; until it is drawn
+  // — the chunk still on its way — or for a key from outside it, the layer answers, so the
+  // key never reaches what is underneath: a panel opened before it, or the shell's own
+  // listener on `window`, which takes a stray Escape as "close the thread" or "mark this
+  // channel read". One object for the sidebar's life: a new one would re-register the
+  // layer on top.
+  const popupRef = React.useRef<React.RefObject<HTMLElement | null> | null>(null)
+  const onDrawn = React.useCallback((popup: React.RefObject<HTMLElement | null>) => {
+    popupRef.current = popup
+  }, [])
+  const [standIn] = React.useState<StandIn>(() => ({
+    drawn: () => popupRef.current?.current != null,
+    holds: (target) =>
+      target instanceof Node && (popupRef.current?.current?.contains(target) ?? false),
+    close: () => setOpenMobile(false),
+  }))
+  useEscapeLayer(isMobile && openMobile && collapsible !== "none", standIn)
+
   if (collapsible === "none") {
     return (
       <div
@@ -188,6 +208,7 @@ function Sidebar({
         label={label}
         closeLabel={closeLabel}
         openerRef={openerRef}
+        onDrawn={onDrawn}
       >
         {children}
       </SidebarSheet>

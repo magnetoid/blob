@@ -10,10 +10,10 @@
    its children would cut off the header's menus and the message toolbar where they
    overhang it.
 
-   From 769px. Below that the channel list is a drawer and the view is the whole screen,
-   where a gutter would only cost width; between 769 and 900 the panel is an overlay
+   From 768px. Below that the channel list is a Sheet and the view is the whole screen,
+   where a gutter would only cost width; between 768 and 900 the panel is an overlay
    rather than a column, so only from 901 does the card share its side with one. */
-@media (min-width: 769px) {
+@media (min-width: 768px) {
   .shell > .pane {
     margin: 0 var(--frame-gap) var(--frame-gap) 0;
     border-radius: var(--frame-radius);
@@ -46,12 +46,14 @@
   grid-template-columns: var(--blob-sidebar-width) minmax(0, 1fr) var(--panel-width);
 }
 
-.shell[data-sidebar-collapsed='true'] {
-  grid-template-columns: 84px minmax(0, 1fr);
+/* The channel list folded to its rail, which the sidebar says on itself
+   (`data-collapsible`): the rail and the inset the sidebar draws round it. */
+.shell:has(> [data-slot='sidebar'][data-collapsible='icon']) {
+  grid-template-columns: calc(var(--blob-sidebar-rail) + 1rem) minmax(0, 1fr);
 }
 
-.shell[data-sidebar-collapsed='true'][data-panel='open'] {
-  grid-template-columns: 84px minmax(0, 1fr) var(--panel-width);
+.shell[data-panel='open']:has(> [data-slot='sidebar'][data-collapsible='icon']) {
+  grid-template-columns: calc(var(--blob-sidebar-rail) + 1rem) minmax(0, 1fr) var(--panel-width);
 }
 
 /* Only where the panel is a column. Below 900px it is an overlay and the shell drops to
@@ -63,8 +65,9 @@
     grid-template-columns: var(--blob-sidebar-width) minmax(0, 1fr) var(--panel-width-file);
   }
 
-  .shell[data-sidebar-collapsed='true'][data-panel='open'][data-panel-kind='file'] {
-    grid-template-columns: 84px minmax(0, 1fr) var(--panel-width-file);
+  .shell[data-panel='open'][data-panel-kind='file']:has(> [data-slot='sidebar'][data-collapsible='icon']) {
+    grid-template-columns: calc(var(--blob-sidebar-rail) + 1rem) minmax(0, 1fr)
+      var(--panel-width-file);
   }
 }
 

@@ -1,10 +1,10 @@
 /* ─── narrow viewports ───────────────────────────────────────────────────── */
-/* The chat shell adapts at one breakpoint: the sidebar becomes a drawer behind a
-   hamburger, and the thread panel takes the whole pane instead of a third column.
-   The admin console has had its own drawer since R2; this brings the conversation —
-   the screen a phone actually opens — up to the same standard. */
+/* The chat shell adapts at one breakpoint, 768px — the sidebar's own (`useIsMobile`,
+   Tailwind's `md`): below it the channel list is a Sheet the top bar's mark opens
+   (`components/ui/sidebar.tsx`), and the thread panel takes the whole pane instead of a
+   third column. The consoles' nav is a Sheet at the same width. */
 
-/* The workspace's mark is the control. On a phone it opens the channel drawer; at a desk
+/* The workspace's mark is the control. On a phone it opens the channel list; at a desk
    it folds the channel list to a rail of icons and brings it back. It replaced a ≡ that
    sat beside it and did the same two things, which left the corner with two controls for
    one list. Two buttons share this class and this spot; CSS shows exactly one per width —
@@ -45,28 +45,20 @@
   display: none;
 }
 
-.drawer-scrim {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  /* One column, in every one of the four states the shell can be in.
+@media (max-width: 767px) {
+  /* One column, whatever state the shell is in: the list is a Sheet over the page, not a
+   * column of it.
    *
-   * This listed two of them. The other two carry `data-sidebar-collapsed='true'`, whose
-   * rules are more specific and therefore kept winning here — so the grid still reserved
-   * the collapsed sidebar's 84px while the sidebar itself had become a fixed drawer and
-   * left the flow entirely. The conversation then landed in *that* column: an 84px pane
-   * rendering one character per line, with the composer 40px wide.
-   *
-   * Reachable without touching a phone, which is why it survived: the collapse is
-   * remembered in localStorage, so anyone who collapsed the sidebar at a desk and later
-   * opened Blob narrow — same browser, or just a resized window — got the broken layout
-   * and nothing on a wide screen ever showed it.
+   * A fold remembered at a desk (`blob.sidebar.collapsed`) is still the sidebar's state
+   * on a phone, and once kept a rail's column reserved here: the conversation landed in
+   * it, an 84px pane rendering one character per line. The folded rules key on the
+   * sidebar's column itself now, which a phone does not draw, and the selectors here
+   * match theirs anyway, so that cannot come back.
    */
   .shell,
   .shell[data-panel='open'],
-  .shell[data-sidebar-collapsed='true'],
-  .shell[data-sidebar-collapsed='true'][data-panel='open'] {
+  .shell:has(> [data-slot='sidebar'][data-collapsible='icon']),
+  .shell[data-panel='open']:has(> [data-slot='sidebar'][data-collapsible='icon']) {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -183,46 +175,6 @@
     padding: 0 8px;
   }
 
-  .sidebar {
-    position: fixed;
-    top: var(--topbar-height);
-    bottom: 0;
-    left: 0;
-    width: min(82vw, 300px);
-    z-index: var(--z-drawer);
-    transform: translateX(-105%);
-    /* Hidden, not merely moved — the same fix the console's drawer already carries,
-       and for the same reason: a transform leaves every control in the tab order, so a
-       closed drawer handed a keyboard user eleven invisible channel buttons to walk
-       through before reaching the conversation. Co-transitioned so it stays visible
-       for the length of the slide out. */
-    visibility: hidden;
-    transition:
-      transform var(--dur-panel) var(--ease-standard),
-      visibility var(--dur-panel);
-    box-shadow: none;
-  }
-
-  .shell[data-sidebar='open'] .sidebar {
-    transform: translateX(0);
-    visibility: visible;
-    box-shadow: var(--elev-3);
-  }
-
-  .shell[data-sidebar='open'] .drawer-scrim {
-    display: block;
-    position: fixed;
-    inset: var(--topbar-height) 0 0 0;
-    z-index: var(--z-scrim);
-    border: 0;
-    padding: 0;
-    background: var(--backdrop);
-    cursor: default;
-    /* The drawer slides in over --dur-panel; the dark behind it used to cut in on the
-       first frame. It fades in with the drawer now. */
-    animation: fade-in var(--dur-panel) var(--blob-ease-out);
-  }
-
   /* The thread panel becomes the pane rather than a sibling of it. */
   .shell[data-panel='open'] .panel {
     position: fixed;
@@ -239,12 +191,6 @@
   .shell[data-panel='open'] .panel.file-preview {
     width: auto;
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .sidebar {
-      transition: none;
-    }
-  }
 }
 
 /* Touch targets.
@@ -252,8 +198,9 @@
  * Every control in the app is sized for a pointer: 30px icon buttons, 31px channel
  * rows, a 32px send button. A fingertip is about 9mm, which is why WCAG 2.2 asks for
  * 44px, and on a phone all of these were under it — the workspace mark that opens the
- * channel drawer and the four bar buttons most of all, since they are the first things
- * anyone taps.
+ * channel list and the four bar buttons most of all, since they are the first things
+ * anyone taps. The channel list's own rows are shadcn's, which carry the same rule
+ * (`pointer-coarse:min-h-11`, `components/ui/sidebar.tsx`).
  *
  * Keyed on `pointer: coarse` rather than a width, because this is about what is doing
  * the pointing: a touchscreen laptop at 1400px needs the bigger targets and a narrow
@@ -272,9 +219,7 @@
   }
 
   .btn,
-  .channel-row,
   .palette-scope,
-  .sidebar-add,
   .user-menu-trigger,
   .menu-item,
   .user-menu-item,
@@ -300,8 +245,8 @@
    indicator; the insets keep the bar and composer touchable.
 
    The inset goes into --topbar-height rather than only onto the bar's padding. The
-   bar sits in a grid row of exactly that height, and three fixed overlays — the
-   drawer, its scrim and the full-bleed thread panel — pin their top edge to it. Padding
+   bar sits in a grid row of exactly that height, and the full-bleed thread panel pins
+   its top edge to it. Padding
    the bar alone left its contents pushed out of a row that had not grown, and started
    every overlay underneath a bar that was visually taller than the variable said. On
    anything without a notch the inset is 0 and this is the same 48px it always was. */

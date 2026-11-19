@@ -58,16 +58,25 @@ function narrow() {
  * `lazyOverlay` keeps what its import answered for good, so each case loads the sidebar
  * afresh.
  */
-async function aSidebarOnAPhone() {
+async function aSidebarOnAPhone({ panel }: { panel?: () => void } = {}) {
   narrow();
   vi.resetModules();
   const overlays = await import('../../lib/overlays.ts');
   const { Sidebar, SidebarProvider, SidebarTrigger } = await import('./sidebar.tsx');
+  // The same stack the sidebar's copy of the module registers on: the modules were reset.
+  const { useEscape } = await import('../../lib/useEscape.ts');
   let landed: OverlayModule | null = null;
   vi.mocked(overlays.loadedOverlays).mockImplementation(() => landed);
 
+  /** Something opened before the sheet that Escape closes — a legacy panel or menu. */
+  function Panel({ onClose }: { onClose: () => void }) {
+    useEscape(onClose);
+    return <aside aria-label="A panel" />;
+  }
+
   render(
     <SidebarProvider>
+      {panel && <Panel onClose={panel} />}
       <SidebarTrigger aria-label="Open the channel list" />
       <Sidebar label="Channel list" closeLabel="Close the channel list">
         <nav aria-label="Channels">
@@ -147,5 +156,72 @@ describe('the sidebar below 768px', () => {
     expect(page.loadOverlays).toHaveBeenCalledTimes(2);
     await act(async () => page.land(retry));
     expect(await screen.findByRole('dialog', { name: 'Channel list' })).toBeTruthy();
+  });
+});
+
+/**
+ * One Escape, one layer (`lib/useEscape.ts`). The sheet is Base UI's dialog, whose own
+ * listener closes it and stops the key at its popup — but only once it is drawn, and only
+ * for a key that comes from inside it. So the sheet takes its place on the shared stack as it
+ * opens, as every dialog does, and the shell's own listener on `window`, which takes a stray
+ * Escape as "close the thread" or "mark this channel read", never hears one meant for it.
+ */
+describe('Escape and the sheet', () => {
+  /** Stands in for the shell's shortcuts (`app/Workspace.tsx`), which listen on `window`. */
+  function theShellListens() {
+    const heard = vi.fn();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') heard();
+    };
+    window.addEventListener('keydown', onKey);
+    return { heard, stop: () => window.removeEventListener('keydown', onKey) };
+  }
+
+  it('answers an Escape pressed before the chunk has drawn the sheet, and nothing behind it hears', async () => {
+    const shell = theShellListens();
+    try {
+      const chunk = deferred<OverlayModule>();
+      const page = await aSidebarOnAPhone();
+      page.loadOverlays.mockReturnValue(chunk.promise);
+
+      fireEvent.click(page.trigger);
+      expect(screen.queryByRole('dialog')).toBeNull();
+
+      // Open, but not drawn: the key is the sheet's all the same.
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+      expect(shell.heard).not.toHaveBeenCalled();
+
+      // And it was answered: the chunk landing draws no sheet.
+      await act(async () => page.land(chunk));
+      expect(screen.queryByRole('dialog')).toBeNull();
+    } finally {
+      shell.stop();
+    }
+  });
+
+  it('closes before anything opened under it, and the next Escape goes on to that', async () => {
+    const shell = theShellListens();
+    try {
+      const panelClosed = vi.fn();
+      const chunk = deferred<OverlayModule>();
+      const page = await aSidebarOnAPhone({ panel: panelClosed });
+      page.loadOverlays.mockReturnValue(chunk.promise);
+
+      fireEvent.click(page.trigger);
+      await act(async () => page.land(chunk));
+      const sheet = await screen.findByRole('dialog', { name: 'Channel list' });
+      await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(panelClosed).not.toHaveBeenCalled();
+      expect(shell.heard).not.toHaveBeenCalled();
+
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+      expect(panelClosed).toHaveBeenCalledTimes(1);
+    } finally {
+      shell.stop();
+    }
   });
 });

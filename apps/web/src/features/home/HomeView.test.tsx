@@ -209,6 +209,15 @@ describe('the numbers lead somewhere', () => {
     expect(navigate).toHaveBeenLastCalledWith('/tasks');
   });
 
+  it('draws Open tasks with the task icon', () => {
+    // The sidebar's Tasks row and the Tasks page's empty state wear the same list, and the
+    // sheet of paper is the Files row's.
+    render(<HomeView />);
+    const tile = screen.getByRole('button', { name: /Open tasks/ });
+    expect(tile.querySelector('svg.lucide-list-todo')).not.toBeNull();
+    expect(tile.querySelector('svg.lucide-file')).toBeNull();
+  });
+
   it('leaves a number with nowhere to go as a number, not a button', () => {
     render(<HomeView />);
     expect(screen.queryByRole('button', { name: /Here now/ })).toBeNull();

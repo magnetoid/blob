@@ -152,6 +152,10 @@
 
   /* ─── layout ───────────────────────────────────────────────────────────── */
   --blob-sidebar-width: 240px;
+  /* The channel list folded to its rail: a 44px row with its badge in the corner. The
+     sidebar draws this plus its 1rem of inset (`components/ui/sidebar.tsx`), and the
+     shell's grid gives it the same (`styles/app/shell.css`). */
+  --blob-sidebar-rail: 4rem;
   --panel-width: 380px;
   /* A file in the panel: a page or a PDF needs more than a thread's 380px to be read,
      and never so much that the conversation it came from stops being usable. */
@@ -365,7 +369,7 @@
     --elev-3:
       0 0 0 1px rgb(255 255 255 / 10%), 0 16px 48px -12px rgb(0 0 0 / 60%);
     --elev-frame:
-      0 0 0 1px rgb(255 255 255 / 7%), 0 10px 28px -14px rgb(0 0 0 / 70%);
+      0 0 0 1px rgb(255 255 255 / 14%), 0 10px 28px -14px rgb(0 0 0 / 70%);
 
     --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
   }
@@ -402,7 +406,7 @@
   --elev-3:
     0 0 0 1px rgb(255 255 255 / 10%), 0 16px 48px -12px rgb(0 0 0 / 60%);
   --elev-frame:
-    0 0 0 1px rgb(255 255 255 / 7%), 0 10px 28px -14px rgb(0 0 0 / 70%);
+    0 0 0 1px rgb(255 255 255 / 14%), 0 10px 28px -14px rgb(0 0 0 / 70%);
 
   --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
 }

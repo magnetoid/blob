@@ -1,6 +1,8 @@
 /* ─── shell ──────────────────────────────────────────────────────────────── */
+/* The root is the sidebar's provider (`app/Workspace.tsx`), whose own `flex` is a utility
+   and outranks this layer; it is made a grid by a utility of its own there, and laid out
+   here. */
 .shell {
-  display: grid;
   /* No rail column. Switching views moved into the bar, which was already spanning the
      full width with an empty middle — so four buttons stopped costing a 64px column for
      the entire height of the window. */
@@ -16,4 +18,12 @@
   background: var(--bg-sidebar);
   color: var(--text);
   font-size: var(--blob-text-base);
+}
+
+/* The channel list is a column of this grid, and the sidebar's panel is drawn inside its
+   cell rather than fixed to the window as the generated one is: a call's bar has the cell
+   under it (`calls.css`), and a column fixed to the bottom of the window would cover it. */
+.shell > [data-slot='sidebar'] {
+  position: relative;
+  min-height: 0;
 }
