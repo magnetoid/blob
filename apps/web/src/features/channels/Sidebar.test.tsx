@@ -543,6 +543,25 @@ describe('a channel row', () => {
     expect(row('general').dataset.unread).toBeUndefined();
     expect(row('general').getAttribute('aria-current')).toBe('page');
   });
+
+  it('says there is an unsent draft, in it or one of its threads, until you are in it', () => {
+    seed();
+    useStore.setState({
+      activeChannelId: null,
+      drafts: { 'c1:r1': { body: 'half a thought' } },
+    } as never);
+    const { unmount } = draw();
+    expect(within(row(/^general/)).getByText('draft')).toBeTruthy();
+
+    // Only words count: a draft emptied to whitespace is no draft.
+    act(() => useStore.setState({ drafts: { 'c1:r1': { body: '  ' } } } as never));
+    expect(within(row('general')).queryByText('draft')).toBeNull();
+    unmount();
+
+    useStore.setState({ activeChannelId: 'c1', drafts: { c1: { body: 'half a thought' } } } as never);
+    draw();
+    expect(within(row('general')).queryByText('draft')).toBeNull();
+  });
 });
 
 describe('for a guest (ADR 0034)', () => {

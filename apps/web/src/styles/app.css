@@ -24,7 +24,7 @@
 @import "./app/an-agents-terminal.css";
 @import "./app/emoji-the-picker-and-custom-emoji-wherever-they-render.css";
 @import "./app/slash-commands.css";
-@import "./app/workspace-switcher.css";
+@import "./app/shortcut-list-and-pinned-messages.css";
 @import "./app/scheduling.css";
 @import "./app/forwarding.css";
 @import "./app/channel-directory.css";

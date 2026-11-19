@@ -535,7 +535,9 @@ const sidebarMenuButtonVariants = cva(
 
 /** No `tooltip` prop, which the generated button has: Base UI's tooltip is overlay code,
  *  and a sidebar row is on the page at first paint. A row on the rail carries its name
- *  as its label and Blob's `data-tooltip`, as the rest of the app's icon buttons do. */
+ *  as its label and as its `title`, the browser's own tooltip — not Blob's `data-tooltip`,
+ *  an `::after` that this button's `overflow-hidden` and the scrolling `SidebarContent`
+ *  would both clip. */
 function SidebarMenuButton({
   render,
   isActive = false,

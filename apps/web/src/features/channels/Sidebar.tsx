@@ -1,7 +1,7 @@
 /** Channel and DM navigation: the channel list, on shadcn's Sidebar.
  *
  * A column beside the view from 768px, folded to a rail of icons on request, and below it
- * a Sheet that the top bar's mark opens — the sidebar's three states are its own
+ * a Sheet that the top bar's list trigger opens — the sidebar's three states are its own
  * (`components/ui/sidebar.tsx`), and the shell provides it. The rows are its menu buttons
  * and the headings its group labels; what a row says about its conversation — unread,
  * muted, current, a call on, a draft waiting — is on the row as data, and the styling reads
@@ -719,7 +719,9 @@ function ChannelRow({
   const currentUserId = useStore((s) => s.currentUser?.id ?? null);
   const users = useStore((s) => s.users);
   const presence = useStore((s) => s.presence);
-  const drafts = useStore((s) => s.drafts);
+  // Whether this row has a draft, not the drafts: the map changes on every keystroke in the
+  // composer, and each change would redraw every row and the menu module beside it.
+  const hasDraft = useStore((s) => channelHasDraft(s.drafts, channel.id));
   const channelTitle = useStore((s) => s.channelTitle);
   // A primitive, not the calls themselves, so this row re-renders only when its own
   // marks change — a call starting or ending elsewhere in the workspace touches no
@@ -800,7 +802,7 @@ function ChannelRow({
         {/* An unsent draft, marked the way Slack marks one: a quiet word rather than a
             count, because there is only ever one draft per channel and a "1" would invite
             reading it as an unread. Not the accent: it is your own unfinished business. */}
-        {!folded && !active && channelHasDraft(drafts, channel.id) && (
+        {!folded && !active && hasDraft && (
           <span
             className="flex-none text-(length:--text-2xs) leading-[18px] text-muted-foreground italic"
             title="You have an unsent draft here"

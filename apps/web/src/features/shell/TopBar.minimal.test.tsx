@@ -165,11 +165,21 @@ describe('the channel list trigger', () => {
     );
   });
 
-  it('is the one button, with no ≡ beside it', () => {
+  it('is the one button, with no ≡ beside it, at a desk or on a phone', () => {
+    // The ≡ was a second button beside the mark, named "Channels" where it opened the
+    // drawer on a phone: one control for the list means one button that names it.
+    const aboutTheList = { name: /channel list|^Channels$/ };
     signedIn();
-    const { container } = render(chat(<TopBar onFeedback={vi.fn()} view="messages" minimal />));
-    expect(screen.getAllByRole('button', { name: /channel list/ })).toHaveLength(1);
-    expect(container.querySelector('.topbar-hamburger')).toBeNull();
+    const { unmount } = render(chat(<TopBar onFeedback={vi.fn()} view="messages" minimal />));
+    expect(screen.getAllByRole('button', aboutTheList)).toHaveLength(1);
+    unmount();
+
+    narrow();
+    render(chat(<TopBar onFeedback={vi.fn()} view="messages" minimal />));
+    expect(screen.getAllByRole('button', aboutTheList)).toHaveLength(1);
+    expect(screen.getByRole('button', aboutTheList).getAttribute('aria-label')).toBe(
+      'Open channel list',
+    );
   });
 });
 

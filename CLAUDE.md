@@ -445,8 +445,8 @@ a new section is a row plus a component rather than four files that have to agre
 data/action hooks every section uses and the kit every section is drawn with — shadcn's,
 since phase 3 of ADR 0043. The shell is shadcn's Sidebar (`components/ui/sidebar.tsx`,
 with the generated component's `sidebar_state` cookie and ⌘B stripped): the nav is a
-column on the ground from 768px — Tailwind's `md`, one pixel from where the chat's frame
-begins — and below that a Sheet that traps focus, closes on Escape and hands focus back,
+column on the ground from 768px — Tailwind's `md`, where the chat's frame begins too —
+and below that a Sheet that traps focus, closes on Escape and hands focus back,
 and the page is `SidebarInset`. A page is cards from `features/console/Card.tsx`, whose
 `CardRows`, `CardFields` and `CardTable` are the list, the settings and the table a card
 holds, and a hint is tied to its control by `aria-describedby`. The page body is
@@ -530,13 +530,13 @@ Eight rules the file will not tell you on its own:
 * **Elevation carries its own border.** Every `--elev-*` opens with a `0 0 0 1px` ring, so
   an elevated surface sets `box-shadow` and no `border`. Setting both is how four
   different popover treatments drifted apart before.
-* **The work sits in a frame (Meadow `1a`, since 2026-10).** From 769px `.shell > .pane` —
+* **The work sits in a frame (Meadow `1a`, since 2026-10).** From 768px `.shell > .pane` —
   every view's root — and `.shell > .panel` — a thread, a file, a terminal — are one paper
   card, inset by `--frame-gap`, rounded `--frame-radius`, shadowed `--elev-frame`, on the
   ground the top bar and the channel list share (`--bg-sidebar`, shadcn's `--sidebar`,
   which in dark is *lighter* than the card — shadcn's arrangement, where Meadow's sat below
   the page so the card lifted). The consoles draw the same card with shadcn's Sidebar from
-  768px, Tailwind's `md` and one pixel before the chat's 769: `SidebarInset` as
+  the same 768px, Tailwind's `md`: `SidebarInset` as
   `<main class="admin-main">`, given the frame's gap, radius and shadow by utilities in
   `features/console/ConsoleShell.tsx`, and its own scroller, so its corners clip what
   scrolls in it. For `.pane` and `.panel` it is a rule about those selectors with nothing
@@ -556,15 +556,25 @@ Eight rules the file will not tell you on its own:
   `vite:preloadError` with one toast per page telling the person to reload, and leaves the
   default alone so the import still fails into `lazyOverlay`. `scripts/bundle-budget.mjs`
   fails the build if Base UI's overlay code reaches a first-load chunk, so first-load code
-  never imports `ui/dialog`, `ui/alert-dialog`, `ui/dropdown-menu` or `ui/popover`. Menus
-  and popovers are phase-2 scaffolding, not shadcn's DropdownMenu and Popover yet: their
-  callers own the triggers and the `<button role="menuitem">` items, so the panels keep
-  the legacy look and Blob's own dismissal (`lib/useDismissal.ts`, first-load, so a menu
-  clicked open before the chunk lands already answers Escape and a click outside) and
-  arrow keys, are drawn in place inside `PanelAnchor`'s span with Base UI's focus guards
-  hidden, and Base UI only places, animates and focuses them (`overlays/inPlace.ts`). The
-  spec's phases 4 and 5 say which callers move to its triggers and items, and what is
-  deleted then.
+  never imports `ui/dialog`, `ui/alert-dialog`, `ui/dropdown-menu` or `ui/popover`. The
+  shell's four menus — account, workspace, channel, section — are shadcn's DropdownMenu
+  since phase 4, Base UI's triggers and items and all. The message and schedule menus and
+  the popovers are still phase-2 scaffolding: their callers own the triggers and the
+  `<button role="menuitem">` items, so the panels keep the legacy look and Blob's own
+  dismissal (`lib/useDismissal.ts`, first-load, so a menu clicked open before the chunk
+  lands already answers Escape and a click outside) and arrow keys, are drawn in place
+  inside `PanelAnchor`'s span with Base UI's focus guards hidden, and Base UI only places,
+  animates and focuses them (`overlays/inPlace.ts`). The spec's phase 5 says which callers
+  move next, and what is deleted then.
+
+  A menu or palette that a press or a keystroke opens is a module of its own, preloaded
+  beside the overlay chunk (`preloadAlso`) and never `lazy()`, which suspends a first
+  render however settled its import is and throws a failed one to the error boundary:
+  `components/lazyDropdown.tsx` for the shell's menus, whose trigger stands in and holds a
+  press until the module lands, and the palette's loader (`features/palette/lazyPalette.ts`)
+  for ⌘K. Each takes its layer on the Escape stack as it opens — a drawn menu through
+  `lib/useMenuEscapeLayer.ts`, a press or the palette still waiting on its module through
+  `useEscape`.
 * **Overlays enter and leave — dialogs, menus, popovers, toasts, the thread panel, the
   conversation notices, the typing line and inline notes.** Base UI's own play their exit
   on `data-ending-style` and report its end (`onOpenChangeComplete`); `Menu` and `Popover`
