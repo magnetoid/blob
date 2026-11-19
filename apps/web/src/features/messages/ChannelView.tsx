@@ -259,7 +259,7 @@ export function ChannelView() {
               channel={channel}
               onOpenDetails={() => setDetailsOpen(true)}
               onOpenRuns={() => setRunsOpen(true)}
-              runsLabel={agent ? `What ${agent.displayName} has done` : "Agent runs"}
+              runsLabel={agent ? `What ${agent.displayName} has done` : 'Agent runs'}
               trigger={
                 <button className="pane-name-trigger">
                   {!isDm && (
