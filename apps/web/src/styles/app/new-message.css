@@ -1,10 +1,4 @@
 /* ─── new message ─────────────────────────────────────────────────────────── */
-/* A section's options, shown while its heading is hovered or focused. */
-.section-head:hover .section-kebab,
-.section-head:focus-within .section-kebab {
-  opacity: 1;
-}
-
 /* A message whose files retention took (ADR 0039): it says so where they were. */
 .message-files-removed {
   margin-top: 4px;

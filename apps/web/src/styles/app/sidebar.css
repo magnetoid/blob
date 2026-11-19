@@ -1,33 +1,8 @@
 /* ─── sidebar ────────────────────────────────────────────────────────────── */
 /* The channel list is shadcn's Sidebar (`features/channels/Sidebar.tsx`) and its rows are
    styled where they are drawn. What is left here grew up in this file: the `#` that other
-   lists still draw beside a channel's name, and a channel's options button, until the
-   channel menu is Base UI's. (The workspace's mark and switcher are the top bar's.) */
-
-.channel-kebab {
-  position: absolute;
-  top: 50%;
-  right: 3px;
-  translate: 0 -50%;
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--blob-radius-sm);
-  color: var(--text-faint);
-  font-size: 14px;
-  letter-spacing: 1px;
-  opacity: 0;
-}
-
-.channel-row-wrap:hover .channel-kebab,
-.channel-kebab[aria-expanded='true'] {
-  opacity: 1;
-}
-
-.channel-kebab:hover {
-  background: var(--ground-press);
-  color: var(--text);
-}
+   lists still draw beside a channel's name. (The workspace's mark and switcher are the
+   top bar's.) */
 
 .channel-hash {
   width: 10px;

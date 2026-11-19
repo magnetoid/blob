@@ -185,6 +185,8 @@ describe('styles/index.css', () => {
     'components/EmptyState.tsx',
     'components/ListSkeleton.tsx',
     'features/channels/Sidebar.tsx',
+    'features/channels/ChannelMenu.tsx',
+    'features/channels/SectionMenu.tsx',
     'features/shell/TopBar.tsx',
     'features/shell/AccountMenu.tsx',
     'features/shell/WorkspaceMenu.tsx',

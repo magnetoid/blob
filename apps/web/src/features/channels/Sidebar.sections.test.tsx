@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 /** Sections of your own in the channel list (M3 · B3). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { SidebarSection } from '@blob/shared';
 import { SidebarProvider } from '../../components/ui/sidebar.tsx';
 import { Sidebar } from './Sidebar.tsx';
@@ -91,6 +91,49 @@ describe('a section of your own', () => {
     seed([{ ...CLIENTS, channelIds: [] }]);
     draw();
     expect(screen.getByText('Move a conversation here from its ··· menu.')).toBeTruthy();
+  });
+});
+
+describe('the section menu', () => {
+  async function openMenu() {
+    seed([CLIENTS]);
+    draw();
+    const clients = screen.getByRole('region', { name: 'Clients' });
+    const options = within(clients).getByRole('button', { name: 'Options for Clients' });
+    fireEvent.click(options);
+    await screen.findByRole('menuitem', { name: 'Rename section…' });
+    return options;
+  }
+
+  it('renames the section through its dialog, and focus returns to its button', async () => {
+    await openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename section…' }));
+    const input = await screen.findByRole<HTMLInputElement>('textbox');
+    fireEvent.change(input, { target: { value: 'Customers' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(setSidebarSections).toHaveBeenCalledWith([{ ...CLIENTS, name: 'Customers' }]);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Options for Clients' }),
+    );
+  });
+
+  it('deletes the section after asking, and only the section', async () => {
+    await openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete section' }));
+    await screen.findByRole('alertdialog');
+    expect(setSidebarSections).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete section' }));
+    expect(setSidebarSections).toHaveBeenCalledWith([]);
+  });
+
+  it('leaves the section as it was when the question is dismissed', async () => {
+    const options = await openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete section' }));
+    fireEvent.keyDown(await screen.findByRole('alertdialog'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(setSidebarSections).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(options);
   });
 });
 

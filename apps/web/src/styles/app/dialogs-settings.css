@@ -166,7 +166,6 @@
 .send-btn:active:not(:disabled),
 .reaction:active,
 .thread-summary:active,
-.channel-kebab:active,
 .new-message-person:active:not(:disabled),
 .emoji-cell:active,
 .emoji-tone:active,
@@ -183,7 +182,6 @@
    transform and scale for the presses. Not a keyboard highlight — the autocomplete's
    and the emoji grid's move under hands that are typing, and a highlight a beat behind
    the key reads as lag; the emoji cell is handled beside its own rules. */
-.channel-kebab,
 .message-action,
 .menu-item,
 .thread-summary,

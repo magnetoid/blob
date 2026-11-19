@@ -30,8 +30,6 @@ import {
   joinedChannels,
 } from '../../lib/conversations.ts';
 import { AvatarWithPresence } from '../../components/Avatar.tsx';
-import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
-import { Menu } from '../../components/Menu.tsx';
 import {
   Sidebar as SidebarFrame,
   SidebarContent,
@@ -46,8 +44,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '../../components/ui/sidebar.tsx';
-import { removeSection, sectioned, toggleCollapsed } from '../../lib/sidebarSections.ts';
-import { RenameSectionDialog } from './SectionDialogs.tsx';
+import { sectioned, toggleCollapsed } from '../../lib/sidebarSections.ts';
 import {
   ActivityIcon,
   ChevronDownIcon,
@@ -70,7 +67,7 @@ import {
 } from '../../components/Icon.tsx';
 import { CreateChannelDialog } from './CreateChannelDialog.tsx';
 import { NewMessageDialog } from './NewMessageDialog.tsx';
-import { ChannelMenu } from './ChannelMenu.tsx';
+import { ChannelMenu, SectionMenu } from './lazyMenus.ts';
 import { DialogPresence } from '../../components/Dialog.tsx';
 import { byDisplayName } from '../../lib/format.ts';
 import { FALLBACK_MS } from '../../lib/usePresence.ts';
@@ -724,8 +721,6 @@ function ChannelRow({
   const presence = useStore((s) => s.presence);
   const drafts = useStore((s) => s.drafts);
   const channelTitle = useStore((s) => s.channelTitle);
-  const [menu, setMenu] = useState(false);
-
   // A primitive, not the calls themselves, so this row re-renders only when its own
   // marks change — a call starting or ending elsewhere in the workspace touches no
   // row but its own.
@@ -832,38 +827,25 @@ function ChannelRow({
           {live && <LiveDot name={name} />}
         </RowMarks>
       )}
-      {/* None on the rail, where there is no room to show it. */}
-      {!folded && (
-        <SidebarMenuAction
-          showOnHover
-          aria-label={`Options for ${name}`}
-          aria-haspopup="menu"
-          aria-expanded={menu}
-          className="size-7 w-7 -translate-y-1/2 rounded-sm text-muted-foreground peer-data-[size=default]/menu-button:top-1/2 hover:bg-(--ground-press) hover:text-sidebar-foreground"
-          onClick={(event) => {
-            event.stopPropagation();
-            setMenu(true);
-          }}
-        >
-          <MoreIcon size="sm" />
-        </SidebarMenuAction>
-      )}
-      {menu && (
-        // The menu is legacy markup until it is Base UI's own (phase 4, Task 4), drawn in
-        // place inside this row; an island, so the CSS it was written against still holds
-        // inside the sidebar.
-        <div data-legacy className="contents">
-          <ChannelMenu
-            channel={channel}
-            onClose={() => setMenu(false)}
-            onOpenDetails={() => {
-              setMenu(false);
-              onLeave();
-              void showChannel(channel.id);
-            }}
-          />
-        </div>
-      )}
+      {/* Beside the name; on the rail, in the corner of the square, shown on hover and on
+          keyboard focus as it is beside a name. The menu owns this button (`lazyDropdown`). */}
+      <ChannelMenu
+        channel={channel}
+        onOpenDetails={() => {
+          onLeave();
+          void showChannel(channel.id);
+        }}
+        trigger={
+          <SidebarMenuAction
+            showOnHover
+            aria-label={`Options for ${name}`}
+            className="size-7 w-7 -translate-y-1/2 rounded-sm text-muted-foreground peer-data-[size=default]/menu-button:top-1/2 hover:bg-(--ground-press) hover:text-sidebar-foreground group-data-[collapsible=icon]:top-6! group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:size-5 group-data-[collapsible=icon]:translate-y-0 group-data-[collapsible=icon]:bg-sidebar"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <MoreIcon size="sm" />
+          </SidebarMenuAction>
+        }
+      />
     </SidebarMenuItem>
   );
 }
@@ -893,9 +875,6 @@ function SectionGroup({
   const activeChannelId = useStore((s) => s.activeChannelId);
   const channelTitle = useStore((s) => s.channelTitle);
   const setSidebarSections = useStore((s) => s.setSidebarSections);
-  const [menu, setMenu] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const conversations = section.channelIds
     .map((id) => channels[id])
@@ -914,7 +893,7 @@ function SectionGroup({
   return (
     <SidebarGroup role="region" aria-label={section.name} className="px-1">
       {!folded && (
-        // Its own positioned box, which the section menu hangs from.
+        // Its own positioned box, which the Options button is placed in.
         <div className="group/section relative">
           <SidebarGroupLabel
             render={<button type="button" />}
@@ -931,47 +910,18 @@ function SectionGroup({
             />
             <span className="truncate">{section.name}</span>
           </SidebarGroupLabel>
-          <SidebarGroupAction
-            aria-label={`Options for ${section.name}`}
-            aria-haspopup="menu"
-            aria-expanded={menu}
-            onClick={() => setMenu(true)}
-            className="top-1.5 right-1 size-5 text-muted-foreground group-focus-within/section:opacity-100 group-hover/section:opacity-100 hover:bg-(--ground-press) hover:text-sidebar-foreground aria-expanded:opacity-100 md:opacity-0"
-          >
-            <MoreIcon size="sm" />
-          </SidebarGroupAction>
-          {/* Legacy markup until Task 4 gives the section Base UI's menu: an island. */}
-          <div data-legacy className="contents">
-            <Menu
-              open={menu}
-              onClose={() => setMenu(false)}
-              className="menu"
-              suspendDismiss={renaming || deleting}
-            >
-              <button
-                className="menu-item"
-                role="menuitem"
-                onClick={() => {
-                  setMenu(false);
-                  setRenaming(true);
-                }}
+          <SectionMenu
+            section={section}
+            sections={sections}
+            trigger={
+              <SidebarGroupAction
+                aria-label={`Options for ${section.name}`}
+                className="top-1.5 right-1 size-5 text-muted-foreground group-focus-within/section:opacity-100 group-hover/section:opacity-100 hover:bg-(--ground-press) hover:text-sidebar-foreground aria-expanded:opacity-100 md:opacity-0"
               >
-                <span className="menu-check" aria-hidden="true" />
-                Rename section…
-              </button>
-              <button
-                className="menu-item menu-item-danger"
-                role="menuitem"
-                onClick={() => {
-                  setMenu(false);
-                  setDeleting(true);
-                }}
-              >
-                <span className="menu-check" aria-hidden="true" />
-                Delete section
-              </button>
-            </Menu>
-          </div>
+                <MoreIcon size="sm" />
+              </SidebarGroupAction>
+            }
+          />
         </div>
       )}
       <SidebarMenu>
@@ -992,25 +942,6 @@ function SectionGroup({
           Move a conversation here from its ··· menu.
         </p>
       )}
-
-      <DialogPresence when={renaming}>
-        {() => <RenameSectionDialog section={section} onClose={() => setRenaming(false)} />}
-      </DialogPresence>
-      <DialogPresence when={deleting}>
-        {() => (
-          <ConfirmDialog
-            title={`Delete “${section.name}”?`}
-            body="Its conversations go back to where they were. Only the section goes."
-            confirmLabel="Delete section"
-            danger
-            onClose={() => setDeleting(false)}
-            onConfirm={() => {
-              setDeleting(false);
-              void setSidebarSections(removeSection(sections, section.id));
-            }}
-          />
-        )}
-      </DialogPresence>
     </SidebarGroup>
   );
 }

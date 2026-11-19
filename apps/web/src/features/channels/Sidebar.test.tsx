@@ -280,11 +280,18 @@ describe('folded to its rail', () => {
     expect(row('New channel').getAttribute('title')).toBe('New channel');
   });
 
-  it('offers no options button on the rail, where there is no room to show it', () => {
+  it('keeps a channel’s options reachable on the rail, by pointer and by keyboard', async () => {
     seed();
     draw({ folded: true });
 
-    expect(screen.queryByRole('button', { name: 'Options for general' })).toBeNull();
+    // A real button after the row's own in the tab order, drawn in the square's corner:
+    // shown on hover and on focus, as beside a name.
+    const options = screen.getByRole('button', { name: 'Options for general' });
+    expect(options.className).toContain('group-data-[collapsible=icon]:flex');
+    expect(options.getAttribute('aria-haspopup')).toBe('menu');
+    options.focus();
+    fireEvent.click(options);
+    expect(await screen.findByRole('menuitem', { name: 'Star this channel' })).toBeTruthy();
   });
 });
 
