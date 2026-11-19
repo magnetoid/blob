@@ -7,13 +7,15 @@
 /* The workspace, at the top of the list of places inside it.
  *
  * A mark and a name. The mark is the initial on the accent, and it is the half that
- * survives collapsing — at 84px there is no room for a name, and a coloured square with
- * a letter in it is still recognisably *this* workspace. Sized to the avatar scale
- * rather than the icon scale so it reads as an identity and not a button.
+ * survives the narrow bar — beside an 80px folded column (a 64px rail inside the
+ * inset) there is no room for a name, and a coloured square with a letter in it is
+ * still recognisably *this* workspace. Sized to the avatar scale rather than the icon
+ * scale so it reads as an identity and not a button.
  */
-/* Identity sits in the top bar now, not in the channel column. The selectors moved
-   with it rather than being duplicated: the sidebar no longer draws a mark at all, so
-   a `.sidebar-identity` rule left behind would style nothing and read as if it did. */
+/* Identity sits in the top bar, not in the channel column. The selectors moved with it
+   rather than being duplicated: the column draws no mark, and the phone Sheet, which
+   covers the bar, draws its own with utilities where it is drawn — so a
+   `.sidebar-identity` rule left behind would style nothing and read as if it did. */
 .topbar-identity {
   display: flex;
   align-items: center;

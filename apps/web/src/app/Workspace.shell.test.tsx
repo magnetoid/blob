@@ -148,6 +148,13 @@ describe('the channel list on a phone', () => {
     const nav = within(sheet).getByRole('navigation', { name: 'Channel list' });
     // The Sheet is named twice over: its close button says which list it closes.
     expect(within(sheet).getByRole('button', { name: 'Close channel list' })).toBeTruthy();
+    // It covers the top bar, so it says whose workspace this is itself — in a header above
+    // the first row, which is the row the close button used to sit on.
+    const name = within(sheet).getByText('Imba');
+    expect(nav.contains(name)).toBe(false);
+    const home = within(nav).getByRole('button', { name: 'Home' });
+    expect(name.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(name.closest('[data-slot="sidebar-header"]')).not.toBeNull();
 
     fireEvent.click(within(nav).getByRole('button', { name: 'Threads' }));
 

@@ -38,6 +38,7 @@ import {
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuBadge,
@@ -114,6 +115,7 @@ export function Sidebar() {
   const presence = useStore((s) => s.presence);
   const currentUser = useStore((s) => s.currentUser);
   const activeChannelId = useStore((s) => s.activeChannelId);
+  const workspaceName = useStore((s) => s.workspaceName);
   const isGuest = currentUser?.role === 'guest';
   const path = usePath();
   const route = parseRoute(path);
@@ -223,10 +225,26 @@ export function Sidebar() {
         // fixed column would cover it.
         className="absolute inset-y-0 h-auto transition-none"
       >
+        {/* A header in the Sheet alone. Beside the view the top bar is above the list and
+            says whose workspace this is, and the control that folds the column is there
+            too — a band here would be empty space. A Sheet covers the bar, and its close
+            button needs a row of its own: without one it sat on top of Home. The band is
+            as tall as that button, which is 44px under a coarse pointer, and leaves it the
+            end of the row. */}
+        {isMobile && (
+          <SidebarHeader className="min-h-13 flex-row items-center gap-2 py-3 ps-4 pe-12 pointer-coarse:min-h-17 pointer-coarse:pe-16">
+            <span
+              aria-hidden="true"
+              className="grid size-6 flex-none place-items-center rounded-(--blob-radius-md) bg-(--blob-accent) text-(length:--blob-text-base) leading-none font-bold text-(--blob-accent-contrast) select-none"
+            >
+              {workspaceName.trim().charAt(0).toUpperCase() || 'B'}
+            </span>
+            <span className="min-w-0 truncate text-(length:--text-title) font-bold text-sidebar-foreground">
+              {workspaceName}
+            </span>
+          </SidebarHeader>
+        )}
         <nav aria-label="Channel list" className="flex min-h-0 flex-1 flex-col">
-          {/* No header. Identity lives in the top bar, and so does the control that folds
-              this column — a band up here holding one chevron cost the list a header's
-              height and read as empty space above it. The list starts where it starts. */}
           <SidebarContent className="pb-4 group-data-[collapsible=icon]:overflow-y-auto">
             <SidebarGroup className="px-1">
               <SidebarMenu>
@@ -588,9 +606,10 @@ function PlaceRow({
         aria-current={active ? 'page' : undefined}
         // Named by its own text where there is text. An `aria-label` that repeats the label
         // would make the name disagree with what everyone else sees; on the rail there is
-        // no text, and the label is the name.
+        // no text, and the label is the name — and the tooltip, which beside the text
+        // would only say it again.
         aria-label={folded ? label : undefined}
-        title={label}
+        title={folded ? label : undefined}
         className={cn(ROW, muted && 'text-muted-foreground', endRoom(Boolean(badge), false))}
         onClick={onSelect}
       >
@@ -627,7 +646,7 @@ function ActionRow({
         isActive={active}
         aria-current={active ? 'page' : undefined}
         aria-label={folded ? label : undefined}
-        title={label}
+        title={folded ? label : undefined}
         className={cn(ROW, 'text-muted-foreground')}
         onClick={onSelect}
       >
@@ -652,6 +671,7 @@ function PersonRow({
   name: string;
   /** What the row is called on the rail, where it shows nothing. */
   label?: string;
+  /** The tooltip: the name, and a status where there is one. */
   title: string;
   avatar: ReactNode;
   folded: boolean;
@@ -662,7 +682,8 @@ function PersonRow({
     <SidebarMenuItem>
       <SidebarMenuButton
         aria-label={folded ? label : undefined}
-        title={title}
+        // Beside the name, only a status is news; on the rail, all of it is.
+        title={folded || title !== label ? title : undefined}
         className={cn(ROW, endRoom(live, false))}
         onClick={onSelect}
       >
@@ -723,6 +744,9 @@ function ChannelRow({
       ? (channel.memberIds ?? []).find((id) => id !== currentUserId)
       : undefined;
   const name = channel.name ?? channelTitle(channel);
+  // On the rail the lock is all there is to see, so the name says what it says — as the
+  // row's hidden ", private" does beside the text.
+  const railName = channel.kind === 'private' ? `${name}, private` : name;
   const muted = channel.membership?.notifyLevel === 'none';
   const marks = channel.mentionCount > 0 || live;
   const callLabel = liveKinds.includes('m') ? 'A meetup is on' : 'A huddle is on';
@@ -750,8 +774,8 @@ function ChannelRow({
         aria-current={active ? 'page' : undefined}
         data-unread={channel.hasUnread && !active ? 'true' : undefined}
         data-muted={muted ? 'true' : undefined}
-        aria-label={folded ? name : undefined}
-        title={name}
+        aria-label={folded ? railName : undefined}
+        title={folded ? railName : undefined}
         className={cn(ROW, endRoom(marks, !folded))}
         onClick={() => {
           onLeave();

@@ -70,12 +70,13 @@ const row = (name: string | RegExp) => screen.getByRole('button', { name });
 const itemOf = (name: string | RegExp) => row(name).closest<HTMLElement>('[data-slot="sidebar-menu-item"]')!;
 
 describe('the sidebar header', () => {
-  it('draws no identity of its own — the top bar carries it', () => {
+  it('draws no identity of its own beside the view — the top bar carries it', () => {
     // This has now swung both ways, so it is worth saying why rather than just which:
     // the bar spans the channel list *and* the conversation, this column spans only the
     // list, and the workspace names the whole app. What the test is really pinning is
     // that exactly one surface draws the name — two copies a few centimetres apart is
-    // the defect either arrangement can produce.
+    // the defect either arrangement can produce. (On a phone the Sheet covers the bar,
+    // so there the Sheet draws it: `app/Workspace.shell.test.tsx`.)
     seed();
     draw();
 
@@ -245,11 +246,67 @@ describe('folded to its rail', () => {
     expect(itemOf('general').querySelector('[data-slot="sidebar-menu-badge"]')?.textContent).toBe('2');
   });
 
+  it('names a private channel as private, which is all its lock says there', () => {
+    seed();
+    useStore.setState((s) => ({
+      channels: {
+        ...s.channels,
+        c2: {
+          id: 'c2',
+          kind: 'private',
+          name: 'leads',
+          membership: { isStarred: false },
+          archivedAt: null,
+          memberIds: ['u1'],
+        },
+      },
+    }) as never);
+    draw({ folded: true });
+
+    // The same words the open row's hidden ", private" adds, and the tooltip says them too.
+    const leads = row('leads, private');
+    expect(leads.getAttribute('title')).toBe('leads, private');
+    // A public one is its bare name.
+    expect(row('general').getAttribute('aria-label')).toBe('general');
+  });
+
+  it('gives every row a tooltip, since none of them shows its name', () => {
+    seed();
+    draw({ folded: true });
+
+    expect(row('Home').getAttribute('title')).toBe('Home');
+    expect(row('general').getAttribute('title')).toBe('general');
+    expect(row('Ana').getAttribute('title')).toBe('Ana');
+    expect(row('New channel').getAttribute('title')).toBe('New channel');
+  });
+
   it('offers no options button on the rail, where there is no room to show it', () => {
     seed();
     draw({ folded: true });
 
     expect(screen.queryByRole('button', { name: 'Options for general' })).toBeNull();
+  });
+});
+
+describe('a row open beside the view', () => {
+  it('has no tooltip repeating the name it shows', () => {
+    seed();
+    draw();
+
+    // A person's row is read with their avatar's initial before the name.
+    for (const name of ['Home', 'Activity', 'general', /Ana$/, 'New channel']) {
+      expect(row(name).hasAttribute('title'), String(name)).toBe(false);
+    }
+  });
+
+  it('keeps a person’s tooltip while it says their status, which the row does not show', () => {
+    seed();
+    useStore.setState((s) => ({
+      users: { ...s.users, u2: { ...MATE, statusText: 'On a train' } },
+    }) as never);
+    draw();
+
+    expect(row(/Ana$/).getAttribute('title')).toBe('Ana — On a train');
   });
 });
 
