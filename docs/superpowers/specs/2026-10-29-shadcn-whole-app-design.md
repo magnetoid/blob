@@ -45,7 +45,8 @@ component library itself. Nothing about the product's behaviour changes.
 
 - No layout change. Blob stays Slack-shaped (channel list, conversation, thread or file
   panel on the right, ⌘K); "as familiar as Slack" still wins over any shadcn block that
-  arranges things differently.
+  arranges things differently. One exception, the user's (2026-11-19): phase 4 drops the
+  top bar's view tabs, so the sidebar is the only navigation, as in Slack.
 - No new features, and no server change beyond themes.
 - No framework change (stays Vite + React 19, hand-rolled router, zustand).
 
@@ -240,10 +241,13 @@ and tests apply.
      and nothing marks it as a menu.
    - At 400 px the top tabs leave the Search button room and do not fade out mid-word
      ("Channe…").
-   - **The user decides, before the plan does:** the top tabs (Messages, Activity, Files,
-     Channels) repeat the sidebar — Channels is Browse channels, Activity overlaps
-     Mentions — so the shell has two navigation systems where Slack has one. The review
-     recommends one, in the sidebar.
+   - **Decided by the user on 2026-11-19 ("Sidebar only"):** the top tabs (Messages,
+     Activity, Files, Channels) repeated the sidebar — Channels is Browse channels,
+     Activity overlaps Mentions — so the shell had two navigation systems where Slack has
+     one. The tabs go, and the sidebar is the one navigation. Every place a tab reached
+     stays reachable from the sidebar, Files and Activity included, and every old URL
+     keeps opening what it opened. This is the one layout change the migration makes; the
+     non-goal above still holds for everything else.
    - The inset frame shows in dark mode. Today the card and the ground (`--bg-sidebar`)
      are nearly the same black, so the frame light mode draws disappears.
    - Tasks has a task icon (Lucide `ListTodo` or `SquareCheck`) rather than `FileIcon`,
