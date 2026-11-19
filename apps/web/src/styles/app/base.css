@@ -334,7 +334,6 @@ button {
   :root {
     --motion-scale-in: 1;
     --motion-press: 1;
-    --motion-lift: 0px;
     --motion-action-enter: 0px;
     --motion-slide: 0px;
     --motion-slide-lg: 0px;

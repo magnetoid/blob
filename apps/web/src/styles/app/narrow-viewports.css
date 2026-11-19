@@ -1,6 +1,6 @@
 /* ─── narrow viewports ───────────────────────────────────────────────────── */
 /* The chat shell adapts at one breakpoint, 768px — the sidebar's own (`useIsMobile`,
-   Tailwind's `md`): below it the channel list is a Sheet the top bar's mark opens
+   Tailwind's `md`): below it the channel list is a Sheet the top bar's list button opens
    (`components/ui/sidebar.tsx`), and the thread panel takes the whole pane instead of a
    third column. The consoles' nav is a Sheet at the same width. */
 

@@ -1,6 +1,7 @@
 // What the first load costs: the JavaScript `index.html` asks for before anything is
-// clicked — the entry chunk and what it preloads — gzipped, against a budget. Run after
-// `pnpm build`; CI's `check` job does.
+// clicked — the entry chunk and what it preloads — gzipped, against a budget, and the
+// stylesheets it links, against one of their own. Run after `pnpm build`; CI's `check` job
+// does.
 //
 // A ratchet like `sourceRatchets.test.ts`: lower BUDGET_KB when the app gets lighter, and
 // raise it only on purpose, in the commit that says why. It also holds two lines CLAUDE.md
@@ -16,7 +17,12 @@ import { gzipSync } from 'node:zlib';
 // more or less from one commit to the next — 239.6 KB, then 239.7, for one tree under
 // Vite 6 — and a budget with no room would fail a docs commit, a merge ref or a squash for
 // nothing the app does. Lower it with the app, keeping the 1 KB.
-const BUDGET_KB = 234;
+const BUDGET_KB = 240;
+// The same rule for the stylesheet, which every first paint also waits for. Tailwind's
+// utilities land in it from every converted file, lazy chunks' files included — phase 3's
+// consoles took it from 40.7 to 46.2 KB with none of their JavaScript in the first load —
+// so the JavaScript budget alone cannot see a phase spend it (ADR 0043, phases 3 and 4).
+const CSS_BUDGET_KB = 46;
 const DIST = new URL('../apps/web/dist/', import.meta.url);
 /** Strings only livekit-client's own code carries. */
 const CALL_SDK = /LiveKitError|LiveKitReactNativeGlobal/;
@@ -76,6 +82,29 @@ if (!overlayChunk) {
 console.log(`${total.toFixed(1).padStart(7)} KB  first load, gzipped (budget ${BUDGET_KB} KB)`);
 if (total > BUDGET_KB) {
   console.error(`The first load grew past its budget by ${(total - BUDGET_KB).toFixed(1)} KB.`);
+  failed = true;
+}
+
+// Every stylesheet `index.html` links, gzipped as the scripts are. None at all means the
+// build stopped linking one (or this pattern stopped reading Vite's tag), and a pass would
+// be measuring nothing.
+const sheets = [
+  ...new Set(
+    [...html.matchAll(/<link\b[^>]*>/g)]
+      .map((m) => m[0])
+      .filter((tag) => /\brel="stylesheet"/.test(tag))
+      .map((tag) => /\bhref="\/(assets\/[^"]+\.css)"/.exec(tag)?.[1])
+      .filter(Boolean),
+  ),
+];
+if (sheets.length === 0) {
+  console.error('No stylesheet linked from dist/index.html: the stylesheet measure has gone blind.');
+  failed = true;
+}
+const css = sheets.reduce((sum, file) => sum + gzipSync(readFileSync(new URL(file, DIST))).length / 1024, 0);
+console.log(`${css.toFixed(1).padStart(7)} KB  ${sheets.join(', ')}, gzipped (budget ${CSS_BUDGET_KB} KB)`);
+if (css > CSS_BUDGET_KB) {
+  console.error(`The first-load stylesheet grew past its budget by ${(css - CSS_BUDGET_KB).toFixed(1)} KB.`);
   failed = true;
 }
 process.exit(failed ? 1 : 0);

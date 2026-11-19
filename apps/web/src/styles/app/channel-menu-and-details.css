@@ -45,13 +45,6 @@
   min-width: 168px;
 }
 
-.menu-label {
-  margin: 4px 9px 2px;
-  font-size: var(--text-label-size);
-  font-weight: 600;
-  color: var(--text-4);
-}
-
 .menu-item {
   display: flex;
   align-items: center;
@@ -76,17 +69,6 @@
 .menu-item:disabled {
   color: var(--disabled-fg);
   cursor: default;
-}
-
-.menu-item-danger:hover {
-  color: var(--danger);
-}
-
-/* A fixed gutter, so labels line up whether or not a row is ticked. */
-.menu-check {
-  flex: none;
-  width: 14px;
-  color: var(--blob-accent);
 }
 
 .menu-sep {

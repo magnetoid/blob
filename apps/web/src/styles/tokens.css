@@ -259,7 +259,6 @@
   --dur-open: 160ms;
   --dur-exit: 150ms;
   --dur-modal: 160ms;
-  --dur-panel: 160ms;
   --blob-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --blob-ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -269,7 +268,6 @@
      control moving — and it is a transform, so it costs a composite and never a
      layout. Goes to 1 under reduced motion with the rest of the scale family. */
   --motion-press: 0.97;
-  --motion-lift: -1px;
   --motion-action-enter: 2px;
   --motion-slide: 4px;
   --motion-slide-lg: 8px;
@@ -286,7 +284,6 @@
   --z-sticky: 20;
   --z-panel: 40;
   --z-scrim: 50;
-  --z-drawer: 60;
   --z-menu: 70;
   --z-popover: 80;
   --z-modal: 90;
