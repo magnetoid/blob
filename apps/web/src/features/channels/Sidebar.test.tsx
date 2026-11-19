@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { SidebarProvider } from '../../components/ui/sidebar.tsx';
 import { Sidebar } from './Sidebar.tsx';
+import { ChannelMenu } from './lazyMenus.ts';
 import { useStore } from '../../lib/store.ts';
 
 afterEach(cleanup);
@@ -22,6 +23,11 @@ vi.mock('../../lib/router.ts', async (original) => ({
 }));
 
 const { navigate } = await import('../../lib/router.ts');
+
+// The channel menu is its own lazy module (`lazyMenus.ts`). Loaded while the file is
+// collected, as `test/overlayChunk.ts` loads the overlay chunk, so a first press does not
+// pay for a cold import that a busy machine can stretch past `findBy`'s second.
+await ChannelMenu.preload();
 
 beforeEach(() => {
   route.path = '/';

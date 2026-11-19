@@ -261,23 +261,21 @@ export function ChannelView() {
               onOpenRuns={() => setRunsOpen(true)}
               runsLabel={agent ? `What ${agent.displayName} has done` : "Agent runs"}
               trigger={
-            <button
-              className="pane-name-trigger"
-            >
-              {!isDm && (
-                <span className="pane-prefix" aria-hidden="true">
-                  #
-                </span>
-              )}
-              <h1 className="pane-title">{title}</h1>
-              {agent && <span className="agent-badge">Agent</span>}
-              {channel.membership?.isStarred && (
-                <span className="pane-star" title="Starred">
-                  ★
-                </span>
-              )}
-              <ChevronDownIcon size="sm" />
-            </button>
+                <button className="pane-name-trigger">
+                  {!isDm && (
+                    <span className="pane-prefix" aria-hidden="true">
+                      #
+                    </span>
+                  )}
+                  <h1 className="pane-title">{title}</h1>
+                  {agent && <span className="agent-badge">Agent</span>}
+                  {channel.membership?.isStarred && (
+                    <span className="pane-star" title="Starred">
+                      ★
+                    </span>
+                  )}
+                  <ChevronDownIcon size="sm" />
+                </button>
               }
             />
           </div>

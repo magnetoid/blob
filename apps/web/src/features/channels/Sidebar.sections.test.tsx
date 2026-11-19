@@ -6,6 +6,7 @@ import type { SidebarSection } from '@blob/shared';
 import { SidebarProvider } from '../../components/ui/sidebar.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import { MoveToSectionDialog } from './SectionDialogs.tsx';
+import { SectionMenu } from './lazyMenus.ts';
 import { useStore } from '../../lib/store.ts';
 import '../../test/overlayChunk.ts';
 
@@ -14,6 +15,11 @@ vi.mock('../../lib/router.ts', async () => ({
   parseRoute: () => ({ view: 'messages' }),
   usePath: () => '/',
 }));
+
+// The section menu is its own lazy module (`lazyMenus.ts`). Loaded while the file is
+// collected, as `test/overlayChunk.ts` loads the overlay chunk, so a first press does not
+// pay for a cold import that a busy machine can stretch past `findBy`'s second.
+await SectionMenu.preload();
 
 const ME = { id: 'u1', kind: 'human', displayName: 'Marko', deactivated: false };
 const setSidebarSections = vi.fn<(sections: SidebarSection[]) => Promise<void>>(async () => undefined);

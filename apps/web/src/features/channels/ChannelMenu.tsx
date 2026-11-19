@@ -18,14 +18,14 @@
  * focus goes back to the trigger, because the item it was opened from is gone.
  */
 
-import { useRef, useState } from "react";
-import type { ChannelWithState, NotifyLevel } from "@blob/shared";
-import { api, ApiError } from "../../lib/api.ts";
-import { usePath } from "../../lib/router.ts";
-import { useStore } from "../../lib/store.ts";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
-import { DialogPresence } from "../../components/Dialog.tsx";
-import type { DropdownModuleProps } from "../../components/lazyDropdown.tsx";
+import { useRef, useState } from 'react';
+import type { ChannelWithState, NotifyLevel } from '@blob/shared';
+import { api, ApiError } from '../../lib/api.ts';
+import { usePath } from '../../lib/router.ts';
+import { useStore } from '../../lib/store.ts';
+import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
+import { DialogPresence } from '../../components/Dialog.tsx';
+import type { DropdownModuleProps } from '../../components/lazyDropdown.tsx';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,8 +36,8 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu.tsx";
-import { MoveToSectionDialog } from "./SectionDialogs.tsx";
+} from '../../components/ui/dropdown-menu.tsx';
+import { MoveToSectionDialog } from './SectionDialogs.tsx';
 
 interface Props extends DropdownModuleProps {
   channel: ChannelWithState;
@@ -50,24 +50,12 @@ interface Props extends DropdownModuleProps {
 }
 
 const LEVELS: { value: NotifyLevel; label: string; hint: string }[] = [
-  {
-    value: "all",
-    label: "Every message",
-    hint: "Notify me for all activity here",
-  },
-  {
-    value: "mentions",
-    label: "Mentions",
-    hint: "Only when somebody says my name",
-  },
-  {
-    value: "none",
-    label: "Nothing",
-    hint: "Muted — it stays unread, it never notifies",
-  },
+  { value: 'all', label: 'Every message', hint: 'Notify me for all activity here' },
+  { value: 'mentions', label: 'Mentions', hint: 'Only when somebody says my name' },
+  { value: 'none', label: 'Nothing', hint: 'Muted — it stays unread, it never notifies' },
 ];
 
-const ITEM = "pointer-coarse:min-h-11";
+const ITEM = 'pointer-coarse:min-h-11';
 
 export default function ChannelMenu({
   trigger,
@@ -75,21 +63,20 @@ export default function ChannelMenu({
   channel,
   onOpenDetails,
   onOpenRuns,
-  runsLabel = "Agent runs",
+  runsLabel = 'Agent runs',
 }: Props) {
   const currentUser = useStore((s) => s.currentUser);
   const leaveChannel = useStore((s) => s.leaveChannel);
+  const [confirming, setConfirming] = useState<'leave' | 'archive' | 'section' | null>(null);
   const channelTitle = useStore((s) => s.channelTitle);
-  const inSection = useStore((s) =>
-    (s.currentUser?.prefs?.sidebarSections ?? []).some((section) =>
-      section.channelIds.includes(channel.id),
-    ),
+  const inSection = useStore(
+    (s) =>
+      (s.currentUser?.prefs?.sidebarSections ?? []).some((section) =>
+        section.channelIds.includes(channel.id),
+      ),
   );
   const path = usePath();
   const [open, setOpen] = useState(defaultOpen ?? false);
-  const [confirming, setConfirming] = useState<
-    "leave" | "archive" | "section" | null
-  >(null);
   const [error, setError] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -101,27 +88,23 @@ export default function ChannelMenu({
     setOpen(false);
   }
 
-  const isDm = channel.kind === "dm" || channel.kind === "group_dm";
+  const isDm = channel.kind === 'dm' || channel.kind === 'group_dm';
   const archived = channel.archivedAt !== null;
-  const isAdmin =
-    currentUser?.role === "admin" || currentUser?.role === "owner";
-  const level = channel.membership?.notifyLevel ?? "mentions";
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const level = channel.membership?.notifyLevel ?? 'mentions';
   const starred = channel.membership?.isStarred ?? false;
 
   /** The server echoes this to this user's own sockets, so there is nothing to write
    *  here — `channel.membership` arrives and the store applies it. Only to them: how
    *  loud a channel is for one person is nobody else's business. A failure keeps the
    *  menu open, with the reason in it. */
-  async function setMembership(input: {
-    notifyLevel?: NotifyLevel;
-    isStarred?: boolean;
-  }) {
+  async function setMembership(input: { notifyLevel?: NotifyLevel; isStarred?: boolean }) {
     setError(null);
     try {
       await api.channels.setMembership(channel.id, input);
       setOpen(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "That did not take.");
+      setError(err instanceof ApiError ? err.message : 'That did not take.');
     }
   }
 
@@ -142,11 +125,7 @@ export default function ChannelMenu({
         }}
       >
         <DropdownMenuTrigger ref={triggerRef} render={trigger} />
-        <DropdownMenuContent
-          align="start"
-          sideOffset={6}
-          className="w-auto min-w-56"
-        >
+        <DropdownMenuContent align="start" sideOffset={6} className="w-auto min-w-56">
           {!isDm && (
             <>
               <DropdownMenuGroup>
@@ -179,15 +158,12 @@ export default function ChannelMenu({
             closeOnClick={false}
             onClick={() => void setMembership({ isStarred: !starred })}
           >
-            {starred ? "Remove from starred" : "Star this channel"}
+            {starred ? 'Remove from starred' : 'Star this channel'}
           </DropdownMenuItem>
 
           {/* Sections of your own in the channel list (M3 · B3) — DMs too, as in Slack. */}
-          <DropdownMenuItem
-            className={ITEM}
-            onClick={() => setConfirming("section")}
-          >
-            {inSection ? "Move to another section…" : "Move to a section…"}
+          <DropdownMenuItem className={ITEM} onClick={() => setConfirming('section')}>
+            {inSection ? 'Move to another section…' : 'Move to a section…'}
           </DropdownMenuItem>
 
           {!isDm && (
@@ -208,7 +184,7 @@ export default function ChannelMenu({
               <DropdownMenuItem
                 variant="destructive"
                 className={ITEM}
-                onClick={() => setConfirming("leave")}
+                onClick={() => setConfirming('leave')}
               >
                 Leave channel
               </DropdownMenuItem>
@@ -216,7 +192,7 @@ export default function ChannelMenu({
                 <DropdownMenuItem
                   variant="destructive"
                   className={ITEM}
-                  onClick={() => setConfirming("archive")}
+                  onClick={() => setConfirming('archive')}
                 >
                   Archive channel
                 </DropdownMenuItem>
@@ -225,24 +201,21 @@ export default function ChannelMenu({
           )}
 
           {error && (
-            <p
-              role="alert"
-              className="px-1.5 pt-1.5 pb-0.5 text-xs text-destructive"
-            >
+            <p role="alert" className="px-1.5 pt-1.5 pb-0.5 text-xs text-destructive">
               {error}
             </p>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <DialogPresence when={confirming === "leave"}>
+      <DialogPresence when={confirming === 'leave'}>
         {() => (
           <ConfirmDialog
             title={`Leave #${channel.name}?`}
             body={
-              channel.kind === "private"
-                ? "This channel is private, so you will not be able to find it again unless somebody adds you back."
-                : "You can rejoin whenever you like. Nothing is deleted."
+              channel.kind === 'private'
+                ? 'This channel is private, so you will not be able to find it again unless somebody adds you back.'
+                : 'You can rejoin whenever you like. Nothing is deleted.'
             }
             confirmLabel="Leave"
             danger
@@ -250,7 +223,7 @@ export default function ChannelMenu({
             onConfirm={() => {
               dialogDone();
               void leaveChannel(channel.id).catch(() => {
-                setError("Could not leave that channel.");
+                setError('Could not leave that channel.');
                 setOpen(true);
               });
             }}
@@ -258,7 +231,7 @@ export default function ChannelMenu({
         )}
       </DialogPresence>
 
-      <DialogPresence when={confirming === "section"}>
+      <DialogPresence when={confirming === 'section'}>
         {() => (
           <MoveToSectionDialog
             conversationId={channel.id}
@@ -268,7 +241,7 @@ export default function ChannelMenu({
         )}
       </DialogPresence>
 
-      <DialogPresence when={confirming === "archive"}>
+      <DialogPresence when={confirming === 'archive'}>
         {() => (
           <ConfirmDialog
             title={`Archive #${channel.name}?`}
@@ -279,7 +252,7 @@ export default function ChannelMenu({
             onConfirm={() => {
               dialogDone();
               void api.channels.archive(channel.id).catch(() => {
-                setError("Could not archive that channel.");
+                setError('Could not archive that channel.');
                 setOpen(true);
               });
             }}
