@@ -475,12 +475,14 @@ server's log only when the viewer is the server's administrator. Old URLs surviv
 **The design layer.** The client wears shadcn's preset b0 — Base UI, Lucide, Inter, radius
 `0.625rem`, neutral — and is mid-move: ADR 0043 and
 `docs/superpowers/specs/2026-10-29-shadcn-whole-app-design.md` carry the seven phases,
-of which the first three are built: phase 1 changed how every screen looks and no
+of which the first four are built: phase 1 changed how every screen looks and no
 component; phase 2 rebuilt the shared primitives in `components/` — dialogs, menus,
 popovers, toasts, notes, avatars, empty states, skeletons, icons — on shadcn, Base UI and
 Lucide behind the same names and props, and moved the overlays off the first load (ADR
 0043's addendum); phase 3 drew the three consoles with shadcn's Sidebar and a kit of its
-parts (above).
+parts (above); phase 4 put the chat shell on the same Sidebar, dropped the top bar's view
+tabs at the user's word (2026-11-19, "Sidebar only" — the sidebar is the one navigation),
+and made the shell's menus and ⌘K modules of their own (below).
 `styles/index.css` is the one CSS entry, and its layer order is the design:
 `@layer theme, base, legacy, components, utilities`. shadcn's variables are unlayered in
 `styles/theme.css`; `styles/tokens.css` and `styles/app.css` (and `app/`) are Blob's own,
