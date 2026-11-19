@@ -13,7 +13,7 @@
  * it open behind the new screen.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../lib/store.ts';
 import { navigate, usePath } from '../../lib/router.ts';
 import type { DropdownModuleProps } from '../../components/lazyDropdown.tsx';
@@ -40,6 +40,9 @@ export default function AccountMenu({ trigger, defaultOpen, onFeedback, unseenRe
   const [open, setOpen] = useState(defaultOpen ?? false);
   /** Feedback was chosen and is waiting for the menu to finish closing. */
   const feedbackPending = useRef(false);
+  /** The frame Feedback is waiting for, so leaving the page cancels it. */
+  const frame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
   // Adjusted during render rather than in an effect, which avoids the extra pass.
   const [menuPath, setMenuPath] = useState(path);
@@ -68,7 +71,7 @@ export default function AccountMenu({ trigger, defaultOpen, onFeedback, unseenRe
         feedbackPending.current = false;
         // The completion is called as the popup finishes its exit, a frame before React has
         // taken it off the page: one more frame, and the snapshot is of the page alone.
-        requestAnimationFrame(onFeedback);
+        frame.current = requestAnimationFrame(onFeedback);
       }}
     >
       <DropdownMenuTrigger render={trigger} />

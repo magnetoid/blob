@@ -38,6 +38,12 @@ vi.mock('./WorkspaceSwitcher.tsx', () => ({
   WorkspaceSwitcher: ({ name }: { name: string }) => <div>{name}</div>,
 }));
 
+const unseen = vi.hoisted(() => ({ value: false }));
+vi.mock('../../lib/changelog.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/changelog.ts')>()),
+  hasUnseenRelease: () => unseen.value,
+}));
+
 const { TopBar } = await import('./TopBar.tsx');
 
 function renderBar(onFeedback = vi.fn()) {
@@ -45,7 +51,10 @@ function renderBar(onFeedback = vi.fn()) {
   return { onFeedback };
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  unseen.value = false;
+});
 afterEach(cleanup);
 
 describe('the feedback control', () => {
@@ -86,5 +95,25 @@ describe('the feedback control', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Feedback' }));
     await waitFor(() => expect(onFeedback).toHaveBeenCalledTimes(1));
     expect(menuOnPage).toBe(false);
+  });
+});
+
+describe('the account trigger', () => {
+  it('is named by the person alone, with the connection said once after it', () => {
+    renderBar();
+    // The avatar's initial and the presence dot are decoration: neither is read as a name.
+    expect(screen.getByRole('button', { name: 'Ana (connected)' })).toBeTruthy();
+  });
+
+  it('carries a quiet dot while a release is unseen, and none otherwise', () => {
+    unseen.value = true;
+    const { unmount } = render(<TopBar onFeedback={vi.fn()} view="messages" />);
+    const trigger = screen.getByRole('button', { name: /Ana/ });
+    expect(trigger.querySelector('[data-slot="release-dot"]')).not.toBeNull();
+    unmount();
+
+    unseen.value = false;
+    render(<TopBar onFeedback={vi.fn()} view="messages" />);
+    expect(screen.getByRole('button', { name: /Ana/ }).querySelector('[data-slot="release-dot"]')).toBeNull();
   });
 });

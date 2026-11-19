@@ -146,3 +146,18 @@ describe('the account menu', () => {
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
   });
 });
+
+describe('leaving while Feedback waits', () => {
+  it('does not open Feedback after the menu is gone from the page', async () => {
+    as('member');
+    const onFeedback = vi.fn();
+    const { unmount } = menu({ onFeedback });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Feedback' }));
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => frames.push(cb));
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame');
+    await waitFor(() => expect(frames.length).toBe(1));
+    unmount();
+    expect(cancel).toHaveBeenCalled();
+  });
+});

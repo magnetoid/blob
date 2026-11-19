@@ -213,7 +213,9 @@ function AccountControl({ onFeedback }: { onFeedback: () => void }) {
       unseenRelease={unseenRelease}
       trigger={
         <Button variant="ghost" className="flex-none gap-2 pr-1.5 pl-1" title={currentUser.displayName}>
-          <span className="relative flex">
+          {/* Decoration: the initial is not part of the name, and the connection is said once,
+              in words, after it. */}
+          <span className="relative flex" aria-hidden="true">
             <Avatar user={currentUser} size="sm" />
             <span
               className="presence-dot"
@@ -224,10 +226,15 @@ function AccountControl({ onFeedback }: { onFeedback: () => void }) {
           {/* Visible from 768px; below it the avatar is what people aim at, and the name
               stays the button's accessible name. */}
           <span className="max-w-40 truncate max-md:sr-only">{currentUser.displayName}</span>
+          <span className="sr-only">{status === 'online' ? '(connected)' : '(reconnecting)'}</span>
           {/* A quiet mark, not a count: there is nothing to act on, only something to
               read, and a red badge would make release notes feel like an unread DM. */}
           {unseenRelease && (
-            <span className="size-1.5 flex-none rounded-full bg-(--blob-accent)" aria-hidden="true" />
+            <span
+              data-slot="release-dot"
+              className="size-1.5 flex-none rounded-full bg-(--blob-accent)"
+              aria-hidden="true"
+            />
           )}
           <ChevronDownIcon size="sm" className="text-muted-foreground max-md:hidden" />
         </Button>
