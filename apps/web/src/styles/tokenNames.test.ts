@@ -191,6 +191,7 @@ describe('styles/index.css', () => {
     'features/shell/AccountMenu.tsx',
     'features/shell/WorkspaceMenu.tsx',
     'features/shell/WorkspaceSwitcher.tsx',
+    'features/palette',
     'features/console',
     'features/admin',
     'features/settings/SettingsConsole.tsx',

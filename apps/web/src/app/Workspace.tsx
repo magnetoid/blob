@@ -41,7 +41,8 @@ import { DraftsView } from '../features/messages/DraftsView.tsx';
 import { AgentTerminalPanel } from '../features/agentic/AgentTerminalPanel.tsx';
 import { FilePreviewPanel } from '../features/messages/FilePreviewPanel.tsx';
 import { closeFilePreview } from '../lib/filePreview.ts';
-import { CommandPalette } from '../features/palette/CommandPalette.tsx';
+// Lazy, and fetched beside the overlay chunk once the page is idle: cmdk is not first-load code.
+import { CommandPalette } from '../features/palette/lazyPalette.ts';
 import { SearchView } from '../features/search/SearchView.tsx';
 // Lazy: the consoles are ~3,000 lines of JSX an ordinary member never renders,
 // and they were arriving in everyone's first paint.
@@ -419,6 +420,14 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // is an effect: it would land a commit late and paint one frame of an empty column.
   const panelPresent = panelOpen || (inConversation && threadPanelPresent);
 
+  // ⌘K in every branch. Nothing is drawn until its chunk is here, which the idle preload
+  // has normally seen to; a press that comes first starts the fetch itself.
+  const palette = paletteOpen && (
+    <Suspense fallback={null}>
+      <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
+    </Suspense>
+  );
+
   // In every branch: the bar, floating in the consoles because there is no channel list
   // to stand in there, and the "leave this one?" question. The room's own audio is
   // `CallAudio`, mounted once below, outside every branch rather than inside each of
@@ -470,9 +479,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             onSignedOut={onSignedOut}
           />
         </Suspense>
-        {paletteOpen && (
-          <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
-        )}
+        {palette}
         <DialogPresence when={feedbackOpen}>
           {() => <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
         </DialogPresence>
@@ -503,9 +510,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             />
           )}
         </Suspense>
-        {paletteOpen && (
-          <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
-        )}
+        {palette}
         <DialogPresence when={feedbackOpen}>
           {() => <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
         </DialogPresence>
@@ -629,9 +634,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             <ThreadPanelSlot rootId={activeThreadRootId} onPresence={setThreadPanelPresent} />
           )
         )}
-        {paletteOpen && (
-            <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
-          )}
+        {palette}
         {/* The dialogs leave as well as arrive: each mounts on the render that opens it,
             as `{open && <X/>}` did, and is held through one exit after. The palette and
             the lightbox keep the plain mount — the palette gets no motion at all. */}

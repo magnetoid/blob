@@ -4,9 +4,18 @@
  * Channels, people and a few verbs in one fuzzy-matched list — the single most-used
  * navigation control in every chat app worth copying, which is why it ships in the
  * first release rather than as polish later.
+ *
+ * The list is shadcn's Command, which is cmdk: the combobox, the listbox, the moving
+ * selection and what Enter does are cmdk's, and what is in the list — the ranking, the two
+ * requests, the sections and their budgets — is this file's, so cmdk's own filter is off.
+ * cmdk is not first-load code: this module is a chunk of its own, fetched beside the
+ * overlay chunk once the page is idle (`lazyPalette.ts`), and Workspace draws it from
+ * there. It still opens inside Blob's `Dialog`, which keeps it on the shared Escape stack.
  */
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCommandState } from "cmdk";
+import { cn } from "cn";
 import type { ChannelWithState, FileEntry, Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
@@ -19,12 +28,21 @@ import {
 import { navigate } from "../../lib/router.ts";
 import { Avatar } from "../../components/Avatar.tsx";
 import { Dialog } from "../../components/Dialog.tsx";
+import { Button } from "../../components/ui/button.tsx";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+} from "../../components/ui/command.tsx";
 import {
   FileIcon,
   LockIcon,
   MembersIcon,
   MessagesIcon,
-  SearchIcon,
   SparkIcon,
 } from "../../components/Icon.tsx";
 
@@ -105,6 +123,43 @@ function oneLine(body: string): string {
 /** Actions a guest has no use for: they browse no channels and use no agents (ADR 0034). */
 const GUEST_HIDDEN = new Set(["a-browse", "a-agents"]);
 
+/**
+ * The dialog's host, which places the shell (`components/overlays/DialogImpl.tsx`): near
+ * the top rather than centred, since a palette is typed into and the eye starts high; and
+ * still, since it is opened dozens of times a day from the keyboard, and a launcher that
+ * makes you wait is a launcher you stop reaching for.
+ */
+const HOST = "[--dialog-top:12vh] [--dialog-enter:0s]";
+
+/** The card: shadcn's Command at the palette's width, raised by Blob's top elevation —
+ *  which carries its own ring, so the card sets no border. */
+const CARD = "h-auto max-h-[60vh] w-[min(560px,calc(100vw-32px))] shadow-(--elev-3)";
+
+/** A key, drawn as shadcn's Kbd draws one. */
+const KBD =
+  "pointer-events-none inline-flex h-5 min-w-5 items-center justify-center rounded-sm bg-muted px-1 font-sans text-xs font-medium text-muted-foreground select-none";
+
+/** Enter, on the selected row only; a phone has no Enter key to show. */
+const ENTER = cn(
+  KBD,
+  "invisible ml-0 tracking-normal group-data-selected/command-item:visible group-data-selected/command-item:bg-background pointer-coarse:hidden",
+);
+
+/** The footer's key hints. Under a finger there are no keys to describe. */
+const FOOTER =
+  "-mx-1 -mb-1 mt-1 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t px-3 py-2 text-xs text-muted-foreground pointer-coarse:hidden";
+
+/** The scope control: no give when pressed and no fade, as nothing in the palette moves.
+ *  Its 44px under a coarse pointer is the Button's own. */
+const SCOPE = "transition-none active:not-aria-[haspopup]:translate-y-0";
+
+/** The icon column, 20px like the face a person's row carries in it. */
+const MARK = "grid size-5 flex-none place-items-center rounded-md text-xs leading-none font-bold";
+/** A glyph's tile, lifted off the selected row's wash so it stays a tile. */
+const MARK_GLYPH = "bg-muted text-muted-foreground group-data-selected/command-item:bg-background";
+/** An action is the product's verb, and the product speaks in its accent with the ✦. */
+const MARK_ACTION = "bg-(--blob-accent-wash) text-(--blob-accent)";
+
 export function CommandPalette({
   onClose,
   only,
@@ -126,14 +181,13 @@ export function CommandPalette({
   const channelTitle = useStore((s) => s.channelTitle);
 
   const [query, setQuery] = useState("");
-  const [index, setIndex] = useState(0);
   const [scope, setScope] = useState<PaletteScope>("all");
   const [found, setFound] = useState<{ messages: Message[]; total: number }>({
     messages: [],
     total: 0,
   });
   const [files, setFiles] = useState<FileEntry[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -486,13 +540,25 @@ export function CommandPalette({
     found.total,
   ]);
 
-  // Results arrive after the list was already drawn, so the highlight can end up past
-  // the end of it. Derive a valid index instead of spending another render correcting it.
-  const activeIndex = index < matches.length ? index : 0;
+  /** The rows by section, in the order they were ranked: one group per run of a section. */
+  const groups = useMemo(() => {
+    const out: { section: Section; items: Item[] }[] = [];
+    for (const item of matches) {
+      const last = out[out.length - 1];
+      if (last?.section === item.section) last.items.push(item);
+      else out.push({ section: item.section, items: [item] });
+    }
+    return out;
+  }, [matches]);
+
+  /** What the combobox is called, which says what it searches and what Tab does there. */
+  const name =
+    only === "people"
+      ? "Message someone"
+      : `Search ${SCOPE_LABEL[scope]} — Tab changes what is searched`;
 
   /** Walk the scope ring. Shift walks it backwards, so it is not a one-way trip. */
   function stepScope(backwards: boolean) {
-    setIndex(0);
     setFound({ messages: [], total: 0 });
     setFiles([]);
     setScope((current) => {
@@ -502,8 +568,7 @@ export function CommandPalette({
     });
   }
 
-  async function choose(item: Item | undefined) {
-    if (!item) return;
+  async function choose(item: Item) {
     onClose();
     // The palette is gone by the time the action settles; a failure after this line
     // has no UI left to land in except a toast.
@@ -518,164 +583,139 @@ export function CommandPalette({
     }
   }
 
-  // The backdrop is presentational. It was role="button" tabIndex={0}, which put a tab
-  // stop announced as a button in front of the dialog and answered Space by closing it.
-  // Clicking a backdrop is a pointer shortcut; the keyboard path is Escape, bound above.
   return (
-    <Dialog label={only === "people" ? "Message someone" : "Jump to"} onClose={onClose} className="palette-host">
-      <div className="palette">
-        {/*
-         * The combobox pattern, because focus never leaves this input.
-         *
-         * Arrowing moved a highlight that only existed in CSS: focus stayed here, so a
-         * screen reader had nothing to announce and no way to say what Enter would do.
-         * `aria-activedescendant` is what makes a moving selection audible while the
-         * focused element does not change — without it ⌘K, the main way to get anywhere
-         * in this app, is a text box that silently swallows arrow keys.
-         */}
-        <div className="palette-field">
-          <span className="palette-field-icon" aria-hidden="true">
-            <SearchIcon size="md" />
-          </span>
-          <input
-            ref={inputRef}
-            className="palette-input"
-            value={query}
-            role="combobox"
-            aria-label={
-              only === "people"
-                ? "Message someone"
-                : `Search ${SCOPE_LABEL[scope]} — Tab changes what is searched`
+    <Dialog label={only === "people" ? "Message someone" : "Jump to"} onClose={onClose} className={HOST}>
+      {/*
+       * The combobox pattern, because focus never leaves the input: cmdk's, with its own
+       * filter off — what is in the list, and in what order, is decided above. `loop`
+       * because the arrows always wrapped here. `vimBindings` off because ⌃K opens this
+       * palette — it is ⌘K's other spelling (`lib/shortcuts.ts`) — and cmdk would read it,
+       * with ⌃J, ⌃N and ⌃P, as "move the selection".
+       */}
+      <Command shouldFilter={false} loop vimBindings={false} label={name} className={CARD}>
+        <CommandInput
+          ref={inputRef}
+          value={query}
+          // Also the input's own name: cmdk labels it by a hidden <label> holding the same
+          // words (`label` above), and the two must never say different things.
+          aria-label={name}
+          placeholder={
+            only === "people"
+              ? "Message someone…"
+              : "Search everything — channels, people, messages…"
+          }
+          onValueChange={(next) => {
+            setQuery(next);
+            setFound({ messages: [], total: 0 });
+            setFiles([]);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Tab" && !only) {
+              // Tab is the scope key here, not a focus key. This is a combobox: focus
+              // never leaves the input, and the options are not tab stops, so nothing is
+              // taken away by claiming it.
+              event.preventDefault();
+              stepScope(event.shiftKey);
             }
-            aria-expanded={matches.length > 0}
-            aria-controls="palette-results"
-            aria-autocomplete="list"
-            aria-activedescendant={
-              matches.length > 0 ? `palette-option-${activeIndex}` : undefined
-            }
-            placeholder={
-              only === "people"
-                ? "Message someone…"
-                : "Search everything — channels, people, messages…"
-            }
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setIndex(0);
-              setFound({ messages: [], total: 0 });
-              setFiles([]);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                setIndex((i) => (i + 1) % Math.max(matches.length, 1));
-              } else if (event.key === "ArrowUp") {
-                event.preventDefault();
-                setIndex(
-                  (i) => (i - 1 + matches.length) % Math.max(matches.length, 1),
-                );
-              } else if (event.key === "Enter") {
-                event.preventDefault();
-                void choose(matches[activeIndex]);
-              } else if (event.key === "Tab" && !only) {
-                // Tab is the scope key here, not a focus key. This is a combobox: focus
-                // never leaves the input, and the options are not tab stops (tabIndex -1
-                // below), so nothing is taken away by claiming it.
-                event.preventDefault();
-                stepScope(event.shiftKey);
-              }
-            }}
-          />
+          }}
+        >
           {!only && (
             /* A phone has no Tab key, so the indicator is also the control. */
-            <button
+            <Button
               type="button"
-              className="chip palette-scope"
+              variant="secondary"
+              size="xs"
+              className={SCOPE}
               // Touch is the platform this button exists for, and a tap that moved focus
               // off the input would drop the on-screen keyboard mid-search. Preventing
               // mousedown's default is what keeps focus where it already is; the click
               // still lands.
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => stepScope(false)}
+              // cmdk reads Enter anywhere in the palette as "open the selected row". On
+              // this button it means the button.
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.stopPropagation();
+              }}
               // The visible text is a glyph and a noun; the name says it is a control.
               aria-label={`Searching ${SCOPE_LABEL[scope]} — change what is searched`}
             >
               ⇥ {SCOPE_LABEL[scope]}
-            </button>
+            </Button>
           )}
-        </div>
+        </CommandInput>
 
-        <div className="palette-results" id="palette-results" role="listbox">
-          {matches.length === 0 ? (
-            <div className="palette-empty">
-              {/* Messages and files only exist once something has been asked for, so an
-                  empty box there has matched nothing rather than failed to. Channels and
-                  people are already in the store, so their empty list is an answer. */}
-              {!query.trim() && (scope === "messages" || scope === "files")
-                ? `Type to search ${SCOPE_LABEL[scope]}`
-                : `Nothing matched “${query}”`}
-            </div>
-          ) : (
-            matches.map((item, i) => (
-              <Fragment key={item.id}>
-                {item.section !== matches[i - 1]?.section && (
-                  /* Presentational: each row already announces its kind through the
-                     badge, so the listbox stays a flat list of options. */
-                  <div className="palette-section" aria-hidden="true">
-                    {item.section}
-                  </div>
-                )}
-                <button
-                  id={`palette-option-${i}`}
-                  role="option"
-                  tabIndex={-1}
-                  aria-selected={i === activeIndex}
-                  className="palette-item"
-                  data-active={i === activeIndex}
-                  onMouseEnter={() => setIndex(i)}
-                  onClick={() => void choose(item)}
-                >
+        <CommandList className="max-h-none">
+          <CommandEmpty className="text-muted-foreground">
+            {/* Messages and files only exist once something has been asked for, so an
+                empty box there has matched nothing rather than failed to. Channels and
+                people are already in the store, so their empty list is an answer. */}
+            {!query.trim() && (scope === "messages" || scope === "files")
+              ? `Type to search ${SCOPE_LABEL[scope]}`
+              : `Nothing matched “${query}”`}
+          </CommandEmpty>
+          {groups.map(({ section, items }) => (
+            /* A section is a group with its heading, which only a section with rows has:
+               a header over nothing would claim the term matched a kind of thing it did
+               not. */
+            <CommandGroup key={section} heading={section}>
+              {items.map((item) => (
+                <CommandItem key={item.id} value={item.id} onSelect={() => void choose(item)}>
                   <ItemMark item={item} />
-                  <span className="palette-item-label">{item.display ?? item.label}</span>
-                  {item.hint && <span className="palette-item-hint muted">{item.hint}</span>}
+                  <span data-part="label" className="min-w-0 truncate">
+                    {item.display ?? item.label}
+                  </span>
+                  {item.hint && (
+                    /* Who and where, which stays legible when the body is cut instead. */
+                    <span data-part="hint" className="flex-none text-xs whitespace-nowrap text-muted-foreground">
+                      {item.hint}
+                    </span>
+                  )}
                   {/* A private channel says so in words as well as with its lock: the
                       lock is decoration, and this is what a screen reader hears. */}
-                  <span className="palette-item-kind">
+                  <span data-part="kind" className="ml-auto flex-none pl-2 text-xs text-muted-foreground">
                     {item.mark === "lock" ? "Private channel" : item.kind}
                   </span>
                   {/* What Enter does, on the row it would do it to. Decoration: the row's
-                      selection is already what the combobox announces. */}
-                  <kbd className="palette-item-enter" aria-hidden="true">
+                      selection is already what the combobox announces. It keeps its room
+                      on every row, so the kind does not shift when the selection
+                      arrives. */}
+                  <CommandShortcut aria-hidden="true" className={ENTER}>
                     ↵
-                  </kbd>
-                </button>
-              </Fragment>
-            ))
-          )}
-        </div>
+                  </CommandShortcut>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ))}
+        </CommandList>
+        <ComboboxState input={inputRef} />
 
         {/* The keys, where a palette's keys always are. Decoration for eyes: the input's
-            name already says what Tab does, and arrows and Enter are the combobox's own. */}
-        <div className="palette-footer" aria-hidden="true">
-          <span>
-            <kbd>↑</kbd>
-            <kbd>↓</kbd> to move
+            name already says what Tab does, and arrows and Enter are the combobox's own.
+            A phone has no keyboard to describe. */}
+        <div aria-hidden="true" className={FOOTER}>
+          <span className="inline-flex items-center gap-1">
+            <kbd className={KBD}>↑</kbd>
+            <kbd className={KBD}>↓</kbd> to move
           </span>
-          <span>
-            <kbd>↵</kbd> to open
+          <span className="inline-flex items-center gap-1">
+            <kbd className={KBD}>↵</kbd> to open
           </span>
           {!only && (
-            <span>
-              <kbd>⇥</kbd> to narrow
+            <span className="inline-flex items-center gap-1">
+              <kbd className={KBD}>⇥</kbd> to narrow
             </span>
           )}
-          <span className="palette-footer-end">
-            <kbd>esc</kbd> to close
+          <span className="ml-auto inline-flex items-center gap-1">
+            <kbd className={KBD}>esc</kbd> to close
           </span>
         </div>
-      </div>
+      </Command>
     </Dialog>
   );
 }
+
+export default CommandPalette;
 
 /** The other person in a direct message; none in the one with yourself. */
 function otherMember(channel: ChannelWithState, me: string | undefined): string | undefined {
@@ -716,22 +756,69 @@ function score(text: string, query: string): number {
 /**
  * The icon column: a person's face, a channel's `#` or lock, and for the rest the kind of
  * thing it is — the ✦ the product speaks with for an action, a bubble for a message, a
- * page for a file. One column for all of them, so every label starts at the same x.
+ * page for a file. One 20px column for all of them, the size of the face a person's row
+ * carries in it, so every label starts at the same x.
  */
 function ItemMark({ item }: { item: Item }) {
   if (item.kind === "Person" || item.kind === "Agent" || item.kind === "Direct message") {
-    return <Avatar user={{ displayName: item.label, avatarUrl: item.avatarUrl ?? null }} size="sm" />;
+    return (
+      <span data-part="mark" aria-hidden="true" className={MARK}>
+        <Avatar user={{ displayName: item.label, avatarUrl: item.avatarUrl ?? null }} size="sm" />
+      </span>
+    );
   }
+  // At the size the column draws them, which the row's own rule for a bare glyph would
+  // otherwise take up to 16px.
   let glyph: React.ReactNode = null;
   if (item.mark === "hash") glyph = "#";
-  else if (item.mark === "lock") glyph = <LockIcon size="sm" />;
-  else if (item.mark === "group") glyph = <MembersIcon size="sm" />;
-  else if (item.kind === "Action") glyph = <SparkIcon size="sm" />;
-  else if (item.kind === "Message") glyph = <MessagesIcon size="sm" />;
-  else if (item.kind === "File") glyph = <FileIcon size="sm" />;
+  else if (item.mark === "lock") glyph = <LockIcon size="sm" className="size-3.5" />;
+  else if (item.mark === "group") glyph = <MembersIcon size="sm" className="size-3.5" />;
+  else if (item.kind === "Action") glyph = <SparkIcon size="sm" className="size-3.5" />;
+  else if (item.kind === "Message") glyph = <MessagesIcon size="sm" className="size-3.5" />;
+  else if (item.kind === "File") glyph = <FileIcon size="sm" className="size-3.5" />;
   return (
-    <span className="palette-item-mark" data-kind={item.kind} aria-hidden="true">
+    <span
+      data-part="mark"
+      aria-hidden="true"
+      className={cn(MARK, item.kind === "Action" ? MARK_ACTION : MARK_GLYPH)}
+    >
       {glyph}
     </span>
   );
+}
+
+/**
+ * What the combobox says about its list, set on the input after cmdk has had its say.
+ *
+ * cmdk 1.1.1 spreads the props its input is given and then writes its own over them, and
+ * two of those are wrong for this palette:
+ *
+ * - `aria-expanded` is always `true`, so an empty list was announced as an open popup.
+ * - `aria-activedescendant` is cmdk's `selectedItemId`, which it reads off the DOM in a
+ *   callback that runs before the selection it has just made has been drawn whenever the
+ *   selection is made for you — on opening, on every query, and when the selected row goes.
+ *   So the palette opened naming no row, and a query named the row the last one had
+ *   selected. Only a selection moved by a key or the pointer came out right.
+ *
+ * Neither can be passed in, so both are written on the node after every commit this
+ * renders in: expanded while the list it controls has an option, and the active
+ * descendant whichever option is selected there. It re-renders whenever the palette does —
+ * which is whenever the rows change — and whenever cmdk's selection or its idea of it
+ * changes, so every commit in which React could have written cmdk's values is followed by
+ * this. Between those React leaves both attributes alone: it writes a prop only when it
+ * changes.
+ */
+function ComboboxState({ input }: { input: RefObject<HTMLInputElement | null> }) {
+  useCommandState((state) => state.value);
+  useCommandState((state) => state.selectedItemId);
+  useLayoutEffect(() => {
+    const node = input.current;
+    if (!node) return;
+    const list = document.getElementById(node.getAttribute("aria-controls") ?? "");
+    node.setAttribute("aria-expanded", String(Boolean(list?.querySelector("[cmdk-item]"))));
+    const selected = list?.querySelector('[cmdk-item][aria-selected="true"]');
+    if (selected?.id) node.setAttribute("aria-activedescendant", selected.id);
+    else node.removeAttribute("aria-activedescendant");
+  });
+  return null;
 }

@@ -33,7 +33,7 @@ const WIDE = 'pointer-coarse:min-w-11';
 
 describe('touch targets', () => {
   it('gives every control a 44px floor under a coarse pointer', () => {
-    for (const file of ['button.tsx', 'input.tsx', 'native-select.tsx', 'tabs.tsx', 'toggle.tsx']) {
+    for (const file of ['button.tsx', 'input.tsx', 'native-select.tsx', 'tabs.tsx', 'toggle.tsx', 'command.tsx']) {
       expect(source(file), file).toContain(FLOOR);
     }
 

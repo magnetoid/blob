@@ -46,7 +46,7 @@ vi.mock('../features/messages/DraftsView.tsx', () => ({ DraftsView: () => <main 
 vi.mock('../features/search/SearchView.tsx', () => ({ SearchView: () => <main className="pane" /> }));
 vi.mock('../features/agentic/AgentTerminalPanel.tsx', () => ({ AgentTerminalPanel: () => null }));
 vi.mock('../features/messages/FilePreviewPanel.tsx', () => ({ FilePreviewPanel: () => null }));
-vi.mock('../features/palette/CommandPalette.tsx', () => ({ CommandPalette: () => null }));
+vi.mock('../features/palette/CommandPalette.tsx', () => ({ default: () => null }));
 vi.mock('../features/messages/CatchUpPanel.tsx', () => ({ CatchUpPanel: () => null }));
 vi.mock('../features/feedback/FeedbackDialog.tsx', () => ({ FeedbackDialog: () => null }));
 vi.mock('../components/ShortcutHelp.tsx', () => ({ ShortcutHelp: () => null }));

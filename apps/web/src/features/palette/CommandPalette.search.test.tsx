@@ -74,7 +74,7 @@ vi.mock('../../lib/router.ts', async (importOriginal) => {
   return { ...actual, navigate };
 });
 
-const { CommandPalette } = await import('./CommandPalette.tsx');
+const { default: CommandPalette } = await import('./CommandPalette.tsx');
 const { useStore } = await import('../../lib/store.ts');
 
 afterEach(cleanup);
@@ -384,15 +384,15 @@ describe('what a row shows', () => {
 
     fireEvent.change(input, { target: { value: '#des' } });
     const row = screen.getByText('design').closest('[role="option"]')!;
-    expect(row.querySelector('.palette-item-mark')?.textContent).toBe('#');
+    expect(row.querySelector('[data-part="mark"]')?.textContent).toBe('#');
 
     fireEvent.change(input, { target: { value: 'pay' } });
     const locked = screen.getByText('payroll').closest('[role="option"]')!;
-    expect(locked.querySelector('.palette-item-mark svg')).toBeTruthy();
-    expect(locked.querySelector('.palette-item-mark')?.textContent).toBe('');
+    expect(locked.querySelector('[data-part="mark"] svg')).toBeTruthy();
+    expect(locked.querySelector('[data-part="mark"]')?.textContent).toBe('');
     // The lock is decoration; the words are what a screen reader hears.
-    expect(locked.querySelector('.palette-item-kind')?.textContent).toBe('Private channel');
-    expect(row.querySelector('.palette-item-kind')?.textContent).toBe('Channel');
+    expect(locked.querySelector('[data-part="kind"]')?.textContent).toBe('Private channel');
+    expect(row.querySelector('[data-part="kind"]')?.textContent).toBe('Channel');
   });
 
   it('lists a direct message once, as its person, a group message as people, and an agent as one', async () => {
@@ -416,15 +416,18 @@ describe('what a row shows', () => {
     const kinds = (text: string) =>
       screen
         .getAllByRole('option')
-        .filter((option) => option.querySelector('.palette-item-label')?.textContent === text)
-        .map((option) => option.querySelector('.palette-item-kind')?.textContent);
+        .filter((option) => option.querySelector('[data-part="label"]')?.textContent === text)
+        .map((option) => option.querySelector('[data-part="kind"]')?.textContent);
 
     fireEvent.change(input, { target: { value: 'Ana' } });
     // The person, and not the conversation a second time under "Channel".
     expect(kinds('Ana')).toEqual(['Person']);
+    // A person's mark is their face, in the same column as every other row's.
+    const person = screen.getByText('Ana', { selector: '[data-part="label"]' }).closest('[role="option"]')!;
+    expect(person.querySelector('[data-part="mark"] [data-slot="avatar"]')).toBeTruthy();
     const group = screen.getByText('Ana, Bo').closest('[role="option"]')!;
-    expect(group.querySelector('.palette-item-kind')?.textContent).toBe('Group message');
-    expect(group.querySelector('.palette-item-mark svg')).toBeTruthy();
+    expect(group.querySelector('[data-part="kind"]')?.textContent).toBe('Group message');
+    expect(group.querySelector('[data-part="mark"] svg')).toBeTruthy();
 
     // Without a person row to stand for them, these keep their own.
     fireEvent.change(input, { target: { value: 'You' } });
