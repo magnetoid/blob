@@ -1,6 +1,7 @@
 import {
   cloneElement,
   useCallback,
+  useEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -46,15 +47,19 @@ function assignRef(ref: Ref<HTMLElement> | undefined, node: HTMLElement | null):
  *
  * That placeholder is the caller's own element, saying what it opens (`aria-haspopup`,
  * `aria-expanded`) and keeping its own click handler. A press on it asks for the module
- * and is held: the module is drawn open the moment it lands. A module that arrives by the
- * preload is drawn closed, and one already here is drawn in the very render that mounts
- * the wrapper — no Suspense, no placeholder frame. The swap replaces the button's element,
- * so a placeholder that had focus hands it to the real trigger as it mounts; a keyboard
- * user is left where they were.
+ * and is held: the module is drawn open the moment it lands — unless the person has gone
+ * on while it was on its way, by Tab, by Escape, or by focus landing anywhere outside the
+ * trigger, when it is drawn closed and their focus is left where they took it. Focus
+ * staying on the trigger is not the test: WebKit does not focus a button that is clicked,
+ * so a press can leave focus on <body> the whole time and still be waiting. A module that
+ * arrives by the preload is drawn closed, and one already here is drawn in the very render
+ * that mounts the wrapper — no Suspense, no placeholder frame. The swap replaces the
+ * button's element, so a placeholder that had focus hands it to the real trigger as it
+ * mounts; a keyboard user is left where they were.
  *
- * A module that will not load costs the press that asked for it: the placeholder stays,
- * closed, the failure is logged once, and the next press tries again (`memoiseImport`
- * forgets a failure). A deploy that replaced the module mid-session is `lib/staleBuild.ts`'s
+ * A module that will not load costs the presses that asked for it: the placeholder stays,
+ * closed, the failure is logged once however many presses were waiting on that attempt,
+ * and the next press tries again (`memoiseImport` forgets a failure). A deploy that replaced the module mid-session is `lib/staleBuild.ts`'s
  * to explain.
  *
  * `preload()` fetches the module and resolves once it is here, rejecting if it could not
@@ -75,6 +80,20 @@ export function lazyDropdown<P extends DropdownModuleProps>(
     }),
   );
   preloadAlso(fetchModule);
+
+  /** The attempt a press last joined: its failure is reported once, not once per press. */
+  let reported: Promise<void> | null = null;
+  /** The module, asked for by a press, with a failure said once per attempt. */
+  const fetchForPress = (): Promise<void> => {
+    const attempt = fetchModule();
+    if (attempt !== reported) {
+      reported = attempt;
+      attempt.catch((error: unknown) => {
+        console.error('menu module failed to load', error);
+      });
+    }
+    return attempt;
+  };
 
   const current = () => arrived;
 
@@ -102,6 +121,32 @@ export function lazyDropdown<P extends DropdownModuleProps>(
       };
     }, []);
     const Module = useSyncExternalStore(subscribe, current, current);
+
+    // A press waiting for the module stands only while the person has not gone on. Tab and
+    // Escape are ways out, and so is focus landing outside the trigger; listened for on the
+    // document, in the capture phase, so nothing that stops them on the way hides them.
+    // Nothing is cancelled by a press that leaves focus where it was, <body> included.
+    const waitingOnPress = pressed && !Module;
+    useEffect(() => {
+      if (!waitingOnPress) return undefined;
+      // Once the module is here the menu is drawn, and focus moving into it is its own.
+      const goneOn = () => {
+        if (!arrived) setPressed(false);
+      };
+      const onKey = (event: KeyboardEvent) => {
+        if (event.key === 'Tab' || event.key === 'Escape') goneOn();
+      };
+      const onFocus = (event: FocusEvent) => {
+        const target = event.target;
+        if (!(target instanceof Node) || !placeholder.current?.contains(target)) goneOn();
+      };
+      document.addEventListener('keydown', onKey, true);
+      document.addEventListener('focusin', onFocus, true);
+      return () => {
+        document.removeEventListener('keydown', onKey, true);
+        document.removeEventListener('focusin', onFocus, true);
+      };
+    }, [waitingOnPress]);
 
     const ownRef = own.ref;
     const placeholderRef = useCallback(
@@ -141,10 +186,9 @@ export function lazyDropdown<P extends DropdownModuleProps>(
       onClick: (event: MouseEvent<HTMLElement>) => {
         ownClick?.(event);
         setPressed(true);
-        fetchModule().catch((error: unknown) => {
+        fetchForPress().catch(() => {
           // This press is spent; the placeholder stays, and the next one tries again.
           setPressed(false);
-          console.error('menu module failed to load', error);
         });
       },
     });

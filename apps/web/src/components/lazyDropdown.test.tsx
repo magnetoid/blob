@@ -256,4 +256,87 @@ describe('lazyDropdown', () => {
     await act(async () => release());
     expect(screen.getByRole('menu')).toBeTruthy();
   });
+
+  it('logs a failed import once, however many presses were waiting on it', async () => {
+    const { load, fail } = heldImport();
+    const Menu = lazyDropdown(load);
+
+    render(<Menu trigger={<button type="button">Account</button>} />);
+    // Pressed again because nothing happened the first time: one fetch, two presses.
+    fireEvent.click(account());
+    fireEvent.click(account());
+    expect(load).toHaveBeenCalledTimes(1);
+    await act(async () => fail(new Error('Failed to fetch dynamically imported module')));
+
+    expect(
+      consoleError.mock.calls.filter((call) => String(call[0]).includes('menu')),
+    ).toHaveLength(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+});
+
+/**
+ * A press held while the module is on its way is the person's intent only for as long as
+ * they are still there. Once they have gone on — a Tab, an Escape, focus somewhere else —
+ * a menu opening late would take focus back from where they went. Focus itself is no
+ * test of "still there": WebKit does not focus a button that is clicked, so after a click
+ * focus can sit on <body> the whole time, and that press still counts.
+ */
+describe('a press that moved on before the module landed', () => {
+  /** The placeholder pressed, the module still on its way. */
+  function pressAndWait() {
+    const held = heldImport();
+    const Menu = lazyDropdown(held.load);
+    render(
+      <>
+        <Menu trigger={<button type="button">Account</button>} />
+        <button type="button">Elsewhere</button>
+      </>,
+    );
+    fireEvent.click(account());
+    expect(held.load).toHaveBeenCalledTimes(1);
+    return held;
+  }
+
+  /** The module lands, and the real trigger is drawn closed with no menu. */
+  async function landsClosed(release: () => void) {
+    await act(async () => release());
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(account().getAttribute('data-slot')).toBe('dropdown-menu-trigger');
+    expect(account().getAttribute('aria-expanded')).toBe('false');
+  }
+
+  it('does not open the menu when a Tab came before the module', async () => {
+    const { release } = pressAndWait();
+    fireEvent.keyDown(account(), { key: 'Tab' });
+    await landsClosed(release);
+  });
+
+  it('does not open the menu when an Escape came before the module', async () => {
+    const { release } = pressAndWait();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    await landsClosed(release);
+  });
+
+  it('does not open the menu when focus went somewhere else before the module', async () => {
+    const { release } = pressAndWait();
+    const elsewhere = screen.getByRole('button', { name: 'Elsewhere' });
+    act(() => elsewhere.focus());
+    await landsClosed(release);
+    // And it is left where it went.
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
+  it('still opens the menu when the press left focus on the page, as a click does in Safari', async () => {
+    const { release } = pressAndWait();
+    // Nothing took focus: the click did not, and nothing else happened.
+    expect(document.activeElement).toBe(document.body);
+    // A key that is not a way out leaves the press standing.
+    fireEvent.keyDown(document.body, { key: 'Shift' });
+
+    await act(async () => release());
+
+    expect(screen.getByRole('menu')).toBeTruthy();
+    expect(account().getAttribute('aria-expanded')).toBe('true');
+  });
 });
