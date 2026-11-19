@@ -31,6 +31,10 @@
 @source "../components/EmptyState.tsx";
 @source "../components/ListSkeleton.tsx";
 @source "../features/channels/Sidebar.tsx";
+@source "../features/shell/TopBar.tsx";
+@source "../features/shell/AccountMenu.tsx";
+@source "../features/shell/WorkspaceMenu.tsx";
+@source "../features/shell/WorkspaceSwitcher.tsx";
 @source "../features/console";
 @source not "../features/console/**/*.test.{ts,tsx}";
 @source "../features/admin";

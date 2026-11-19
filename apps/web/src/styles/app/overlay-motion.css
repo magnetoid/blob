@@ -130,10 +130,8 @@
   }
 }
 
-/* The workspace switcher's panel is `.user-menu-panel` and is not the shared Menu, so it
-   still takes its entrance here; the account menu's, which is, takes the same one from
-   its own classes and grows from wherever Base UI hangs it. */
-.user-menu-panel,
+/* The autocomplete and the pinned list are not the shared Menu, so they take their entrance
+   here; the shell's menus are shadcn's and grow from wherever Base UI hangs them. */
 .autocomplete,
 .pinned-panel {
   transform-origin: top center;
@@ -151,10 +149,6 @@
 /* Anchored bottom-left, so it should grow from there rather than from the top. */
 .autocomplete {
   transform-origin: bottom left;
-}
-
-.user-menu-panel {
-  transform-origin: top right;
 }
 
 /* The right-hand panel: a thread, or a terminal in the agent a DM is with. Only the

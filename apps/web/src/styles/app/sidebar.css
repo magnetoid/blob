@@ -1,67 +1,8 @@
 /* ─── sidebar ────────────────────────────────────────────────────────────── */
 /* The channel list is shadcn's Sidebar (`features/channels/Sidebar.tsx`) and its rows are
-   styled where they are drawn. What is left here grew up in this file: the workspace's
-   identity, which moved to the top bar; the `#` that other lists still draw beside a
-   channel's name; and a channel's options button, until the channel menu is Base UI's. */
-
-/* The workspace, at the top of the list of places inside it.
- *
- * A mark and a name. The mark is the initial on the accent, and it is the half that
- * survives the narrow bar — beside an 80px folded column (a 64px rail inside the
- * inset) there is no room for a name, and a coloured square with a letter in it is
- * still recognisably *this* workspace. Sized to the avatar scale rather than the icon
- * scale so it reads as an identity and not a button.
- */
-/* Identity sits in the top bar, not in the channel column. The selectors moved with it
-   rather than being duplicated: the column draws no mark, and the phone Sheet, which
-   covers the bar, draws its own with utilities where it is drawn — so a
-   `.sidebar-identity` rule left behind would style nothing and read as if it did. */
-.topbar-identity {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.workspace-mark {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--blob-radius-md);
-  background: var(--blob-accent);
-  color: var(--blob-accent-contrast);
-  font-size: var(--blob-text-base);
-  font-weight: 700;
-  line-height: 1;
-  user-select: none;
-}
-
-/* The switcher moved here from the top bar and inherits its class, so the name is
-   restated at the weight the sidebar heading wants rather than the bar's. */
-.topbar-identity .topbar-brand {
-  min-width: 0;
-  font-size: var(--text-title);
-  font-weight: 700;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* On a phone the bar has room for the mark or the name beside the tabs, not both: the
-   name came out as "Nor…". The mark stays, and says which workspace this is; a switcher
-   keeps its chevron, so it still opens. */
-@media (max-width: 600px) {
-  .topbar-identity div.topbar-brand {
-    display: none;
-  }
-  .topbar-identity .workspace-switcher-trigger {
-    font-size: 0;
-    gap: 0;
-  }
-}
+   styled where they are drawn. What is left here grew up in this file: the `#` that other
+   lists still draw beside a channel's name, and a channel's options button, until the
+   channel menu is Base UI's. (The workspace's mark and switcher are the top bar's.) */
 
 .channel-kebab {
   position: absolute;

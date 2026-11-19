@@ -6,9 +6,7 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ComponentProps,
   type CSSProperties,
-  type MouseEvent,
   type ReactNode,
 } from 'react';
 import { useStore } from '../lib/store.ts';
@@ -24,7 +22,7 @@ import {
 } from '../lib/router.ts';
 import { HomeView } from '../features/home/HomeView.tsx';
 import { Sidebar } from '../features/channels/Sidebar.tsx';
-import { SidebarProvider, useSidebar } from '../components/ui/sidebar.tsx';
+import { SidebarProvider } from '../components/ui/sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadsView } from '../features/messages/ThreadsView.tsx';
 import { ActivityView } from '../features/messages/ActivityView.tsx';
@@ -95,36 +93,6 @@ const SHELL_SIDEBAR = {
   '--sidebar-width': 'var(--blob-sidebar-width)',
   '--sidebar-width-icon': 'var(--blob-sidebar-rail)',
 } as CSSProperties;
-
-type ShellTopBarProps = Omit<
-  ComponentProps<typeof TopBar>,
-  'onToggleSidebar' | 'sidebarOpen' | 'onToggleCollapse' | 'sidebarCollapsed'
->;
-
-/**
- * The top bar, with its two channel-list buttons wired to the sidebar the shell provides:
- * below 768px the mark opens the Sheet, from 768px it folds the list to its rail. Inside
- * the provider because `useSidebar` is. For now only — the bar is to draw the sidebar's
- * own trigger, and then this goes.
- */
-function ShellTopBar(props: ShellTopBarProps) {
-  const { open, setOpen, openMobile, setOpenMobile, openerRef } = useSidebar();
-  return (
-    <TopBar
-      {...props}
-      onToggleSidebar={(event?: MouseEvent<HTMLElement>) => {
-        // Where focus goes back to when the Sheet closes: the dialog's own default is
-        // whatever had focus before it opened, and Safari does not focus a button that is
-        // clicked, so there it was the page.
-        openerRef.current = event?.currentTarget ?? null;
-        setOpenMobile(!openMobile);
-      }}
-      sidebarOpen={openMobile}
-      onToggleCollapse={() => setOpen(!open)}
-      sidebarCollapsed={!open}
-    />
-  );
-}
 
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const channels = useStore((s) => s.channels);
@@ -566,7 +534,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
         data-panel-kind={panelOpen && filePreview ? 'file' : undefined}
         data-in-call={callBarPresent ? 'true' : undefined}
       >
-        <ShellTopBar
+        <TopBar
           onFeedback={() => setFeedbackOpen(true)}
           view={view}
           minimal

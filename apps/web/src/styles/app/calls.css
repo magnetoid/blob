@@ -7,7 +7,7 @@
   grid-template-rows: var(--topbar-height) minmax(0, 1fr) auto;
 }
 
-.shell[data-in-call='true'] > :not(.topbar):not([data-slot='sidebar']):not(.call-dock) {
+.shell[data-in-call='true'] > :not([data-slot='topbar']):not([data-slot='sidebar']):not(.call-dock) {
   grid-row: 2 / -1;
 }
 
@@ -304,7 +304,7 @@ button.call-bar-where {
     grid-template-rows: var(--topbar-height) auto minmax(0, 1fr);
   }
 
-  .shell[data-in-call='true'] > :not(.topbar):not([data-slot='sidebar']):not(.call-dock) {
+  .shell[data-in-call='true'] > :not([data-slot='topbar']):not([data-slot='sidebar']):not(.call-dock) {
     grid-row: 3;
   }
 

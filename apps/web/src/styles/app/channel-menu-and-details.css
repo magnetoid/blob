@@ -52,8 +52,7 @@
   color: var(--text-4);
 }
 
-.menu-item,
-.user-menu-item {
+.menu-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -69,21 +68,12 @@
   cursor: pointer;
 }
 
-/* Only what differs from a menu row: these push a "Soon" pill to the far end. The
-   shared thirteen declarations live with .menu-item. */
-.user-menu-item {
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.menu-item:hover:not(:disabled),
-.user-menu-item:hover:not(:disabled) {
+.menu-item:hover:not(:disabled) {
   background: var(--surface-hover);
 }
 
-/* Both menus can hold an inert row; only the account menu did anything about it. */
-.menu-item:disabled,
-.user-menu-item:disabled {
+/* A menu can hold an inert row. */
+.menu-item:disabled {
   color: var(--disabled-fg);
   cursor: default;
 }

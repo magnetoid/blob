@@ -3,29 +3,20 @@
  * Hung off the workspace name in the corner, which is where Slack puts it and therefore
  * where people already look. It stays a plain label until there is somewhere to go: a
  * server with one workspace should not grow a menu whose only entry is the page you are
- * already on.
- *
- * Switching reloads the page rather than re-fetching into the live store. The session
- * cookie now points at a different account, so every channel id, message, member and
- * unread cursor held in memory belongs to a workspace this browser is no longer in —
- * and a store built for one workspace has nowhere to put two. A reload is one line and
- * cannot leave a stale row behind; reconciling would be neither.
+ * already on. The menu is `WorkspaceMenu.tsx`, fetched beside the overlay chunk; this
+ * file draws only the name and the button, which are first-load code.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useEscape } from '../../lib/useEscape.ts';
+import { useEffect, useState } from 'react';
 import { api, type WorkspaceMembership } from '../../lib/api.ts';
+import { lazyDropdown } from '../../components/lazyDropdown.tsx';
+import { Button } from '../../components/ui/button.tsx';
 import { ChevronDownIcon } from '../../components/Icon.tsx';
 
+const WorkspaceMenuLazy = lazyDropdown(() => import('./WorkspaceMenu.tsx'));
+
 export function WorkspaceSwitcher({ name }: { name: string }) {
-  const [open, setOpen] = useState(false);
-  // Through the shared stack: a bubble listener of its own would close the switcher and
-  // let the shell act on the same key.
-  const close = useCallback(() => setOpen(false), []);
-  useEscape(close, open);
   const [workspaces, setWorkspaces] = useState<WorkspaceMembership[] | null>(null);
-  const [busy, setBusy] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   // Fetched once, on mount: it decides whether this is a button at all, and asking on
   // every open would flash a menu that changes shape as it loads.
@@ -46,60 +37,21 @@ export function WorkspaceSwitcher({ name }: { name: string }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onClick = (event: MouseEvent) => {
-      if (menuRef.current?.contains(event.target as Node)) return;
-      setOpen(false);
-    };
-    window.addEventListener('click', onClick, true);
-    return () => window.removeEventListener('click', onClick, true);
-  }, [open]);
-
+  // On a phone the bar has room for the mark or the name beside the search, not both: the
+  // name goes to the screen reader and the chevron stays, so it still opens.
   if (!workspaces || workspaces.length < 2) {
-    return <div className="topbar-brand">{name}</div>;
+    return <div className="min-w-0 truncate text-base font-bold max-sm:sr-only">{name}</div>;
   }
 
   return (
-    <div className="workspace-switcher" ref={menuRef}>
-      <button
-        className="topbar-brand workspace-switcher-trigger"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={() => setOpen((value) => !value)}
-      >
-        {name}
-        <ChevronDownIcon size="sm" />
-      </button>
-
-      {open && (
-        <div className="user-menu-panel" role="menu">
-          <div className="user-menu-header">
-            <div className="user-menu-header-email">Your workspaces</div>
-          </div>
-          {workspaces.map((workspace) => (
-            <button
-              key={workspace.id}
-              className="user-menu-item"
-              role="menuitem"
-              disabled={workspace.current || busy}
-              onClick={() => {
-                setBusy(true);
-                void api.workspaces
-                  .switch(workspace.id)
-                  .then(() => {
-                    // Everything in memory belongs to the workspace we just left.
-                    window.location.assign('/');
-                  })
-                  .catch(() => setBusy(false));
-              }}
-            >
-              {workspace.name}
-              {workspace.current && <span className="user-menu-soon">Current</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <WorkspaceMenuLazy
+      workspaces={workspaces}
+      trigger={
+        <Button variant="ghost" className="min-w-0 gap-1.5 px-1.5 text-base font-bold">
+          <span className="truncate max-sm:sr-only">{name}</span>
+          <ChevronDownIcon size="sm" className="text-muted-foreground" />
+        </Button>
+      }
+    />
   );
 }

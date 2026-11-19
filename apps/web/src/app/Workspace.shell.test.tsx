@@ -242,9 +242,13 @@ describe('the channel list at a desk', () => {
     expect(pane.parentElement).toBe(shell);
     expect(pane.closest('[data-slot]')).toBeNull();
     expect(screen.getByRole('complementary', { name: 'Thread' }).parentElement).toBe(shell);
-    expect(screen.getByRole('banner').closest('[data-slot]')).toBeNull();
+    // The bar is converted markup: the shell's own child, with the hook the styles key on
+    // (`styles/app/calls.css`), and no shadcn component round it.
+    const bar = screen.getByRole('banner');
+    expect(bar.parentElement).toBe(shell);
+    expect(bar.getAttribute('data-slot')).toBe('topbar');
 
-    // The list is a column of the same grid, and the only shadcn component in it.
+    // The list is a column of the same grid, and the only shadcn component in it besides the bar.
     expect(shell.querySelector(':scope > [data-slot="sidebar"]')).not.toBeNull();
     expect(screen.getAllByRole('main')).toHaveLength(1);
   });

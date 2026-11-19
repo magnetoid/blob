@@ -146,9 +146,7 @@
 
 .icon-btn:active,
 .message-action:active,
-.menu-item:active,
-.user-menu-item:active:not(:disabled),
-.topbar-nav-btn:active {
+.menu-item:active {
   background: var(--surface-hover-deep);
   /* The deeper ground says "armed"; the scale says "you pressed it". Transform only,
      so a row that is 34px tall does not reflow the list under the finger. */

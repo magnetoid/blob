@@ -18,8 +18,8 @@
  * sections still keep be reached: what an agent remembers, its notes and its terminal
  * (`features/agentic/`) and the chat's own run card (`features/messages/AgentRunCard.tsx`)
  * are islands inside cards, and the setup panels — Janus's, the bridge's — are islands
- * between them. The top bar stays an island: it is another feature's and sits inside the
- * sidebar's provider. `.admin-main` is what the end-to-end tests and the axe pass wait
+ * between them. The top bar is converted too (`features/shell/TopBar.tsx`), so it is no
+ * island either. `.admin-main` is what the end-to-end tests and the axe pass wait
  * for. `.admin-page` is the size container (`console-page`) sections ask for the column's
  * width, and the element the agentic rows' stylesheet declares `--console-row-hover` on.
  *
@@ -121,7 +121,7 @@ export function ConsoleShell({
     >
       {/* Same top row as the chat shell, because the account menu lives in it and a menu
           that exists in only some views is a menu people lose. */}
-      <div data-legacy className="grid h-(--topbar-height) shrink-0">
+      <div className="grid h-(--topbar-height) shrink-0">
         <TopBar onFeedback={onFeedback} view={view} />
       </div>
 
