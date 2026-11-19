@@ -13,16 +13,19 @@
  *
  * A module for `lazyDropdown` (`components/lazyDropdown.tsx`): the row's Options button, or
  * the conversation's name, is handed in as `trigger` and is the menu's own, so Base UI owns
- * the arrows, Escape and focus going home. The dialogs it opens are drawn beside the menu,
- * not inside it: choosing an item closes the menu and the dialog stays. When one closes,
- * focus goes back to the trigger, because the item it was opened from is gone.
+ * the arrows, Escape and focus going home; the menu holds its place on the Escape stack
+ * while it is open (`lib/useMenuEscapeLayer.ts`), so that Escape is the menu's and not the
+ * panel's behind it. The dialogs it opens are drawn beside the menu, not inside it: choosing
+ * an item closes the menu and the dialog stays. When one closes, focus goes back to the
+ * trigger, because the item it was opened from is gone.
  */
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ChannelWithState, NotifyLevel } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
 import { usePath } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
+import { useMenuEscapeLayer } from '../../lib/useMenuEscapeLayer.ts';
 import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
 import { DialogPresence } from '../../components/Dialog.tsx';
 import type { DropdownModuleProps } from '../../components/lazyDropdown.tsx';
@@ -78,7 +81,7 @@ export default function ChannelMenu({
   const path = usePath();
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [error, setError] = useState<string | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const { popupRef, triggerRef } = useMenuEscapeLayer(open, setOpen);
 
   // A navigation that did not come from this menu (Back, a link in the page) must not
   // leave it open behind the new screen. Adjusted during render, as AccountMenu does.
@@ -125,7 +128,12 @@ export default function ChannelMenu({
         }}
       >
         <DropdownMenuTrigger ref={triggerRef} render={trigger} />
-        <DropdownMenuContent align="start" sideOffset={6} className="w-auto min-w-56">
+        <DropdownMenuContent
+          ref={popupRef}
+          align="start"
+          sideOffset={6}
+          className="w-auto min-w-56"
+        >
           {!isDm && (
             <>
               <DropdownMenuGroup>

@@ -20,6 +20,14 @@
  * Whether the module is here is read once, as the palette mounts, and only goes from absent
  * to here, so an open palette is never swapped for another under somebody typing.
  *
+ * While it is on its way the palette is open and not drawn, and two keys meant for it
+ * would go elsewhere. Escape is answered by its place on the Escape stack
+ * (`lib/useEscape.ts`), taken as it mounts, so it closes the palette-to-be rather than the
+ * panel opened before it; once the palette is drawn its dialog holds the place instead.
+ * And Enter goes nowhere, because focus is still where ⌘K was pressed — the composer, as
+ * often as not, where the half-typed query would be sent as a message. Every other key
+ * goes where focus is: nothing is buffered for the palette.
+ *
  * `loadPalette` is exported for tests: awaited at the top of a file, the module is here
  * before its first case, as the preload has it here before the first ⌘K.
  */
@@ -28,12 +36,15 @@ import {
   createElement,
   useEffect,
   useEffectEvent,
+  useLayoutEffect,
+  useRef,
   useState,
   type ComponentProps,
   type ReactElement,
 } from 'react';
 import { memoiseImport, preloadAlso } from '../../lib/overlays.ts';
 import { showError } from '../../lib/toasts.ts';
+import { useEscape } from '../../lib/useEscape.ts';
 
 type Palette = typeof import('./CommandPalette.tsx').default;
 
@@ -50,6 +61,29 @@ preloadAlso(loadPalette);
 
 export function CommandPalette(props: ComponentProps<Palette>): ReactElement | null {
   const [Module, setModule] = useState(() => arrived);
+  const pending = Module === null;
+
+  // Closing is the caller's latest word, through a function that stays the same: a new one
+  // on every render of the caller would put the layer back on top of anything opened since.
+  const onClose = useRef(props.onClose);
+  useLayoutEffect(() => {
+    onClose.current = props.onClose;
+  });
+  const [close] = useState(() => () => onClose.current());
+  useEscape(close, pending);
+
+  useEffect(() => {
+    if (!pending) return undefined;
+    // On the document, in the capture phase: before React's root, where the composer's own
+    // handler would hear it, and before the browser breaks the line.
+    const swallowEnter = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    document.addEventListener('keydown', swallowEnter, true);
+    return () => document.removeEventListener('keydown', swallowEnter, true);
+  }, [pending]);
 
   const failed = useEffectEvent((error: unknown) => {
     console.error('palette failed to load', error);

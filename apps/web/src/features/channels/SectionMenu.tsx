@@ -2,10 +2,11 @@
  * What you can do to one of your own sections (M3 · B3): rename it or delete it. A module
  * for `lazyDropdown` — the section's Options button is handed in as `trigger` and is the
  * menu's own — so, as in `ChannelMenu`, the two dialogs are drawn beside the menu and stay
- * when it closes, and when one ends focus goes back to the button.
+ * when it closes, and when one ends focus goes back to the button. While open it holds its
+ * place on the Escape stack (`lib/useMenuEscapeLayer.ts`).
  */
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { SidebarSection } from '@blob/shared';
 import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
 import { DialogPresence } from '../../components/Dialog.tsx';
@@ -19,6 +20,7 @@ import {
 import { usePath } from '../../lib/router.ts';
 import { removeSection } from '../../lib/sidebarSections.ts';
 import { useStore } from '../../lib/store.ts';
+import { useMenuEscapeLayer } from '../../lib/useMenuEscapeLayer.ts';
 import { RenameSectionDialog } from './SectionDialogs.tsx';
 
 interface Props extends DropdownModuleProps {
@@ -31,7 +33,7 @@ export default function SectionMenu({ trigger, defaultOpen, section, sections }:
   const path = usePath();
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [dialog, setDialog] = useState<'rename' | 'delete' | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const { popupRef, triggerRef } = useMenuEscapeLayer(open, setOpen);
 
   const [menuPath, setMenuPath] = useState(path);
   if (menuPath !== path) {
@@ -49,7 +51,12 @@ export default function SectionMenu({ trigger, defaultOpen, section, sections }:
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger ref={triggerRef} render={trigger} />
-        <DropdownMenuContent align="start" sideOffset={6} className="w-auto min-w-44">
+        <DropdownMenuContent
+          ref={popupRef}
+          align="start"
+          sideOffset={6}
+          className="w-auto min-w-44"
+        >
           <DropdownMenuItem className="pointer-coarse:min-h-11" onClick={() => setDialog('rename')}>
             Rename section…
           </DropdownMenuItem>

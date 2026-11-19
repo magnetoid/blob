@@ -134,6 +134,28 @@ function SidebarProvider({
   )
 }
 
+/**
+ * Whether a key came from a popup the sheet opened that Base UI portalled out of it: a
+ * row's menu, controlled by a trigger inside the sheet, or a dialog one of its items opened,
+ * which Base UI counts as nested in the sheet (`data-nested-dialog-open` on its popup).
+ * Either answers its own Escape, and the sheet stays open. Each of them holds a place on
+ * the Escape stack above the sheet's (`lib/useMenuEscapeLayer.ts`, `components/Dialog.tsx`),
+ * so this is the net under them, not the rule. Named, never "anything portalled": a key
+ * from anywhere else is still a stray, and the sheet's to answer.
+ */
+function openedFromSheet(sheet: HTMLElement, target: Node): boolean {
+  const element = target instanceof Element ? target : target.parentElement
+  const menu = element?.closest<HTMLElement>('[data-slot="dropdown-menu-content"]')
+  if (menu) {
+    if (menu.id === "") return false
+    return sheet.querySelector(`[aria-controls="${CSS.escape(menu.id)}"]`) !== null
+  }
+  return (
+    element?.closest('[data-slot="dialog-content"]') != null &&
+    sheet.hasAttribute("data-nested-dialog-open")
+  )
+}
+
 function Sidebar({
   side = "left",
   variant = "sidebar",
@@ -167,16 +189,20 @@ function Sidebar({
   // — the chunk still on its way — or for a key from outside it, the layer answers, so the
   // key never reaches what is underneath: a panel opened before it, or the shell's own
   // listener on `window`, which takes a stray Escape as "close the thread" or "mark this
-  // channel read". One object for the sidebar's life: a new one would re-register the
-  // layer on top.
+  // channel read". "Inside" counts what the sheet opened and Base UI portalled out of it,
+  // too (`openedFromSheet`). One object for the sidebar's life: a new one would re-register
+  // the layer on top.
   const popupRef = React.useRef<React.RefObject<HTMLElement | null> | null>(null)
   const onDrawn = React.useCallback((popup: React.RefObject<HTMLElement | null>) => {
     popupRef.current = popup
   }, [])
   const [standIn] = React.useState<StandIn>(() => ({
     drawn: () => popupRef.current?.current != null,
-    holds: (target) =>
-      target instanceof Node && (popupRef.current?.current?.contains(target) ?? false),
+    holds: (target) => {
+      const sheet = popupRef.current?.current
+      if (!sheet || !(target instanceof Node)) return false
+      return sheet.contains(target) || openedFromSheet(sheet, target)
+    },
     close: () => setOpenMobile(false),
   }))
   useEscapeLayer(isMobile && openMobile && collapsible !== "none", standIn)

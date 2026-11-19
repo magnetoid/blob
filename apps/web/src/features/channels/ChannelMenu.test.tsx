@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ChannelWithState, UserRole } from '@blob/shared';
 import ChannelMenu from './ChannelMenu.tsx';
+import { useEscape } from '../../lib/useEscape.ts';
 import '../../test/overlayChunk.ts';
 
 const setMembership = vi.fn(async () => ({}));
@@ -220,5 +221,86 @@ describe('the menu itself', () => {
     open({}, { onOpenRuns });
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Agent runs' }));
     expect(onOpenRuns).toHaveBeenCalled();
+  });
+});
+
+/**
+ * One Escape, one layer (`lib/useEscape.ts`). The menu is the innermost thing open, so it
+ * takes its place on the shared stack as it opens: an Escape is the menu's, and the file
+ * panel or thread opened before it hears the next one. Without that place the stack handed
+ * the key to the panel and stopped it there, and the menu, which never heard it, stayed open.
+ */
+describe('Escape, with something open under the menu', () => {
+  /** What was open before the menu: the file panel, say, which holds `useEscape(onClose)`. */
+  function Underneath({ onClose }: { onClose: () => void }) {
+    useEscape(onClose);
+    return null;
+  }
+
+  function openOver(underneath: () => void) {
+    render(
+      <>
+        <Underneath onClose={underneath} />
+        <ChannelMenu
+          trigger={<button type="button">Options</button>}
+          channel={channel()}
+          onOpenDetails={vi.fn()}
+        />
+      </>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Options' });
+    fireEvent.click(trigger);
+    return trigger;
+  }
+
+  it('closes the menu from one of its items, and the next Escape goes on to what is under it', async () => {
+    const underneath = vi.fn();
+    const trigger = openOver(underneath);
+    const item = await screen.findByRole('menuitem', { name: 'Star this channel' });
+    item.focus();
+
+    fireEvent.keyDown(item, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(underneath).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(trigger);
+
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    expect(underneath).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the menu for an Escape from outside it too, and focus still goes home', async () => {
+    // Focus on the page's body — a click that focused nothing, a field that went away. Base
+    // UI's own listener would hear this one, and so would every dialog's; the layer answers
+    // it instead, by closing the menu the way a change of path does.
+    const underneath = vi.fn();
+    const trigger = openOver(underneath);
+    await screen.findByRole('menu');
+    (document.activeElement as HTMLElement | null)?.blur();
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(underneath).not.toHaveBeenCalled();
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    expect(underneath).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the Escape in a dialog one of its items opened to the dialog', async () => {
+    const underneath = vi.fn();
+    const trigger = openOver(underneath);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Leave channel' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(underneath).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(trigger);
+    expect(leaveChannel).not.toHaveBeenCalled();
   });
 });

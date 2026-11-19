@@ -8,6 +8,7 @@ import { Sidebar } from './Sidebar.tsx';
 import { MoveToSectionDialog } from './SectionDialogs.tsx';
 import { SectionMenu } from './lazyMenus.ts';
 import { useStore } from '../../lib/store.ts';
+import { useEscape } from '../../lib/useEscape.ts';
 import '../../test/overlayChunk.ts';
 
 vi.mock('../../lib/router.ts', async () => ({
@@ -140,6 +141,42 @@ describe('the section menu', () => {
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(setSidebarSections).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(options);
+  });
+
+  it('answers one Escape itself, and its rename dialog its own, before what was open under them', async () => {
+    // One Escape, one layer (`lib/useEscape.ts`): the menu holds a place on the stack while
+    // it is open, and the dialog one of its items opened holds one of its own.
+    const underneath = vi.fn();
+    function Underneath() {
+      useEscape(underneath);
+      return null;
+    }
+    seed([CLIENTS]);
+    render(
+      <SidebarProvider>
+        <Underneath />
+        <Sidebar />
+      </SidebarProvider>,
+    );
+    const clients = screen.getByRole('region', { name: 'Clients' });
+    const options = within(clients).getByRole('button', { name: 'Options for Clients' });
+
+    fireEvent.click(options);
+    const rename = await screen.findByRole('menuitem', { name: 'Rename section…' });
+    rename.focus();
+    fireEvent.keyDown(rename, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(underneath).not.toHaveBeenCalled();
+
+    fireEvent.click(options);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Rename section…' }));
+    fireEvent.keyDown(await screen.findByRole('textbox'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(underneath).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(options);
+
+    fireEvent.keyDown(options, { key: 'Escape' });
+    expect(underneath).toHaveBeenCalledTimes(1);
   });
 });
 

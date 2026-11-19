@@ -24,6 +24,7 @@ import {
 } from './ui/dropdown-menu.tsx';
 import { lazyDropdown, type DropdownModuleProps } from './lazyDropdown.tsx';
 import { preloadAlso } from '../lib/overlays.ts';
+import { useEscape } from '../lib/useEscape.ts';
 
 // The registration is the case's to look at; nothing here runs the app's preload.
 vi.mock('../lib/overlays.ts', async (importOriginal) => ({
@@ -338,5 +339,31 @@ describe('a press that moved on before the module landed', () => {
 
     expect(screen.getByRole('menu')).toBeTruthy();
     expect(account().getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('takes the Escape that cancels it, and leaves what was open under it for the next one', async () => {
+    // The press is the menu opening, so the Escape is the menu's even before there is one: a
+    // panel open behind it hearing that key would close as the press was cancelled.
+    const underneath = vi.fn();
+    function Underneath() {
+      useEscape(underneath);
+      return null;
+    }
+    const held = heldImport();
+    const Menu = lazyDropdown(held.load);
+    render(
+      <>
+        <Underneath />
+        <Menu trigger={<button type="button">Account</button>} />
+      </>,
+    );
+    fireEvent.click(account());
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(underneath).not.toHaveBeenCalled();
+    await landsClosed(held.release);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(underneath).toHaveBeenCalledTimes(1);
   });
 });

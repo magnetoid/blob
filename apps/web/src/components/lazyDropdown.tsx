@@ -13,6 +13,7 @@ import {
   type Ref,
 } from 'react';
 import { memoiseImport, preloadAlso } from '../lib/overlays.ts';
+import { useEscape } from '../lib/useEscape.ts';
 
 /**
  * What a menu module's default export takes: the button that opens it, which the module
@@ -49,7 +50,10 @@ function assignRef(ref: Ref<HTMLElement> | undefined, node: HTMLElement | null):
  * `aria-expanded`) and keeping its own click handler. A press on it asks for the module
  * and is held: the module is drawn open the moment it lands — unless the person has gone
  * on while it was on its way, by Tab, by Escape, or by focus landing anywhere outside the
- * trigger, when it is drawn closed and their focus is left where they took it. Focus
+ * trigger, when it is drawn closed and their focus is left where they took it. The Escape
+ * is the menu's even before there is one: a waiting press holds the menu's place on the
+ * Escape stack (`lib/useEscape.ts`), as the menu does once it is drawn
+ * (`lib/useMenuEscapeLayer.ts`), so a panel open behind it does not hear that key. Focus
  * staying on the trigger is not the test: WebKit does not focus a button that is clicked,
  * so a press can leave focus on <body> the whole time and still be waiting. A module that
  * arrives by the preload is drawn closed, and one already here is drawn in the very render
@@ -123,18 +127,20 @@ export function lazyDropdown<P extends DropdownModuleProps>(
     const Module = useSyncExternalStore(subscribe, current, current);
 
     // A press waiting for the module stands only while the person has not gone on. Tab and
-    // Escape are ways out, and so is focus landing outside the trigger; listened for on the
+    // Escape are ways out, and so is focus landing outside the trigger. Escape through the
+    // shared stack, where the press is the innermost thing open; Tab and focus on the
     // document, in the capture phase, so nothing that stops them on the way hides them.
     // Nothing is cancelled by a press that leaves focus where it was, <body> included.
     const waitingOnPress = pressed && !Module;
+    // Once the module is here the menu is drawn, and focus moving into it is its own.
+    const goneOn = useCallback(() => {
+      if (!arrived) setPressed(false);
+    }, []);
+    useEscape(goneOn, waitingOnPress);
     useEffect(() => {
       if (!waitingOnPress) return undefined;
-      // Once the module is here the menu is drawn, and focus moving into it is its own.
-      const goneOn = () => {
-        if (!arrived) setPressed(false);
-      };
       const onKey = (event: KeyboardEvent) => {
-        if (event.key === 'Tab' || event.key === 'Escape') goneOn();
+        if (event.key === 'Tab') goneOn();
       };
       const onFocus = (event: FocusEvent) => {
         const target = event.target;
@@ -146,7 +152,7 @@ export function lazyDropdown<P extends DropdownModuleProps>(
         document.removeEventListener('keydown', onKey, true);
         document.removeEventListener('focusin', onFocus, true);
       };
-    }, [waitingOnPress]);
+    }, [waitingOnPress, goneOn]);
 
     const ownRef = own.ref;
     const placeholderRef = useCallback(

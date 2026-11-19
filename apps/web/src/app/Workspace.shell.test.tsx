@@ -53,6 +53,9 @@ vi.mock('../components/ShortcutHelp.tsx', () => ({ ShortcutHelp: () => null }));
 
 const { Workspace } = await import('./Workspace.tsx');
 const { useStore } = await import('../lib/store.ts');
+// A row's ··· is its own lazy module (`features/channels/lazyMenus.ts`): here before the
+// first case, as the preload has it here before the first press.
+await (await import('../features/channels/lazyMenus.ts')).ChannelMenu.preload();
 
 const ME = { id: 'u1', kind: 'human', displayName: 'Marko', deactivated: false };
 const openChannel = vi.fn(async () => undefined);
@@ -190,6 +193,37 @@ describe('the channel list on a phone', () => {
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
     expect(openThread).toHaveBeenCalledWith(null);
     expect(markRead).not.toHaveBeenCalled();
+  });
+
+  it('closes a row’s menu in the Sheet on Escape and leaves the Sheet open, then closes that', async () => {
+    // The menu is portalled out of the Sheet's popup, so to the Sheet's place on the stack a
+    // key from inside the menu came from outside the Sheet. Before the menu held a place of
+    // its own above the Sheet's, that one Escape closed the Sheet.
+    viewport('phone');
+    seed();
+    render(<Workspace onSignedOut={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open channel list' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Channel list' });
+    const options = within(sheet).getByRole('button', { name: 'Options for general' });
+    fireEvent.click(options);
+    const item = await screen.findByRole('menuitem', { name: 'Star this channel' });
+    expect(sheet.contains(item)).toBe(false);
+    item.focus();
+
+    fireEvent.keyDown(item, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(screen.getByRole('dialog', { name: 'Channel list' })).toBe(sheet);
+    expect(document.activeElement).toBe(options);
+    expect(openThread).not.toHaveBeenCalled();
+    expect(markRead).not.toHaveBeenCalled();
+
+    // The next one is the Sheet's, and the thread behind it is still open.
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(openThread).not.toHaveBeenCalled();
+    expect(screen.getByRole('complementary', { name: 'Thread' })).toBeTruthy();
   });
 });
 

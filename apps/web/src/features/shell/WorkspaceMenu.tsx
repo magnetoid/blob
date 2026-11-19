@@ -6,10 +6,14 @@
  * Switching reloads the page rather than re-fetching into the live store: the session
  * cookie now points at a different account, so everything held in memory belongs to a
  * workspace this browser has left.
+ *
+ * Controlled, so that its place on the Escape stack (`lib/useMenuEscapeLayer.ts`) can close
+ * it: while it is open an Escape is the menu's, not the panel's behind it.
  */
 
 import { useState } from 'react';
 import { api, type WorkspaceMembership } from '../../lib/api.ts';
+import { useMenuEscapeLayer } from '../../lib/useMenuEscapeLayer.ts';
 import type { DropdownModuleProps } from '../../components/lazyDropdown.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
 import {
@@ -27,11 +31,18 @@ interface Props extends DropdownModuleProps {
 
 export default function WorkspaceMenu({ trigger, defaultOpen, workspaces }: Props) {
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  const { popupRef, triggerRef } = useMenuEscapeLayer(open, setOpen);
 
   return (
-    <DropdownMenu defaultOpen={defaultOpen}>
-      <DropdownMenuTrigger render={trigger} />
-      <DropdownMenuContent align="start" sideOffset={6} className="w-auto min-w-52">
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger ref={triggerRef} render={trigger} />
+      <DropdownMenuContent
+        ref={popupRef}
+        align="start"
+        sideOffset={6}
+        className="w-auto min-w-52"
+      >
         <DropdownMenuGroup>
           <DropdownMenuLabel>Your workspaces</DropdownMenuLabel>
           {workspaces.map((workspace) => (

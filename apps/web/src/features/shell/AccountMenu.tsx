@@ -3,8 +3,9 @@
  *
  * `lazyDropdown` hands it the button that opens it and whether it opens as it is drawn
  * (`components/lazyDropdown.tsx`); the menu itself is shadcn's, so Base UI owns the
- * trigger, the arrows and typeahead, Escape, and focus going back to the button. Which
- * rows there are is `menu.ts`'s, and who may see each is the viewer's role.
+ * trigger, the arrows and typeahead, Escape, and focus going back to the button — with the
+ * menu's place on the Escape stack held while it is open (`lib/useMenuEscapeLayer.ts`).
+ * Which rows there are is `menu.ts`'s, and who may see each is the viewer's role.
  *
  * Two things here are Blob's. Feedback does not run when its row is chosen but when the
  * menu has finished closing: the report's snapshot is of the page behind the menu, and a
@@ -16,6 +17,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../lib/store.ts';
 import { navigate, usePath } from '../../lib/router.ts';
+import { useMenuEscapeLayer } from '../../lib/useMenuEscapeLayer.ts';
 import type { DropdownModuleProps } from '../../components/lazyDropdown.tsx';
 import {
   DropdownMenu,
@@ -38,6 +40,7 @@ export default function AccountMenu({ trigger, defaultOpen, onFeedback, unseenRe
   const currentUser = useStore((s) => s.currentUser);
   const path = usePath();
   const [open, setOpen] = useState(defaultOpen ?? false);
+  const { popupRef, triggerRef } = useMenuEscapeLayer(open, setOpen);
   /** Feedback was chosen and is waiting for the menu to finish closing. */
   const feedbackPending = useRef(false);
   /** The frame Feedback is waiting for, so leaving the page cancels it. */
@@ -74,8 +77,13 @@ export default function AccountMenu({ trigger, defaultOpen, onFeedback, unseenRe
         frame.current = requestAnimationFrame(onFeedback);
       }}
     >
-      <DropdownMenuTrigger render={trigger} />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-auto min-w-58">
+      <DropdownMenuTrigger ref={triggerRef} render={trigger} />
+      <DropdownMenuContent
+        ref={popupRef}
+        align="end"
+        sideOffset={6}
+        className="w-auto min-w-58"
+      >
         <DropdownMenuGroup>
           <DropdownMenuLabel className="flex flex-col gap-0.5 px-2 py-1.5">
             <span className="truncate text-sm font-semibold text-foreground">

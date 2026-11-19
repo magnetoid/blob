@@ -105,3 +105,91 @@ describe('the palette’s chunk', () => {
     expect(screen.getByText('the workspace')).toBeTruthy();
   });
 });
+
+/**
+ * A palette from a module registry of its own whose chunk is still on the wire, and the
+ * means to land it. `useEscape` is that registry's too: the stack the fresh palette takes
+ * its place on is the one a panel opened under it must register on.
+ */
+async function aPendingPalette() {
+  let land!: () => void;
+  const landed = new Promise<void>((resolve) => {
+    land = resolve;
+  });
+  vi.resetModules();
+  vi.doMock('./CommandPalette.tsx', async () => {
+    await landed;
+    const { createElement } = await import('react');
+    return { default: () => createElement('p', null, 'the palette') };
+  });
+  const fresh = await import('./lazyPalette.ts');
+  const { useEscape } = await import('../../lib/useEscape.ts');
+  return { Palette: fresh.CommandPalette, useEscape, land };
+}
+
+describe('the palette while its chunk is on the way', () => {
+  it('is what an Escape closes, not what was open under it', async () => {
+    const pending = await aPendingPalette();
+    /** What was open before ⌘K: the file panel, say, which holds `useEscape(onClose)`. */
+    function Underneath({ onClose }: { onClose: () => void }) {
+      pending.useEscape(onClose);
+      return null;
+    }
+    const underneath = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <>
+        <Underneath onClose={underneath} />
+        <Host Palette={pending.Palette} onClose={onClose} />
+      </>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(screen.queryByText('the palette')).toBeNull();
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(underneath).not.toHaveBeenCalled();
+
+    // The next one is the panel's.
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(underneath).toHaveBeenCalledTimes(1);
+    pending.land();
+  });
+
+  it('does not let Enter reach the field the ⌘K was pressed in', async () => {
+    // Whatever was typed after ⌘K went to the composer, and Enter there sends it: the
+    // half-typed query would go to the channel as a message.
+    const pending = await aPendingPalette();
+    const sent = vi.fn();
+    render(
+      <>
+        <textarea
+          aria-label="Message"
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') sent();
+          }}
+        />
+        <Host Palette={pending.Palette} />
+      </>,
+    );
+    const composer = screen.getByRole('textbox', { name: 'Message' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    composer.focus();
+    const enter = fireEvent.keyDown(composer, { key: 'Enter' });
+
+    expect(sent).not.toHaveBeenCalled();
+    // Nor does the browser do anything with it: no newline in the field.
+    expect(enter).toBe(false);
+    // Only Enter: everything else typed meanwhile still goes where focus is.
+    fireEvent.keyDown(composer, { key: 'a' });
+
+    // Once the palette is here the composer has its Enter back.
+    pending.land();
+    expect(await screen.findByText('the palette')).toBeTruthy();
+    fireEvent.keyDown(composer, { key: 'Enter' });
+    expect(sent).toHaveBeenCalledTimes(1);
+  });
+});
