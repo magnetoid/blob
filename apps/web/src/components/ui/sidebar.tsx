@@ -7,23 +7,19 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import { lazyOverlay } from "@/components/lazyOverlay"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { PanelLeftIcon, XIcon } from "lucide-react"
+import { loadedOverlays } from "@/lib/overlays"
+import { PanelLeftIcon } from "lucide-react"
+
+// The sheet below 768px is Base UI's dialog, so it comes from the overlay chunk
+// (`components/overlays/SidebarSheetImpl.tsx`): the chat shell draws its sidebar at first
+// paint, and a statically imported Sheet would put the overlay code in the first load.
+// For the same reason there is no Tooltip here — see `SidebarMenuButton`.
+const SidebarSheet = lazyOverlay((m) => m.SidebarSheetImpl)
 
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
@@ -158,6 +154,13 @@ function Sidebar({
 }) {
   const { isMobile, state, openMobile, setOpenMobile, openerRef } = useSidebar()
 
+  // Mounted the first time the sheet opens, as every overlay is (`lazyOverlay`), and kept
+  // after that, so Base UI can play its exit on every close. Kept only while the chunk is
+  // here: one that failed to load drew nothing, and a wrapper left mounted through that
+  // would try the import again on every render of the sidebar.
+  const [sheetOpened, setSheetOpened] = React.useState(false)
+  if (isMobile && openMobile && !sheetOpened) setSheetOpened(true)
+
   if (collapsible === "none") {
     return (
       <div
@@ -174,54 +177,21 @@ function Sidebar({
   }
 
   if (isMobile) {
-    return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-        <SheetContent
-          dir={dir}
-          data-sidebar="sidebar"
-          data-slot="sidebar"
-          data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground"
-          // The generated close is named only "Close"; the one below says which menu.
-          showCloseButton={false}
-          style={
-            {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-            } as React.CSSProperties
-          }
-          side={side}
-          // Back to the trigger that opened it. The dialog's own default is whatever had
-          // focus before it opened, and Safari does not focus a button that is clicked,
-          // so there it was the page. Opened some other way, the default stands — so the
-          // opener is spent here, on the close it was recorded for.
-          finalFocus={() => {
-            const opener = openerRef.current
-            openerRef.current = null
-            return opener ?? true
-          }}
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>{label}</SheetTitle>
-          </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
-          {/* The backdrop is no way out for a screen reader on a phone, where the page
-              behind the modal is inert and there is no Escape. After the children, so
-              the dialog still opens on the nav and not on this. */}
-          <SheetClose
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="absolute top-3 right-3"
-                aria-label={closeLabel}
-              />
-            }
-          >
-            <XIcon />
-          </SheetClose>
-        </SheetContent>
-      </Sheet>
-    )
+    const drawn = openMobile || (sheetOpened && loadedOverlays() !== null)
+    return drawn ? (
+      <SidebarSheet
+        open={openMobile}
+        onOpenChange={setOpenMobile}
+        side={side}
+        dir={dir}
+        width={SIDEBAR_WIDTH_MOBILE}
+        label={label}
+        closeLabel={closeLabel}
+        openerRef={openerRef}
+      >
+        {children}
+      </SidebarSheet>
+    ) : null
   }
 
   return (
@@ -516,21 +486,21 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
+/** No `tooltip` prop, which the generated button has: Base UI's tooltip is overlay code,
+ *  and a sidebar row is on the page at first paint. A row on the rail carries its name
+ *  as its label and Blob's `data-tooltip`, as the rest of the app's icon buttons do. */
 function SidebarMenuButton({
   render,
   isActive = false,
   variant = "default",
   size = "default",
-  tooltip,
   className,
   ...props
 }: useRender.ComponentProps<"button"> &
   React.ComponentProps<"button"> & {
     isActive?: boolean
-    tooltip?: string | React.ComponentProps<typeof TooltipContent>
   } & VariantProps<typeof sidebarMenuButtonVariants>) {
-  const { isMobile, state } = useSidebar()
-  const comp = useRender({
+  return useRender({
     defaultTagName: "button",
     props: mergeProps<"button">(
       {
@@ -538,7 +508,7 @@ function SidebarMenuButton({
       },
       props
     ),
-    render: !tooltip ? render : <TooltipTrigger render={render} />,
+    render,
     state: {
       slot: "sidebar-menu-button",
       sidebar: "menu-button",
@@ -546,28 +516,6 @@ function SidebarMenuButton({
       active: isActive,
     },
   })
-
-  if (!tooltip) {
-    return comp
-  }
-
-  if (typeof tooltip === "string") {
-    tooltip = {
-      children: tooltip,
-    }
-  }
-
-  return (
-    <Tooltip>
-      {comp}
-      <TooltipContent
-        side="right"
-        align="center"
-        hidden={state !== "collapsed" || isMobile}
-        {...tooltip}
-      />
-    </Tooltip>
-  )
 }
 
 function SidebarMenuAction({

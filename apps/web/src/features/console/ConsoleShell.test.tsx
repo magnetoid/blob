@@ -8,6 +8,9 @@ import { useEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { NavGroup } from './registry.ts';
+// Below 768px the nav is a sheet, which comes from the overlay chunk: here before the first
+// case, so opening it is not a second of the chunk's evaluation inside a `findByRole`.
+import '../../test/overlayChunk.ts';
 
 // The bar is another feature's, with a store behind it; this is about the page under it.
 vi.mock('../shell/TopBar.tsx', () => ({

@@ -119,6 +119,68 @@ describe('preloading after first paint', () => {
     await vi.waitFor(() => expect(barrel.evaluated).toBe(1));
   });
 
+  // A menu that owns its trigger lives in a module of its own (`components/lazyDropdown`),
+  // and it should be here as early as the overlays it is built on.
+  it('starts a loader registered with preloadAlso when preloadOverlays runs', async () => {
+    const idle = vi.fn<(callback: () => void) => number>(() => 1);
+    vi.stubGlobal('requestIdleCallback', idle);
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const { preloadAlso, preloadOverlays } = await freshModule();
+      const menu = vi.fn(() => Promise.resolve());
+      const broken = vi.fn(() => Promise.reject(new Error('offline')));
+      preloadAlso(menu);
+      preloadAlso(broken);
+      // Registered while the page is still painting: nothing starts yet.
+      expect(menu).not.toHaveBeenCalled();
+
+      preloadOverlays();
+      expect(menu).not.toHaveBeenCalled();
+
+      // In the same spare moment as the overlay chunk, and only then.
+      idle.mock.calls[0]![0]();
+      expect(menu).toHaveBeenCalledTimes(1);
+      expect(broken).toHaveBeenCalledTimes(1);
+      await vi.waitFor(() => expect(barrel.evaluated).toBe(1));
+
+      // A failed preload is no error, as the overlay chunk's own is not.
+      await new Promise<void>((resolve) => process.nextTick(resolve));
+      expect(unhandled).not.toHaveBeenCalled();
+      // And idempotent: a second call starts nobody twice.
+      preloadOverlays();
+      expect(menu).toHaveBeenCalledTimes(1);
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
+  it('starts a loader registered after preloadOverlays ran', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('requestIdleCallback', undefined);
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const { preloadAlso, preloadOverlays } = await freshModule();
+      preloadOverlays();
+      await vi.advanceTimersByTimeAsync(1);
+      await vi.waitFor(() => expect(barrel.evaluated).toBe(1));
+
+      // A module evaluated later — a lazy chunk that defines a menu — registers late.
+      const late = vi.fn(() => Promise.reject(new Error('offline')));
+      preloadAlso(late);
+      // At once, but not inside whatever is registering it.
+      expect(late).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(late).toHaveBeenCalledTimes(1);
+
+      await new Promise<void>((resolve) => process.nextTick(resolve));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
   it('survives a failed preload and leaves the retry to the first real use', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('requestIdleCallback', undefined);
