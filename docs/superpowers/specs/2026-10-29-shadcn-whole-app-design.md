@@ -229,7 +229,7 @@ and tests apply.
 3. **The three consoles.** *Done in #49 (2026-11-03).*
    `features/console`, `admin`, `settings` and `server`, including
    the theme editor. Stays out of the main chunk.
-4. **The shell.** *Done 2026-11-19; ADR 0043's phase 4 addendum records how.*
+4. **The shell.** *Done in #57; ADR 0043's phase 4 addendum records how.*
    shadcn Sidebar for the channel list (the Meadow inset frame maps onto
    the sidebar's inset variant), the top bar, ⌘K as Command, workspace switcher, Sheet on
    narrow screens. The Sidebar already exists: phase 3 added it as
