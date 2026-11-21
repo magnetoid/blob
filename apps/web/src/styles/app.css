@@ -4,8 +4,6 @@
 @import "./app/an-assistant-asking-to-connect.css";
 @import "./app/shell.css";
 @import "./app/the-frame.css";
-@import "./app/top-bar.css";
-@import "./app/view-switching-in-the-bar.css";
 @import "./app/sidebar.css";
 @import "./app/avatars-presence.css";
 @import "./app/conversation-pane.css";
@@ -19,7 +17,6 @@
 @import "./app/a-file-dropped-on-a-conversation.css";
 @import "./app/right-panel.css";
 @import "./app/search.css";
-@import "./app/command-palette.css";
 @import "./app/dialogs-settings.css";
 @import "./app/empty-states.css";
 @import "./app/an-agents-memory-and-setup.css";
@@ -27,7 +24,7 @@
 @import "./app/an-agents-terminal.css";
 @import "./app/emoji-the-picker-and-custom-emoji-wherever-they-render.css";
 @import "./app/slash-commands.css";
-@import "./app/workspace-switcher.css";
+@import "./app/shortcut-list-and-pinned-messages.css";
 @import "./app/scheduling.css";
 @import "./app/forwarding.css";
 @import "./app/channel-directory.css";

@@ -3,7 +3,7 @@
  * The names are the app's and the drawing is Lucide's — the set shadcn ships with, so an
  * icon in a shadcn component and one in a legacy row are the same family. Each export is
  * a thin wrapper that a caller uses exactly as before; only the paths changed hands. Named
- * imports, so the build keeps the thirty-nine glyphs used here and none of Lucide's others.
+ * imports, so the build keeps the forty-one glyphs used here and none of Lucide's others.
  *
  * Four sizes, named by role rather than by number. There were seven — 13, 14, 15, 16,
  * 17, 18 and 19 — and five stroke weights between 1.7 and 2.2, chosen a call site at a
@@ -26,6 +26,7 @@ import type { SVGProps } from 'react';
 import {
   LucideArrowDown,
   LucideAtSign,
+  LucideBell,
   LucideChartBar,
   LucideCheck,
   LucideChevronDown,
@@ -39,6 +40,7 @@ import {
   LucideHeadphones,
   LucideHouse,
   LucideLifeBuoy,
+  LucideListTodo,
   LucideLock,
   LucideMaximize2,
   LucideMessageCircle,
@@ -133,6 +135,13 @@ export const PollIcon = (p: IconProps) => <Glyph glyph={LucideChartBar} {...p} /
 export const MentionIcon = (p: IconProps) => <Glyph glyph={LucideAtSign} {...p} />;
 
 export const FileIcon = (p: IconProps) => <Glyph glyph={LucideFile} {...p} />;
+
+/** A list with boxes to tick: tasks (the sidebar's Tasks, Home's "Open tasks", the Tasks
+ * page). A sheet of paper said "file", which is the Files row's. */
+export const TaskIcon = (p: IconProps) => <Glyph glyph={LucideListTodo} {...p} />;
+
+/** A bell: what happened that concerns you (Activity). Mentions keep the @. */
+export const ActivityIcon = (p: IconProps) => <Glyph glyph={LucideBell} {...p} />;
 
 export const DownloadIcon = (p: IconProps) => <Glyph glyph={LucideDownload} {...p} />;
 

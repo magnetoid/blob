@@ -1,11 +1,14 @@
 // @vitest-environment happy-dom
 /** Sections of your own in the channel list (M3 · B3). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { SidebarSection } from '@blob/shared';
+import { SidebarProvider } from '../../components/ui/sidebar.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import { MoveToSectionDialog } from './SectionDialogs.tsx';
+import { SectionMenu } from './lazyMenus.ts';
 import { useStore } from '../../lib/store.ts';
+import { useEscape } from '../../lib/useEscape.ts';
 import '../../test/overlayChunk.ts';
 
 vi.mock('../../lib/router.ts', async () => ({
@@ -13,6 +16,11 @@ vi.mock('../../lib/router.ts', async () => ({
   parseRoute: () => ({ view: 'messages' }),
   usePath: () => '/',
 }));
+
+// The section menu is its own lazy module (`lazyMenus.ts`). Loaded while the file is
+// collected, as `test/overlayChunk.ts` loads the overlay chunk, so a first press does not
+// pay for a cold import that a busy machine can stretch past `findBy`'s second.
+await SectionMenu.preload();
 
 const ME = { id: 'u1', kind: 'human', displayName: 'Marko', deactivated: false };
 const setSidebarSections = vi.fn<(sections: SidebarSection[]) => Promise<void>>(async () => undefined);
@@ -47,6 +55,14 @@ function seed(sections: SidebarSection[]) {
   } as never);
 }
 
+/** The list as the shell draws it, inside the sidebar's provider. */
+const draw = () =>
+  render(
+    <SidebarProvider>
+      <Sidebar />
+    </SidebarProvider>,
+  );
+
 const CLIENTS: SidebarSection = { id: 's1', name: 'Clients', channelIds: ['c2', 'c3'], collapsed: false };
 
 beforeEach(() => setSidebarSections.mockClear());
@@ -55,28 +71,112 @@ afterEach(cleanup);
 describe('a section of your own', () => {
   it('holds its conversations, and they leave Channels', () => {
     seed([CLIENTS]);
-    render(<Sidebar />);
+    draw();
     const clients = screen.getByRole('region', { name: 'Clients' });
     expect(within(clients).getByText('acme')).toBeTruthy();
     expect(within(clients).getByText('globex')).toBeTruthy();
     expect(screen.getAllByText('acme')).toHaveLength(1);
     expect(screen.getByText('general')).toBeTruthy();
+    // Its options are its own, beside its name: the trigger the section menu hangs from.
+    const options = within(clients).getByRole('button', { name: 'Options for Clients' });
+    expect(options.getAttribute('aria-haspopup')).toBe('menu');
   });
 
   it('folds from its heading, still showing what is unread', () => {
     seed([{ ...CLIENTS, collapsed: true }]);
-    render(<Sidebar />);
+    draw();
     const clients = screen.getByRole('region', { name: 'Clients' });
     expect(within(clients).queryByText('acme')).toBeNull();
     expect(within(clients).getByText('globex')).toBeTruthy();
-    fireEvent.click(within(clients).getByRole('button', { name: 'Clients' }));
+    const toggle = within(clients).getByRole('button', { name: 'Clients' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
     expect(setSidebarSections).toHaveBeenCalledWith([{ ...CLIENTS, collapsed: false }]);
   });
 
   it('says how to fill it while it is empty', () => {
     seed([{ ...CLIENTS, channelIds: [] }]);
-    render(<Sidebar />);
+    draw();
     expect(screen.getByText('Move a conversation here from its ··· menu.')).toBeTruthy();
+  });
+});
+
+describe('the section menu', () => {
+  async function openMenu() {
+    seed([CLIENTS]);
+    draw();
+    const clients = screen.getByRole('region', { name: 'Clients' });
+    const options = within(clients).getByRole('button', { name: 'Options for Clients' });
+    fireEvent.click(options);
+    await screen.findByRole('menuitem', { name: 'Rename section…' });
+    return options;
+  }
+
+  it('renames the section through its dialog, and focus returns to its button', async () => {
+    await openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename section…' }));
+    const input = await screen.findByRole<HTMLInputElement>('textbox');
+    fireEvent.change(input, { target: { value: 'Customers' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(setSidebarSections).toHaveBeenCalledWith([{ ...CLIENTS, name: 'Customers' }]);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Options for Clients' }),
+    );
+  });
+
+  it('deletes the section after asking, and only the section', async () => {
+    await openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete section' }));
+    await screen.findByRole('alertdialog');
+    expect(setSidebarSections).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete section' }));
+    expect(setSidebarSections).toHaveBeenCalledWith([]);
+  });
+
+  it('leaves the section as it was when the question is dismissed', async () => {
+    const options = await openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete section' }));
+    fireEvent.keyDown(await screen.findByRole('alertdialog'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(setSidebarSections).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(options);
+  });
+
+  it('answers one Escape itself, and its rename dialog its own, before what was open under them', async () => {
+    // One Escape, one layer (`lib/useEscape.ts`): the menu holds a place on the stack while
+    // it is open, and the dialog one of its items opened holds one of its own.
+    const underneath = vi.fn();
+    function Underneath() {
+      useEscape(underneath);
+      return null;
+    }
+    seed([CLIENTS]);
+    render(
+      <SidebarProvider>
+        <Underneath />
+        <Sidebar />
+      </SidebarProvider>,
+    );
+    const clients = screen.getByRole('region', { name: 'Clients' });
+    const options = within(clients).getByRole('button', { name: 'Options for Clients' });
+
+    fireEvent.click(options);
+    const rename = await screen.findByRole('menuitem', { name: 'Rename section…' });
+    rename.focus();
+    fireEvent.keyDown(rename, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(underneath).not.toHaveBeenCalled();
+
+    fireEvent.click(options);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Rename section…' }));
+    fireEvent.keyDown(await screen.findByRole('textbox'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(underneath).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(options);
+
+    fireEvent.keyDown(options, { key: 'Escape' });
+    expect(underneath).toHaveBeenCalledTimes(1);
   });
 });
 

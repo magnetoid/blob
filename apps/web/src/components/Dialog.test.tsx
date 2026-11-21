@@ -100,7 +100,8 @@ describe('Dialog', () => {
 
   it('gives a variant’s host class to the element that holds its backdrop and panel', () => {
     // `lightbox-host` darkens its own backdrop and lets the picture use more of the screen;
-    // `palette-host` sits high. Both are custom properties set on the host.
+    // the palette sits high, through `[--dialog-top:12vh]` among its host's utilities.
+    // Both are custom properties set on the host.
     renderDialog(vi.fn(), 'lightbox-host');
     const host = backdrop()!.parentElement!;
     expect(host.classList.contains('lightbox-host')).toBe(true);

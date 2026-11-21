@@ -1,0 +1,320 @@
+// @vitest-environment happy-dom
+/**
+ * shadcn's sidebar as Blob keeps it: the copied component, changed where Blob needed it.
+ *
+ * Below 768px the sidebar is a Sheet, and the Sheet is Base UI's dialog, so it comes from
+ * the overlay chunk like every other dialog (`lib/overlays.ts`): the chat shell draws its
+ * sidebar at first paint, and a static Sheet would put Base UI's overlay code in front of
+ * every first load. What this pins is that it does, that a press before the chunk lands is
+ * not lost, that the Sheet still behaves as one — Escape closes it, and focus goes back to
+ * the button that opened it — and that a chunk that never came is asked for again on the
+ * next opening rather than on every render while the sheet is shut.
+ */
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import type { OverlayModule } from '../../lib/overlays.ts';
+// The chunk itself, evaluated while the file is collected rather than inside the test,
+// where its second or so of evaluation would count against the test's timeout.
+import * as overlayChunk from '../overlays/index.ts';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from './dialog.tsx';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './dropdown-menu.tsx';
+
+vi.mock('../../lib/overlays.ts', () => ({
+  loadOverlays: vi.fn(),
+  loadedOverlays: vi.fn(() => null),
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+/** A promise settled from outside: the chunk, still on the wire. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
+/** A phone: the sidebar's breakpoint is read from the media query, as the stylesheet's is. */
+function narrow() {
+  vi.spyOn(window, 'matchMedia').mockImplementation(
+    (query: string) =>
+      ({
+        matches: query.includes('max-width'),
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }) as MediaQueryList,
+  );
+}
+
+/**
+ * The sidebar on a phone with its chunk not yet here, and the means to land it.
+ * `lazyOverlay` keeps what its import answered for good, so each case loads the sidebar
+ * afresh.
+ */
+async function aSidebarOnAPhone({
+  panel,
+  children,
+}: { panel?: () => void; children?: ReactNode } = {}) {
+  narrow();
+  vi.resetModules();
+  const overlays = await import('../../lib/overlays.ts');
+  const { Sidebar, SidebarProvider, SidebarTrigger } = await import('./sidebar.tsx');
+  // The same stack the sidebar's copy of the module registers on: the modules were reset.
+  const { useEscape } = await import('../../lib/useEscape.ts');
+  let landed: OverlayModule | null = null;
+  vi.mocked(overlays.loadedOverlays).mockImplementation(() => landed);
+
+  /** Something opened before the sheet that Escape closes — a legacy panel or menu. */
+  function Panel({ onClose }: { onClose: () => void }) {
+    useEscape(onClose);
+    return <aside aria-label="A panel" />;
+  }
+
+  render(
+    <SidebarProvider>
+      {panel && <Panel onClose={panel} />}
+      <SidebarTrigger aria-label="Open the channel list" />
+      <Sidebar label="Channel list" closeLabel="Close the channel list">
+        <nav aria-label="Channels">
+          <a href="/c/general">general</a>
+          {children}
+        </nav>
+      </Sidebar>
+    </SidebarProvider>,
+  );
+  return {
+    loadOverlays: vi.mocked(overlays.loadOverlays),
+    trigger: screen.getByRole('button', { name: 'Open the channel list' }),
+    /** The chunk arrives, and from then on it is here, as `loadedOverlays` says in the app. */
+    land: (chunk: ReturnType<typeof deferred<OverlayModule>>) => {
+      landed = overlayChunk;
+      chunk.resolve(overlayChunk);
+    },
+  };
+}
+
+describe('the sidebar below 768px', () => {
+  it('opens the mobile Sheet through the overlay chunk and hands focus back to its opener on Escape', async () => {
+    const chunk = deferred<OverlayModule>();
+    const page = await aSidebarOnAPhone();
+    page.loadOverlays.mockReturnValue(chunk.promise);
+
+    // Closed, nothing of the Sheet is asked for: the page paints without the chunk.
+    expect(page.loadOverlays).not.toHaveBeenCalled();
+    expect(screen.queryByRole('navigation', { name: 'Channels' })).toBeNull();
+
+    fireEvent.click(page.trigger);
+
+    // Asked for, not yet drawn: the chunk is still on its way.
+    expect(page.loadOverlays).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await act(async () => page.land(chunk));
+
+    // The press was held: the Sheet is open, named, and holds the list.
+    const sheet = await screen.findByRole('dialog', { name: 'Channel list' });
+    expect(sheet.contains(screen.getByRole('navigation', { name: 'Channels' }))).toBe(true);
+    expect(sheet.contains(screen.getByRole('button', { name: 'Close the channel list' }))).toBe(
+      true,
+    );
+    await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // Back on the button that opened it — not on <body>, which is where a click that does
+    // not focus its button (Safari's) would otherwise leave it.
+    expect(document.activeElement).toBe(page.trigger);
+    expect(page.loadOverlays).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for a chunk that failed again on the next opening, and not while the sheet is shut', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const retry = deferred<OverlayModule>();
+    const page = await aSidebarOnAPhone();
+    page.loadOverlays
+      .mockRejectedValueOnce(new Error('Failed to fetch dynamically imported module'))
+      .mockReturnValueOnce(retry.promise);
+
+    fireEvent.click(page.trigger);
+    await act(async () => {});
+    // It drew nothing, and the page is still there.
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(page.loadOverlays).toHaveBeenCalledTimes(1);
+
+    // The same button shuts what never opened. Left mounted, the sheet would try the
+    // import again here, on a render that opens nothing.
+    fireEvent.click(page.trigger);
+    await act(async () => {});
+    expect(page.loadOverlays).toHaveBeenCalledTimes(1);
+
+    // Opened again: a fresh attempt, and this time it lands.
+    fireEvent.click(page.trigger);
+    expect(page.loadOverlays).toHaveBeenCalledTimes(2);
+    await act(async () => page.land(retry));
+    expect(await screen.findByRole('dialog', { name: 'Channel list' })).toBeTruthy();
+  });
+});
+
+/**
+ * One Escape, one layer (`lib/useEscape.ts`). The sheet is Base UI's dialog, whose own
+ * listener closes it and stops the key at its popup — but only once it is drawn, and only
+ * for a key that comes from inside it. So the sheet takes its place on the shared stack as it
+ * opens, as every dialog does, and the shell's own listener on `window`, which takes a stray
+ * Escape as "close the thread" or "mark this channel read", never hears one meant for it.
+ */
+describe('Escape and the sheet', () => {
+  /** Stands in for the shell's shortcuts (`app/Workspace.tsx`), which listen on `window`. */
+  function theShellListens() {
+    const heard = vi.fn();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') heard();
+    };
+    window.addEventListener('keydown', onKey);
+    return { heard, stop: () => window.removeEventListener('keydown', onKey) };
+  }
+
+  it('answers an Escape pressed before the chunk has drawn the sheet, and nothing behind it hears', async () => {
+    const shell = theShellListens();
+    try {
+      const chunk = deferred<OverlayModule>();
+      const page = await aSidebarOnAPhone();
+      page.loadOverlays.mockReturnValue(chunk.promise);
+
+      fireEvent.click(page.trigger);
+      expect(screen.queryByRole('dialog')).toBeNull();
+
+      // Open, but not drawn: the key is the sheet's all the same.
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+      expect(shell.heard).not.toHaveBeenCalled();
+
+      // And it was answered: the chunk landing draws no sheet.
+      await act(async () => page.land(chunk));
+      expect(screen.queryByRole('dialog')).toBeNull();
+    } finally {
+      shell.stop();
+    }
+  });
+
+  it('closes before anything opened under it, and the next Escape goes on to that', async () => {
+    const shell = theShellListens();
+    try {
+      const panelClosed = vi.fn();
+      const chunk = deferred<OverlayModule>();
+      const page = await aSidebarOnAPhone({ panel: panelClosed });
+      page.loadOverlays.mockReturnValue(chunk.promise);
+
+      fireEvent.click(page.trigger);
+      await act(async () => page.land(chunk));
+      const sheet = await screen.findByRole('dialog', { name: 'Channel list' });
+      await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(panelClosed).not.toHaveBeenCalled();
+      expect(shell.heard).not.toHaveBeenCalled();
+
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+      expect(panelClosed).toHaveBeenCalledTimes(1);
+    } finally {
+      shell.stop();
+    }
+  });
+});
+
+/**
+ * The sheet's `holds` past its own popup. A row's menu is portalled out of the sheet, and so
+ * is a dialog opened from one of its items, so a key from inside either came from outside
+ * the sheet's popup — and the sheet took it as a stray and closed. Every menu holds a place
+ * of its own above the sheet's now (`lib/useMenuEscapeLayer.ts`), as every dialog does, and
+ * the sheet's widened `holds` is the net under them: these two hold no place at all.
+ */
+describe('Escape from a popup opened inside the sheet', () => {
+  /** The sheet open and drawn, holding `children`. */
+  async function anOpenSheet(children: ReactNode) {
+    const chunk = deferred<OverlayModule>();
+    const page = await aSidebarOnAPhone({ children });
+    page.loadOverlays.mockReturnValue(chunk.promise);
+    fireEvent.click(page.trigger);
+    await act(async () => page.land(chunk));
+    const sheet = await screen.findByRole('dialog', { name: 'Channel list' });
+    await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+    return sheet;
+  }
+
+  it('leaves a key from a menu opened in the sheet to the menu', async () => {
+    const sheet = await anOpenSheet(
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<button type="button">Options</button>} />
+        <DropdownMenuContent>
+          <DropdownMenuItem>Star this channel</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    const item = await screen.findByRole('menuitem', { name: 'Star this channel' });
+    expect(sheet.contains(item)).toBe(false);
+    item.focus();
+
+    fireEvent.keyDown(item, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(screen.getByRole('dialog', { name: 'Channel list' })).toBe(sheet);
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('leaves a key from a dialog opened in the sheet to the dialog', async () => {
+    const sheet = await anOpenSheet(
+      <Dialog>
+        <DialogTrigger render={<button type="button">Rename</button>} />
+        <DialogContent>
+          <DialogTitle>Rename section</DialogTitle>
+          <input aria-label="Name" />
+        </DialogContent>
+      </Dialog>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    const field = await screen.findByRole('textbox', { name: 'Name' });
+    expect(sheet.contains(field)).toBe(false);
+    field.focus();
+
+    fireEvent.keyDown(field, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Name' })).toBeNull());
+    expect(screen.getByRole('dialog', { name: 'Channel list' })).toBe(sheet);
+  });
+
+  it('still answers a key from anywhere else for the sheet', async () => {
+    // Named, not "anything portalled": a menu that was not opened from inside the sheet is
+    // no reason to let the key past.
+    await anOpenSheet(null);
+    const elsewhere = document.createElement('div');
+    elsewhere.setAttribute('data-slot', 'dropdown-menu-content');
+    elsewhere.id = 'a-menu-from-elsewhere';
+    elsewhere.tabIndex = -1;
+    document.body.append(elsewhere);
+    try {
+      fireEvent.keyDown(elsewhere, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    } finally {
+      elsewhere.remove();
+    }
+  });
+});

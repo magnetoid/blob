@@ -152,6 +152,10 @@
 
   /* ─── layout ───────────────────────────────────────────────────────────── */
   --blob-sidebar-width: 240px;
+  /* The channel list folded to its rail: a 44px row with its badge in the corner. The
+     sidebar draws this plus its 1rem of inset (`components/ui/sidebar.tsx`), and the
+     shell's grid gives it the same (`styles/app/shell.css`). */
+  --blob-sidebar-rail: 4rem;
   --panel-width: 380px;
   /* A file in the panel: a page or a PDF needs more than a thread's 380px to be read,
      and never so much that the conversation it came from stops being usable. */
@@ -255,7 +259,6 @@
   --dur-open: 160ms;
   --dur-exit: 150ms;
   --dur-modal: 160ms;
-  --dur-panel: 160ms;
   --blob-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --blob-ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -265,7 +268,6 @@
      control moving — and it is a transform, so it costs a composite and never a
      layout. Goes to 1 under reduced motion with the rest of the scale family. */
   --motion-press: 0.97;
-  --motion-lift: -1px;
   --motion-action-enter: 2px;
   --motion-slide: 4px;
   --motion-slide-lg: 8px;
@@ -282,7 +284,6 @@
   --z-sticky: 20;
   --z-panel: 40;
   --z-scrim: 50;
-  --z-drawer: 60;
   --z-menu: 70;
   --z-popover: 80;
   --z-modal: 90;
@@ -365,7 +366,7 @@
     --elev-3:
       0 0 0 1px rgb(255 255 255 / 10%), 0 16px 48px -12px rgb(0 0 0 / 60%);
     --elev-frame:
-      0 0 0 1px rgb(255 255 255 / 7%), 0 10px 28px -14px rgb(0 0 0 / 70%);
+      0 0 0 1px rgb(255 255 255 / 14%), 0 10px 28px -14px rgb(0 0 0 / 70%);
 
     --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
   }
@@ -402,7 +403,7 @@
   --elev-3:
     0 0 0 1px rgb(255 255 255 / 10%), 0 16px 48px -12px rgb(0 0 0 / 60%);
   --elev-frame:
-    0 0 0 1px rgb(255 255 255 / 7%), 0 10px 28px -14px rgb(0 0 0 / 70%);
+    0 0 0 1px rgb(255 255 255 / 14%), 0 10px 28px -14px rgb(0 0 0 / 70%);
 
   --shadow-knob: 0 1px 3px rgb(0 0 0 / 45%);
 }

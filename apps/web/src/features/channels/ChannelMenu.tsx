@@ -10,20 +10,40 @@
  * Behind the channel name because that is where somebody arriving from Slack reaches
  * for it, and because a header full of buttons for things done once a month costs
  * attention on every message read in between.
+ *
+ * A module for `lazyDropdown` (`components/lazyDropdown.tsx`): the row's Options button, or
+ * the conversation's name, is handed in as `trigger` and is the menu's own, so Base UI owns
+ * the arrows, Escape and focus going home; the menu holds its place on the Escape stack
+ * while it is open (`lib/useMenuEscapeLayer.ts`), so that Escape is the menu's and not the
+ * panel's behind it. The dialogs it opens are drawn beside the menu, not inside it: choosing
+ * an item closes the menu and the dialog stays. When one closes, focus goes back to the
+ * trigger, because the item it was opened from is gone.
  */
 
 import { useState } from 'react';
 import type { ChannelWithState, NotifyLevel } from '@blob/shared';
 import { api, ApiError } from '../../lib/api.ts';
+import { usePath } from '../../lib/router.ts';
 import { useStore } from '../../lib/store.ts';
+import { useMenuEscapeLayer } from '../../lib/useMenuEscapeLayer.ts';
 import { ConfirmDialog } from '../../components/ConfirmDialog.tsx';
 import { DialogPresence } from '../../components/Dialog.tsx';
-import { Menu } from '../../components/Menu.tsx';
+import type { DropdownModuleProps } from '../../components/lazyDropdown.tsx';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu.tsx';
 import { MoveToSectionDialog } from './SectionDialogs.tsx';
 
-interface Props {
+interface Props extends DropdownModuleProps {
   channel: ChannelWithState;
-  onClose: () => void;
   onOpenDetails: () => void;
   /** Open the agent runs here — or, in an agent's own DM, everything it has done that
    *  you can see. Absent where there is nothing to show. */
@@ -38,9 +58,12 @@ const LEVELS: { value: NotifyLevel; label: string; hint: string }[] = [
   { value: 'none', label: 'Nothing', hint: 'Muted — it stays unread, it never notifies' },
 ];
 
-export function ChannelMenu({
+const ITEM = 'pointer-coarse:min-h-11';
+
+export default function ChannelMenu({
+  trigger,
+  defaultOpen,
   channel,
-  onClose,
   onOpenDetails,
   onOpenRuns,
   runsLabel = 'Agent runs',
@@ -55,7 +78,18 @@ export function ChannelMenu({
         section.channelIds.includes(channel.id),
       ),
   );
+  const path = usePath();
+  const [open, setOpen] = useState(defaultOpen ?? false);
   const [error, setError] = useState<string | null>(null);
+  const { popupRef, triggerRef } = useMenuEscapeLayer(open, setOpen);
+
+  // A navigation that did not come from this menu (Back, a link in the page) must not
+  // leave it open behind the new screen. Adjusted during render, as AccountMenu does.
+  const [menuPath, setMenuPath] = useState(path);
+  if (menuPath !== path) {
+    setMenuPath(path);
+    setOpen(false);
+  }
 
   const isDm = channel.kind === 'dm' || channel.kind === 'group_dm';
   const archived = channel.archivedAt !== null;
@@ -65,121 +99,122 @@ export function ChannelMenu({
 
   /** The server echoes this to this user's own sockets, so there is nothing to write
    *  here — `channel.membership` arrives and the store applies it. Only to them: how
-   *  loud a channel is for one person is nobody else's business. */
+   *  loud a channel is for one person is nobody else's business. A failure keeps the
+   *  menu open, with the reason in it. */
   async function setMembership(input: { notifyLevel?: NotifyLevel; isStarred?: boolean }) {
     setError(null);
     try {
       await api.channels.setMembership(channel.id, input);
-      onClose();
+      setOpen(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'That did not take.');
     }
   }
 
+  /** A dialog is over, however it ended: the item that opened it is gone, so focus goes
+   *  to the button the menu hangs from. */
+  function dialogDone() {
+    setConfirming(null);
+    triggerRef.current?.focus({ preventScroll: true });
+  }
+
   return (
     <>
-      {/* The confirm dialogs below render beside this menu, not inside it, so every
-          click in one is "outside" by the dismissal's contains test — dismissal has
-          to sit out while a dialog is up, or the click that asked for the dialog
-          would unmount it along with the menu. */}
-      <Menu open onClose={onClose} className="menu" suspendDismiss={confirming !== null}>
-        {!isDm && (
-          <>
-            <p className="menu-label">Notifications</p>
-            {LEVELS.map((option) => (
-              <button
-                key={option.value}
-                className="menu-item"
-                role="menuitemradio"
-                aria-checked={level === option.value}
-                title={option.hint}
-                onClick={() => void setMembership({ notifyLevel: option.value })}
-              >
-                <span className="menu-check" aria-hidden="true">
-                  {level === option.value ? '✓' : ''}
-                </span>
-                {option.label}
-              </button>
-            ))}
-            <div className="menu-sep" />
-          </>
-        )}
-
-        <button
-          className="menu-item"
-          role="menuitem"
-          onClick={() => void setMembership({ isStarred: !starred })}
+      <DropdownMenu
+        open={open}
+        onOpenChange={(next) => {
+          if (next) setError(null);
+          setOpen(next);
+        }}
+      >
+        <DropdownMenuTrigger ref={triggerRef} render={trigger} />
+        <DropdownMenuContent
+          ref={popupRef}
+          align="start"
+          sideOffset={6}
+          className="w-auto min-w-56"
         >
-          <span className="menu-check" aria-hidden="true">
-            {starred ? '★' : '☆'}
-          </span>
-          {starred ? 'Remove from starred' : 'Star this channel'}
-        </button>
+          {!isDm && (
+            <>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={level}
+                  onValueChange={(value) =>
+                    void setMembership({ notifyLevel: value as NotifyLevel })
+                  }
+                >
+                  {LEVELS.map((option) => (
+                    <DropdownMenuRadioItem
+                      key={option.value}
+                      value={option.value}
+                      title={option.hint}
+                      className={ITEM}
+                      closeOnClick={false}
+                    >
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+            </>
+          )}
 
-        {/* Sections of your own in the channel list (M3 · B3) — DMs too, as in Slack. */}
-        <button className="menu-item" role="menuitem" onClick={() => setConfirming('section')}>
-          <span className="menu-check" aria-hidden="true" />
-          {inSection ? 'Move to another section…' : 'Move to a section…'}
-        </button>
-
-        {!isDm && (
-          <button
-            className="menu-item"
-            role="menuitem"
-            onClick={() => {
-              onClose();
-              onOpenDetails();
-            }}
+          <DropdownMenuItem
+            className={ITEM}
+            closeOnClick={false}
+            onClick={() => void setMembership({ isStarred: !starred })}
           >
-            <span className="menu-check" aria-hidden="true" />
-            Channel details
-          </button>
-        )}
+            {starred ? 'Remove from starred' : 'Star this channel'}
+          </DropdownMenuItem>
 
-        {onOpenRuns && (
-          <button
-            className="menu-item"
-            role="menuitem"
-            onClick={() => {
-              onClose();
-              onOpenRuns();
-            }}
-          >
-            <span className="menu-check" aria-hidden="true" />
-            {runsLabel}
-          </button>
-        )}
+          {/* Sections of your own in the channel list (M3 · B3) — DMs too, as in Slack. */}
+          <DropdownMenuItem className={ITEM} onClick={() => setConfirming('section')}>
+            {inSection ? 'Move to another section…' : 'Move to a section…'}
+          </DropdownMenuItem>
 
-        {!isDm && (
-          <>
-            <div className="menu-sep" />
-            <button
-              className="menu-item menu-item-danger"
-              role="menuitem"
-              onClick={() => setConfirming('leave')}
-            >
-              <span className="menu-check" aria-hidden="true" />
-              Leave channel
-            </button>
-            {isAdmin && !archived && (
-              <button
-                className="menu-item menu-item-danger"
-                role="menuitem"
-                onClick={() => setConfirming('archive')}
+          {!isDm && (
+            <DropdownMenuItem className={ITEM} onClick={onOpenDetails}>
+              Channel details
+            </DropdownMenuItem>
+          )}
+
+          {onOpenRuns && (
+            <DropdownMenuItem className={ITEM} onClick={onOpenRuns}>
+              {runsLabel}
+            </DropdownMenuItem>
+          )}
+
+          {!isDm && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                className={ITEM}
+                onClick={() => setConfirming('leave')}
               >
-                <span className="menu-check" aria-hidden="true" />
-                Archive channel
-              </button>
-            )}
-          </>
-        )}
+                Leave channel
+              </DropdownMenuItem>
+              {isAdmin && !archived && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  className={ITEM}
+                  onClick={() => setConfirming('archive')}
+                >
+                  Archive channel
+                </DropdownMenuItem>
+              )}
+            </>
+          )}
 
-        {error && (
-          <p className="error-text" style={{ margin: '6px 9px 2px' }}>
-            {error}
-          </p>
-        )}
-      </Menu>
+          {error && (
+            <p role="alert" className="px-1.5 pt-1.5 pb-0.5 text-xs text-destructive">
+              {error}
+            </p>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <DialogPresence when={confirming === 'leave'}>
         {() => (
@@ -192,13 +227,13 @@ export function ChannelMenu({
             }
             confirmLabel="Leave"
             danger
-            onClose={() => setConfirming(null)}
+            onClose={dialogDone}
             onConfirm={() => {
-              setConfirming(null);
-              onClose();
-              void leaveChannel(channel.id).catch(() =>
-                setError('Could not leave that channel.'),
-              );
+              dialogDone();
+              void leaveChannel(channel.id).catch(() => {
+                setError('Could not leave that channel.');
+                setOpen(true);
+              });
             }}
           />
         )}
@@ -209,10 +244,7 @@ export function ChannelMenu({
           <MoveToSectionDialog
             conversationId={channel.id}
             name={channelTitle(channel)}
-            onClose={() => {
-              setConfirming(null);
-              onClose();
-            }}
+            onClose={dialogDone}
           />
         )}
       </DialogPresence>
@@ -224,13 +256,13 @@ export function ChannelMenu({
             body="It becomes read-only for everybody. Its history stays searchable."
             confirmLabel="Archive"
             danger
-            onClose={() => setConfirming(null)}
+            onClose={dialogDone}
             onConfirm={() => {
-              setConfirming(null);
-              onClose();
-              void api.channels
-                .archive(channel.id)
-                .catch(() => setError('Could not archive that channel.'));
+              dialogDone();
+              void api.channels.archive(channel.id).catch(() => {
+                setError('Could not archive that channel.');
+                setOpen(true);
+              });
             }}
           />
         )}

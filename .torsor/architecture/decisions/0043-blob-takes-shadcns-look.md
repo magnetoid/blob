@@ -471,3 +471,178 @@ And what the phase settled on the way:
   smaller than it starts", and it started at 31.5 KB gzipped. Taking that back is phase
   7's, where a stylesheet of the consoles' own, loaded with their chunk, is one way to
   look at it.
+
+## Phase 4: the shell (2026-11-19)
+
+Phase 4 drew the chat shell with shadcn's parts — the channel list on
+`components/ui/sidebar.tsx`, inset, with an icon rail and a Sheet below 768px; the top bar;
+the account menu, the workspace switcher, the section menu and ChannelMenu as real
+`DropdownMenu`s; ⌘K as `Command` — and deleted the shell's legacy CSS where the shell was
+its last user: 1,212 lines, three files of them whole (`top-bar.css`,
+`view-switching-in-the-bar.css`, `command-palette.css`), the source in `styles/app/` going
+from 255 to 226 KB. It made one layout change, and that one was the user's:
+
+- **"Sidebar only" (the user's decision, 2026-11-19).** The top bar's view tabs —
+  Messages, Activity, Files, Channels — repeated the sidebar: Channels was Browse
+  channels, and Activity overlapped Mentions. So the shell had two navigation systems
+  where Slack has one. The tabs went, and the sidebar is the one navigation. Every place a
+  tab reached is reachable from the sidebar, Activity and Files as rows of their own, and
+  every old URL opens what it opened. It is the one layout change the migration makes, and
+  the spec records it as the exception to its no-layout-change non-goal.
+
+The calls made without the user, as the plan listed them and as they turned out:
+
+- **Menus own their triggers through `lazyDropdown`** (`components/lazyDropdown.tsx`), not
+  through phase 2's caller-owned `components/Menu.tsx`. Phase 2's addendum expected Base
+  UI's own triggers to end the reopen-on-trigger-click trap and WebKit's lost focus return
+  by construction, and a statically imported Base UI menu had taken the first load 59.6 KB
+  past its budget. So a menu is a module — an ordinary shadcn `DropdownMenu` with its own
+  `DropdownMenuTrigger` — imported lazily and preloaded beside the overlay chunk by
+  `preloadAlso` (`lib/overlays.ts`). Until it lands, a placeholder trigger stands in: the
+  caller's own button, with `aria-haspopup="menu"` and `aria-expanded="false"`. A press on
+  it opens the menu once the module arrives, unless the person has moved on first — by Tab,
+  by Escape, or by focus going elsewhere — and then the module lands closed. The Escape
+  that lets a press go is observed, not consumed, since no menu is on screen for it to
+  close. A module that is already here is drawn in the wrapper's first render, with no
+  placeholder frame; a focused placeholder hands focus to the real trigger as it is
+  swapped; a failed import keeps the placeholder, logs once per attempt and is tried again
+  on the next press. Four menus use it: the account menu, the workspace switcher's, the
+  section menu and ChannelMenu, which opens from a sidebar row, from the folded rail and
+  from the conversation's header through one shared pair (`features/channels/lazyMenus.ts`).
+  Each module is under 2 KB gzipped; the Base UI menu code they share with the overlay
+  barrel is one lazy chunk, `dropdown-menu-*.js`, which is where `OVERLAY_SDK` now finds its
+  marker. A menu's dialogs — Leave, Archive, Move to a section, Rename, Delete — are drawn
+  outside its `DropdownMenu`, so they outlive its exit, and every way one ends gives focus
+  back to the trigger; a menu closes when the path changes. `components/Menu.tsx` stays for
+  MessageMenu and SchedulePicker, which are phase 5's.
+- **The phone Sheet is lazy.** The sidebar's mobile branch is
+  `components/overlays/SidebarSheetImpl.tsx`, reached through `lazyOverlay`, so `sheet.tsx`
+  is not on the first load. It mounts on first open and stays mounted, so that Base UI can
+  play its exit — but only while the overlay chunk has loaded: after a failed chunk nothing
+  was drawn, and a wrapper left mounted would ask for the chunk again on every render of the
+  chat. While it is open, `Sidebar` holds a layer on the shared Escape stack
+  (`useEscapeLayer`), which answers an Escape pressed before the chunk has drawn the Sheet,
+  and the Sheet's popup stops the key as a dialog's does. So one Escape closes the Sheet
+  and nothing behind it — not the thread, and not "mark as read". The consoles' Sheet does
+  the same. On a phone the Sheet has a header, the workspace's mark and name, which keeps
+  its close button off the first row; choosing a row closes it, and so does arriving
+  anywhere else.
+- **The shell is `SidebarProvider` with `Sidebar variant="inset" collapsible="icon"`**
+  (`app/Workspace.tsx`, `features/channels/Sidebar.tsx`). Views stay `main.pane`, children
+  of the provider, and `SidebarInset` is not used: `e2e/contract.e2e.ts` keys on
+  `main.pane`, and a second `<main>` would nest. The provider keeps the `.shell` class and
+  `data-panel`, `data-panel-kind` and `data-in-call`, which `the-frame.css` and `calls.css`
+  read until phase 5, and its own `data-slot` is overridden to nothing: a root with one
+  would take `base.css`'s preflight repair away from every legacy view inside it
+  (`app/Workspace.shell.test.tsx` pins it). The list's panel is drawn inside its grid cell
+  (`absolute inset-y-0`), not fixed to the window as the generated one is, so a call's bar
+  keeps the cell under it, and the fold is instant, as it was. The folded rail is 80px: a
+  64px `--sidebar-width-icon` (`--blob-sidebar-rail`, 4rem, where the old rail was 84px)
+  inside the inset's gap, of 44px rows with the badge in a corner. `:has()` on the
+  provider's sidebar child now lays out the folded grid and the folded call bar. A rail
+  row's Options button sits in the row's bottom-right corner and is in the tab order, so
+  ChannelMenu is reachable folded. The fold is still kept in `localStorage`
+  (`blob.sidebar.collapsed`).
+- **Activity and Files are rows; Tasks and Activity have their own glyphs.** Activity is a
+  new row beside Mentions, not a rename of it: `/activity` opens All and lights Activity,
+  `/mentions` opens the Mentions filter and lights Mentions, so nothing a person already
+  used went away. Merging the two is left to the user. Files is a row at `/files`, lit for
+  `/files?channel=…` too, with the glyph Tasks gave up. Tasks is Lucide `ListTodo`
+  (`TaskIcon`) in the sidebar, Home's "Open tasks" and the Tasks empty state — `SquareCheck`
+  reads as one finished item, not a list of them — and Activity is `Bell` (`ActivityIcon`),
+  as Slack's is. `Icon.tsx` has 41 glyphs.
+- **The list's trigger is shadcn's `PanelLeft` button at the bar's left.** Below 768px it
+  opens the Sheet ("Open channel list"); from 768px it folds the list to its rail ("Hide
+  channel list" / "Show channel list"). The workspace mark is a plain `aria-hidden` mark
+  again, in the chat's bar as in the consoles'. Without the tabs the chat's bar has room:
+  Search is centred and keeps its label at every width, Invite is an icon on a phone, and
+  the account trigger is named for its person and their connection ("Ana (connected)"),
+  with the avatar and dot hidden from the name. Feedback from the account menu opens a frame
+  after the menu has gone, so its snapshot holds no menu. The bar is converted markup in the
+  consoles too, no longer a legacy island there.
+- **The narrow breakpoint is 768px everywhere in the shell** — `useIsMobile`'s
+  `max-width: 767px`, Tailwind's `md` — so the frame starts at 768px (it was 769) and the
+  legacy narrow rules end at 767px (they ended at 768). Phase 3 made the same choice for the
+  consoles.
+- **The dark frame has a visible ring.** `--elev-frame`'s ring in both dark blocks of
+  `tokens.css` went from 7% to 14% white, about 1.4:1 against the ground where it was
+  1.2:1. The ground and the card keep b0's values, because Midnight is b0's dark exactly.
+- **⌘K is cmdk 1.1.1, pinned, in a chunk of its own** (`features/palette/CommandPalette.tsx`),
+  preloaded with the overlays, so cmdk never reaches the first load. It still opens inside
+  `components/Dialog.tsx` and keeps its place on the Escape stack. The plan said `lazy()`;
+  it is a loader hook (`features/palette/lazyPalette.ts`), for two reasons. React holds a
+  Suspense retry back until 300 ms after its fallback committed, so even a chunk the
+  preload had landed opened about 400 ms late. And a failed lazy import throws to the app's
+  `ErrorBoundary` — "Something broke" over the workspace, for a keystroke — and caches the
+  rejection, so ⌘K stayed dead until a reload. Now a palette whose chunk is here is drawn in
+  the render that opens it; a chunk that will not load is a toast and a closed palette; and
+  the next ⌘K asks for the module again. Chromium and Firefox fetch it again. WebKit keeps a
+  failed module for the life of the page and never asks the network twice (seen in the
+  production-bundle smoke, 2026-11-21), so there only a reload helps — and
+  `lib/staleBuild.ts`'s "Reload to carry on", shown once as the idle preload fails, is gone
+  six seconds later. So the toast itself asks for the reload ("Couldn’t open search. Reload
+  the page to try again."), which works in every engine, or, offline, says that instead. A ⌘K pressed
+  before the chunk lands draws nothing until it does; keys typed in between go where focus
+  is, except Enter, which is swallowed so a half-typed query is never sent from the
+  composer.
+  `ComboboxState` corrects cmdk's input, which hard-codes `aria-expanded="true"` and, when
+  cmdk selects a row itself (on opening, on a new query), computes `aria-activedescendant`
+  before the new selection is drawn, so it named the row an arrow had left: it writes both
+  from the listbox in a layout effect after every commit, and reads cmdk's own markup,
+  which is why cmdk is pinned. `vimBindings` is off, because cmdk reads ⌃K as "up" and ⌃K
+  opens the palette. Home and End, with any modifier, keep the input's caret; ⌘↑ ⌘↓ and
+  ⌥↑ ⌥↓ stay cmdk's. The generated `CommandDialog` is removed, so the chunk cannot pull Base
+  UI's dialog in that way; cmdk's own unused Radix dialog rides in the chunk.
+- **`SidebarMenuButton`'s `tooltip` prop is stripped,** with its static `Tooltip` import,
+  which would have put Base UI's tooltip on the first load. The plan gave rail rows Blob's
+  `data-tooltip`; they carry `title` instead, with the name as `aria-label`, because the
+  CSS tooltip's `::after` is clipped by the button's `overflow: hidden` and the scrolling
+  list. The title is set only on the rail, where no row shows its name, and a person's row
+  keeps one while it says their status. The group actions keep `data-tooltip`.
+
+And what the phase settled on the way:
+
+- **Rules for the phases after.**
+  - A lazy module is preloaded through `preloadAlso`, registered as it is defined, so it
+    starts with the overlay chunk once the browser is idle, and never on a page that opens
+    no overlay.
+  - A test that opens a lazy module awaits its loader at the module's top level
+    (`await ChannelMenu.preload()`, as `test/overlayChunk.ts` does for the overlays). A cold
+    import inside `findBy`'s one-second window passed alone and timed out under the full
+    suite's load.
+  - Nothing a keystroke opens is a `lazy()`. It is a loader hook that draws a module that
+    has arrived in the same render and turns a chunk that will not load into a toast.
+  - A shadcn wrapper drawn round legacy views gives up its `data-slot`, as the shell's
+    provider does, or the preflight repair stops reaching every view inside it.
+  - A lazy half kept mounted for its exit is kept only while its chunk has loaded.
+  - A first-load half takes its layer on the Escape stack as it opens, and answers an
+    Escape that comes before its chunk has drawn it: dialogs since phase 2, the Sheet now.
+  - A menu's dialogs are drawn outside its `DropdownMenu`, and every way one ends gives
+    focus back to the trigger. A menu closes when the path changes.
+  - A generated component's static import of an overlay part is cut, not accepted: the
+    sidebar's tooltip, `command.tsx`'s `CommandDialog`.
+  - cmdk is bumped only with `ComboboxState` and the a11y tests that pin it checked again.
+- **The budget.** The JavaScript first load measures 239.7 KB, against main's 231.5 at
+  e6414252, so `BUDGET_KB` is 241 — the measure rounded up, plus 1 KB — 19 KB under the
+  ceiling. It was 238.9 until the last fix wave gave the shell's menus and a pending ⌘K
+  their layers on the Escape stack, which put `lib/useEscape.ts` on first paint (+0.8 KB). The growth is the shell, all of it in the task that put the sidebar on first
+  paint (+9.3 KB): `ui/sidebar.tsx` and the converted list add about 5.6 KB to the entry
+  chunk, and they bring Base UI's shared render and DOM helpers (`useRender`, `mergeProps`,
+  floating-ui's DOM utilities; the `reason-parts` chunk, 2.6 KB), which on main lived only in
+  a lazy chunk. `cn`'s engine and tables (`utils`, 8.7 KB) and clsx with cva (`dist`, 0.5 KB)
+  became first-load chunks of their own in the same change, but a build of e6414252 has both
+  inside main's entry chunk: they have been on the first load since phase 2, and are not
+  growth. ⌘K leaving the entry chunk gave 2.2 KB back. The palette's chunk is 20.97 KB
+  gzipped (as Vite reports it), with a 1.35 KB `input-group` chunk beside it. The
+  stylesheet now has a budget of its own: `scripts/bundle-budget.mjs` also measures every
+  stylesheet `index.html` links, gzipped as the scripts are, and fails past
+  `CSS_BUDGET_KB`, or when it finds none. It measures 44.7 KB (291.3 KB raw), against
+  main's 45.4 by the same method — 45,424 bytes by `gzip -9` against the 46,152 phase 3
+  recorded as 46.2 KB — so the consoles' utilities did not need a stylesheet of their own
+  here, and `CSS_BUDGET_KB` is 46, the measure rounded up, plus 1 KB. A phase that grows it
+  raises it in the commit that says why. Getting back to the 31.5 KB it started at is still
+  phase 7's.
+- **Left for later.** Whether Activity and Mentions become one row is the user's call. A
+  person row's accessible name starts with the avatar's initial ("A Ana") when there is no
+  picture, because the initials are not hidden from it; that predates this phase and is
+  `Avatar`'s, for phases 5–6.

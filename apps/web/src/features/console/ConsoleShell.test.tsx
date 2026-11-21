@@ -8,10 +8,13 @@ import { useEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { NavGroup } from './registry.ts';
+// Below 768px the nav is a sheet, which comes from the overlay chunk: here before the first
+// case, so opening it is not a second of the chunk's evaluation inside a `findByRole`.
+import '../../test/overlayChunk.ts';
 
 // The bar is another feature's, with a store behind it; this is about the page under it.
 vi.mock('../shell/TopBar.tsx', () => ({
-  TopBar: () => <header className="topbar">top bar</header>,
+  TopBar: () => <header data-slot="topbar">top bar</header>,
 }));
 
 const { ConsoleShell } = await import('./ConsoleShell.tsx');
@@ -128,11 +131,11 @@ describe('the console frame', () => {
     expect(main.contains(body())).toBe(true);
   });
 
-  // The bar is legacy markup inside the sidebar's provider, which is a shadcn component, so
-  // the preflight repair reaches it only through an island (styles/app/base.css).
-  it('keeps the top bar a legacy island', () => {
+  // The bar is converted markup now, so preflight holds in it as in any shadcn component:
+  // it needs no island to be reached by the repair, and must not be wrapped in one.
+  it('draws the top bar as converted markup, not as a legacy island', () => {
     render(shell('general'));
-    expect(screen.getByRole('banner').closest('[data-legacy]')).not.toBeNull();
+    expect(screen.getByRole('banner').closest('[data-legacy]')).toBeNull();
   });
 
   // Every section is converted, so the body is no island: preflight holds in it as in any

@@ -1,14 +1,16 @@
 /**
  * The one door to the overlay chunk.
  *
- * shadcn's dialog, alert dialog, dropdown menu and popover stand on Base UI's overlay
- * machinery and floating-ui, about 42 KB gzipped, on top of a first load that sits a little
- * over a kilobyte under `BUDGET_KB` and 28 KB under the 260 KB ceiling. So none of them is
- * imported statically. `components/overlays/index.ts` is the barrel that chunk is built
- * from; this module is the only place that imports it, `components/lazyOverlay.tsx` is how
- * a component waits for it, and `scripts/bundle-budget.mjs` fails the build if Base UI's
- * overlay code ever turns up in the first load by another road. A chunk that will not load
- * at all — a deploy replaced it — is `lib/staleBuild.ts`'s to explain.
+ * shadcn's dialog, alert dialog, sheet, dropdown menu and popover stand on Base UI's
+ * overlay machinery and floating-ui, about 42 KB gzipped, on top of a first load that sits a
+ * little over a kilobyte under `BUDGET_KB` and 28 KB under the 260 KB ceiling. So none of
+ * them is imported statically. `components/overlays/index.ts` is the barrel that chunk is
+ * built from; this module is the only place that imports it, `components/lazyOverlay.tsx`
+ * is how a component waits for it, `components/lazyDropdown.tsx` is how a menu that owns
+ * its trigger waits for a module of its own (fetched beside the chunk, `preloadAlso`), and
+ * `scripts/bundle-budget.mjs` fails the build if Base UI's overlay code ever turns up in
+ * the first load by another road. A chunk that will not load at all — a deploy replaced
+ * it — is `lib/staleBuild.ts`'s to explain.
  */
 
 /** What the barrel exports, which is what `lazyOverlay`'s `pick` chooses from. */
@@ -69,6 +71,45 @@ const IDLE_DEADLINE_MS = 4000;
 
 let scheduled = false;
 
+/** Whether the preload has started: from then on, a loader registered late starts at once. */
+let started = false;
+
+/** Loaders registered with `preloadAlso` before the preload started, in the order they came. */
+const alsoPending: (() => Promise<unknown>)[] = [];
+
+/**
+ * Start a loader and let it fail quietly. Nobody has asked for what it fetches yet, so a
+ * failure is nobody's error, and the first real use tries again (`memoiseImport`). An
+ * importer that throws before it hands back a promise is the same failure, said sooner.
+ */
+function startQuietly(load: () => Promise<unknown>): void {
+  try {
+    load().catch(() => {});
+  } catch {
+    // As above: a failed preload is not an error.
+  }
+}
+
+/**
+ * Fetch something else in the same spare moment as the overlay chunk.
+ *
+ * For modules that are built on the chunk's code and want to be here as early as it is —
+ * a menu that owns its trigger (`components/lazyDropdown.tsx`) is a module of its own,
+ * and its trigger is on the page from first paint. A loader registered before the preload
+ * has started waits for it and starts in the same idle callback; one registered after
+ * starts at once, though not inside whatever registered it — a module being evaluated, as
+ * a rule — but in a task of its own. Failures are swallowed, as the overlay chunk's own
+ * are. A page that never preloads (the two that open no overlay, `app/App.tsx`) never
+ * starts these either; whoever needs one fetches it then.
+ */
+export function preloadAlso(load: () => Promise<unknown>): void {
+  if (started) {
+    setTimeout(() => startQuietly(load), 0);
+    return;
+  }
+  alsoPending.push(load);
+}
+
 /**
  * Start fetching the overlay chunk once the page has nothing better to do.
  *
@@ -76,14 +117,17 @@ let scheduled = false;
  * it the chunk is normally there before anybody has reached for one, and the first load
  * did not pay for it. Idempotent: the app calls it once after mount and further calls do
  * nothing. A failure is swallowed here — nobody has asked for an overlay yet — and the
- * first real use will try again (`memoiseImport`).
+ * first real use will try again (`memoiseImport`). What `preloadAlso` registered starts in
+ * the same callback.
  */
 export function preloadOverlays(): void {
   if (scheduled) return;
   scheduled = true;
 
   const start = () => {
-    loadOverlays().catch(() => {});
+    started = true;
+    startQuietly(loadOverlays);
+    for (const load of alsoPending.splice(0)) startQuietly(load);
   };
   if (typeof requestIdleCallback === 'function') {
     requestIdleCallback(start, { timeout: IDLE_DEADLINE_MS });

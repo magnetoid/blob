@@ -5,6 +5,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { Sidebar, SidebarProvider, SidebarTrigger } from '../../components/ui/sidebar.tsx';
 import { ConsoleNav } from './ConsoleNav.tsx';
 import { ADMIN_NAV, SERVER_NAV, SETTINGS_NAV, type NavGroup, type Viewer } from './registry.ts';
+// Below 768px the nav is a sheet, which comes from the overlay chunk: here before the first
+// case, so opening it is not a second of the chunk's evaluation inside a `findByRole`.
+import '../../test/overlayChunk.ts';
 
 // vitest globals are off, so RTL's automatic cleanup never runs. Without this, one
 // test's markup is still in the document while the next one queries it.

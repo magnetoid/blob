@@ -20,8 +20,8 @@ import { createContext, useContext } from 'react';
 export interface DialogConfig {
   /** What assistive tech calls the dialog. */
   label: string;
-  /** A variant's host class (`lightbox-host`, `palette-host`), on the element that holds
-   *  the backdrop and the panel. */
+  /** A variant's host class (`lightbox-host`, or the palette's `[--dialog-top:12vh]`
+   *  utilities), on the element that holds the backdrop and the panel. */
   className?: string | undefined;
   /** An alert dialog asks a question: `role="alertdialog"`, no closing on a click beside
    *  it, and focus on the dialog itself rather than on an answer. */

@@ -1,61 +1,4 @@
 /* ─── new message ─────────────────────────────────────────────────────────── */
-/* A recipient field, which the app had nowhere else: the only way to a group message was
-   a slash command. */
-.section-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-/* A section of your own (M3 · B3): its heading is the switch that folds it, and its
-   options wait at the end of the row like a channel's. */
-.section-head {
-  position: relative;
-}
-
-.section-toggle {
-  position: relative;
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  align-items: center;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-label);
-  cursor: pointer;
-  text-align: left;
-}
-
-.section-toggle .section-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Hung in the gutter, so a section's name lines up with "Channels" above and below it. */
-.section-toggle svg {
-  position: absolute;
-  left: -6px;
-  transition: rotate var(--dur-fast) var(--blob-ease-out);
-}
-
-.section-toggle[aria-expanded='false'] svg {
-  rotate: -90deg;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .section-toggle svg {
-    transition: none;
-  }
-}
-
-.section-head:hover .section-kebab,
-.section-head:focus-within .section-kebab {
-  opacity: 1;
-}
-
 /* A message whose files retention took (ADR 0039): it says so where they were. */
 .message-files-removed {
   margin-top: 4px;
@@ -90,13 +33,6 @@
   white-space: pre-wrap;
 }
 
-.section-empty {
-  margin: 0;
-  padding: 2px 12px 6px;
-  font-size: var(--blob-text-sm);
-  color: var(--text-3);
-}
-
 .section-choices {
   display: grid;
   gap: 4px;
@@ -118,24 +54,8 @@
   background: var(--surface-hover);
 }
 
-.sidebar-inline-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: 0;
-  border-radius: var(--blob-radius-sm);
-  background: transparent;
-  color: var(--text-rail);
-  cursor: pointer;
-}
-
-.sidebar-inline-add:hover {
-  background: var(--surface-hover);
-  color: var(--text);
-}
-
+/* A recipient field, which the app had nowhere else: the only way to a group message was
+   a slash command. */
 .new-message {
   width: min(460px, calc(100vw - 32px));
 }
@@ -217,11 +137,6 @@
 }
 
 @media (pointer: coarse) {
-  .sidebar-inline-add {
-    width: 44px;
-    height: 44px;
-  }
-
   .new-message-person {
     min-height: 44px;
   }

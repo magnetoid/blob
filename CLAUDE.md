@@ -445,8 +445,8 @@ a new section is a row plus a component rather than four files that have to agre
 data/action hooks every section uses and the kit every section is drawn with — shadcn's,
 since phase 3 of ADR 0043. The shell is shadcn's Sidebar (`components/ui/sidebar.tsx`,
 with the generated component's `sidebar_state` cookie and ⌘B stripped): the nav is a
-column on the ground from 768px — Tailwind's `md`, one pixel from where the chat's frame
-begins — and below that a Sheet that traps focus, closes on Escape and hands focus back,
+column on the ground from 768px — Tailwind's `md`, where the chat's frame begins too —
+and below that a Sheet that traps focus, closes on Escape and hands focus back,
 and the page is `SidebarInset`. A page is cards from `features/console/Card.tsx`, whose
 `CardRows`, `CardFields` and `CardTable` are the list, the settings and the table a card
 holds, and a hint is tied to its control by `aria-describedby`. The page body is
@@ -475,12 +475,14 @@ server's log only when the viewer is the server's administrator. Old URLs surviv
 **The design layer.** The client wears shadcn's preset b0 — Base UI, Lucide, Inter, radius
 `0.625rem`, neutral — and is mid-move: ADR 0043 and
 `docs/superpowers/specs/2026-10-29-shadcn-whole-app-design.md` carry the seven phases,
-of which the first three are built: phase 1 changed how every screen looks and no
+of which the first four are built: phase 1 changed how every screen looks and no
 component; phase 2 rebuilt the shared primitives in `components/` — dialogs, menus,
 popovers, toasts, notes, avatars, empty states, skeletons, icons — on shadcn, Base UI and
 Lucide behind the same names and props, and moved the overlays off the first load (ADR
 0043's addendum); phase 3 drew the three consoles with shadcn's Sidebar and a kit of its
-parts (above).
+parts (above); phase 4 put the chat shell on the same Sidebar, dropped the top bar's view
+tabs at the user's word (2026-11-19, "Sidebar only" — the sidebar is the one navigation),
+and made the shell's menus and ⌘K modules of their own (below).
 `styles/index.css` is the one CSS entry, and its layer order is the design:
 `@layer theme, base, legacy, components, utilities`. shadcn's variables are unlayered in
 `styles/theme.css`; `styles/tokens.css` and `styles/app.css` (and `app/`) are Blob's own,
@@ -530,13 +532,13 @@ Eight rules the file will not tell you on its own:
 * **Elevation carries its own border.** Every `--elev-*` opens with a `0 0 0 1px` ring, so
   an elevated surface sets `box-shadow` and no `border`. Setting both is how four
   different popover treatments drifted apart before.
-* **The work sits in a frame (Meadow `1a`, since 2026-10).** From 769px `.shell > .pane` —
+* **The work sits in a frame (Meadow `1a`, since 2026-10).** From 768px `.shell > .pane` —
   every view's root — and `.shell > .panel` — a thread, a file, a terminal — are one paper
   card, inset by `--frame-gap`, rounded `--frame-radius`, shadowed `--elev-frame`, on the
   ground the top bar and the channel list share (`--bg-sidebar`, shadcn's `--sidebar`,
   which in dark is *lighter* than the card — shadcn's arrangement, where Meadow's sat below
   the page so the card lifted). The consoles draw the same card with shadcn's Sidebar from
-  768px, Tailwind's `md` and one pixel before the chat's 769: `SidebarInset` as
+  the same 768px, Tailwind's `md`: `SidebarInset` as
   `<main class="admin-main">`, given the frame's gap, radius and shadow by utilities in
   `features/console/ConsoleShell.tsx`, and its own scroller, so its corners clip what
   scrolls in it. For `.pane` and `.panel` it is a rule about those selectors with nothing
@@ -556,15 +558,28 @@ Eight rules the file will not tell you on its own:
   `vite:preloadError` with one toast per page telling the person to reload, and leaves the
   default alone so the import still fails into `lazyOverlay`. `scripts/bundle-budget.mjs`
   fails the build if Base UI's overlay code reaches a first-load chunk, so first-load code
-  never imports `ui/dialog`, `ui/alert-dialog`, `ui/dropdown-menu` or `ui/popover`. Menus
-  and popovers are phase-2 scaffolding, not shadcn's DropdownMenu and Popover yet: their
-  callers own the triggers and the `<button role="menuitem">` items, so the panels keep
-  the legacy look and Blob's own dismissal (`lib/useDismissal.ts`, first-load, so a menu
-  clicked open before the chunk lands already answers Escape and a click outside) and
-  arrow keys, are drawn in place inside `PanelAnchor`'s span with Base UI's focus guards
-  hidden, and Base UI only places, animates and focuses them (`overlays/inPlace.ts`). The
-  spec's phases 4 and 5 say which callers move to its triggers and items, and what is
-  deleted then.
+  never imports `ui/dialog`, `ui/alert-dialog`, `ui/dropdown-menu` or `ui/popover`. The
+  shell's four menus — account, workspace, channel, section — are shadcn's DropdownMenu
+  since phase 4, Base UI's triggers and items and all. The message and schedule menus and
+  the popovers are still phase-2 scaffolding: their callers own the triggers and the
+  `<button role="menuitem">` items, so the panels keep the legacy look and Blob's own
+  dismissal (`lib/useDismissal.ts`, first-load, so a menu clicked open before the chunk
+  lands already answers Escape and a click outside) and arrow keys, are drawn in place
+  inside `PanelAnchor`'s span with Base UI's focus guards hidden, and Base UI only places,
+  animates and focuses them (`overlays/inPlace.ts`). The spec's phase 5 says which callers
+  move next, and what is deleted then.
+
+  A menu or palette that a press or a keystroke opens is a module of its own, preloaded
+  beside the overlay chunk (`preloadAlso`) and never `lazy()`, which suspends a first
+  render however settled its import is and throws a failed one to the error boundary:
+  `components/lazyDropdown.tsx` for the shell's menus, whose trigger stands in and holds a
+  press until the module lands, and the palette's loader (`features/palette/lazyPalette.ts`)
+  for ⌘K. Each takes its layer on the Escape stack as it opens — a drawn menu through
+  `lib/useMenuEscapeLayer.ts`, a press or the palette still waiting on its module through
+  `useEscape`. A module that failed to load is asked for again on the next press, which
+  Chromium and Firefox fetch and WebKit does not: it keeps the failure until a reload, which
+  `lib/staleBuild.ts`'s notice asks for once — so a failure's own message asks for a reload,
+  not another press.
 * **Overlays enter and leave — dialogs, menus, popovers, toasts, the thread panel, the
   conversation notices, the typing line and inline notes.** Base UI's own play their exit
   on `data-ending-style` and report its end (`onOpenChangeComplete`); `Menu` and `Popover`

@@ -13,7 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '../../test/overlayChunk.ts';
 
 const currentUser = {
@@ -38,15 +38,23 @@ vi.mock('./WorkspaceSwitcher.tsx', () => ({
   WorkspaceSwitcher: ({ name }: { name: string }) => <div>{name}</div>,
 }));
 
+const unseen = vi.hoisted(() => ({ value: false }));
+vi.mock('../../lib/changelog.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/changelog.ts')>()),
+  hasUnseenRelease: () => unseen.value,
+}));
+
 const { TopBar } = await import('./TopBar.tsx');
 
-function renderBar() {
-  const onFeedback = vi.fn();
+function renderBar(onFeedback = vi.fn()) {
   render(<TopBar onFeedback={onFeedback} view="messages" />);
   return { onFeedback };
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  unseen.value = false;
+});
 afterEach(cleanup);
 
 describe('the feedback control', () => {
@@ -66,13 +74,46 @@ describe('the feedback control', () => {
     expect(screen.getByTitle('Report a bug or send feedback')).toBeTruthy();
   });
 
-  it('stays in the account menu as well', () => {
+  it('stays in the account menu as well', async () => {
     const { onFeedback } = renderBar();
     fireEvent.click(screen.getByRole('button', { expanded: false, name: /Ana/ }));
 
     // Adding a way in, the way Administration did in the sidebar — not moving the one
     // somebody may already have learned.
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Feedback' }));
-    expect(onFeedback).toHaveBeenCalledTimes(1);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Feedback' }));
+    await waitFor(() => expect(onFeedback).toHaveBeenCalledTimes(1));
+  });
+
+  it('runs from the menu only once the menu has gone, so the snapshot sees the page', async () => {
+    let menuOnPage: boolean | null = null;
+    const onFeedback = vi.fn(() => {
+      menuOnPage = screen.queryByRole('menu') !== null;
+    });
+    renderBar(onFeedback);
+    fireEvent.click(screen.getByRole('button', { expanded: false, name: /Ana/ }));
+
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Feedback' }));
+    await waitFor(() => expect(onFeedback).toHaveBeenCalledTimes(1));
+    expect(menuOnPage).toBe(false);
+  });
+});
+
+describe('the account trigger', () => {
+  it('is named by the person alone, with the connection said once after it', () => {
+    renderBar();
+    // The avatar's initial and the presence dot are decoration: neither is read as a name.
+    expect(screen.getByRole('button', { name: 'Ana (connected)' })).toBeTruthy();
+  });
+
+  it('carries a quiet dot while a release is unseen, and none otherwise', () => {
+    unseen.value = true;
+    const { unmount } = render(<TopBar onFeedback={vi.fn()} view="messages" />);
+    const trigger = screen.getByRole('button', { name: /Ana/ });
+    expect(trigger.querySelector('[data-slot="release-dot"]')).not.toBeNull();
+    unmount();
+
+    unseen.value = false;
+    render(<TopBar onFeedback={vi.fn()} view="messages" />);
+    expect(screen.getByRole('button', { name: /Ana/ }).querySelector('[data-slot="release-dot"]')).toBeNull();
   });
 });

@@ -1,13 +1,13 @@
 /* ─── calls ─────────────────────────────────────────────────────────────────
    A call you are in sits at the foot of the channel list, in a third row the shell
    grows only while there is a bar in it — so the list gives up the height rather than
-   hiding under a floating strip. Below 768px the list is a drawer, so the bar moves to a
+   hiding under a floating strip. Below 768px the list is a Sheet, so the bar moves to a
    row of its own under the top bar, where a phone keeps it in view. */
 .shell[data-in-call='true'] {
   grid-template-rows: var(--topbar-height) minmax(0, 1fr) auto;
 }
 
-.shell[data-in-call='true'] > :not(.topbar):not(.sidebar):not(.call-dock):not(.drawer-scrim) {
+.shell[data-in-call='true'] > :not([data-slot='topbar']):not([data-slot='sidebar']):not(.call-dock) {
   grid-row: 2 / -1;
 }
 
@@ -234,18 +234,20 @@ button.call-bar-where {
 
 /* Folded to the rail: the bar keeps only what you cannot do without — whether it is
    live, the microphone and leave. */
-.shell[data-sidebar-collapsed='true'] .call-bar {
+.shell:has(> [data-slot='sidebar'][data-collapsible='icon']) .call-bar {
   align-items: center;
   padding-inline: 6px;
 }
 
-.shell[data-sidebar-collapsed='true'] .call-bar-title,
-.shell[data-sidebar-collapsed='true'] .call-people,
-.shell[data-sidebar-collapsed='true'] .call-controls > :not(:first-child):not(.call-leave) {
+.shell:has(> [data-slot='sidebar'][data-collapsible='icon']) .call-bar-title,
+.shell:has(> [data-slot='sidebar'][data-collapsible='icon']) .call-people,
+.shell:has(> [data-slot='sidebar'][data-collapsible='icon'])
+  .call-controls
+  > :not(:first-child):not(.call-leave) {
   display: none;
 }
 
-.shell[data-sidebar-collapsed='true'] .call-controls {
+.shell:has(> [data-slot='sidebar'][data-collapsible='icon']) .call-controls {
   flex-direction: column;
 }
 
@@ -297,12 +299,12 @@ button.call-bar-where {
   padding: var(--space-3);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .shell[data-in-call='true'] {
     grid-template-rows: var(--topbar-height) auto minmax(0, 1fr);
   }
 
-  .shell[data-in-call='true'] > :not(.topbar):not(.sidebar):not(.call-dock):not(.drawer-scrim) {
+  .shell[data-in-call='true'] > :not([data-slot='topbar']):not([data-slot='sidebar']):not(.call-dock) {
     grid-row: 3;
   }
 

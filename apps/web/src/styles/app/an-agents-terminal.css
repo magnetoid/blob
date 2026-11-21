@@ -1,4 +1,10 @@
 /* ─── an agent's terminal ────────────────────────────────────────────────── */
+/* Takes the rest of the terminal bar's row. It was the top bar's spacer, and that bar is
+   Tailwind's now; the terminal's bar still draws the class. */
+.topbar-spacer {
+  flex: 1;
+}
+
 .agent-terminal {
   margin-top: 12px;
 }

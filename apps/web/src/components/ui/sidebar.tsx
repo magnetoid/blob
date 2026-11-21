@@ -7,23 +7,20 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import { lazyOverlay } from "@/components/lazyOverlay"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { PanelLeftIcon, XIcon } from "lucide-react"
+import { loadedOverlays } from "@/lib/overlays"
+import { useEscapeLayer, type StandIn } from "@/lib/useEscape"
+import { PanelLeftIcon } from "lucide-react"
+
+// The sheet below 768px is Base UI's dialog, so it comes from the overlay chunk
+// (`components/overlays/SidebarSheetImpl.tsx`): the chat shell draws its sidebar at first
+// paint, and a statically imported Sheet would put the overlay code in the first load.
+// For the same reason there is no Tooltip here — see `SidebarMenuButton`.
+const SidebarSheet = lazyOverlay((m) => m.SidebarSheetImpl)
 
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
@@ -137,6 +134,28 @@ function SidebarProvider({
   )
 }
 
+/**
+ * Whether a key came from a popup the sheet opened that Base UI portalled out of it: a
+ * row's menu, controlled by a trigger inside the sheet, or a dialog one of its items opened,
+ * which Base UI counts as nested in the sheet (`data-nested-dialog-open` on its popup).
+ * Either answers its own Escape, and the sheet stays open. Each of them holds a place on
+ * the Escape stack above the sheet's (`lib/useMenuEscapeLayer.ts`, `components/Dialog.tsx`),
+ * so this is the net under them, not the rule. Named, never "anything portalled": a key
+ * from anywhere else is still a stray, and the sheet's to answer.
+ */
+function openedFromSheet(sheet: HTMLElement, target: Node): boolean {
+  const element = target instanceof Element ? target : target.parentElement
+  const menu = element?.closest<HTMLElement>('[data-slot="dropdown-menu-content"]')
+  if (menu) {
+    if (menu.id === "") return false
+    return sheet.querySelector(`[aria-controls="${CSS.escape(menu.id)}"]`) !== null
+  }
+  return (
+    element?.closest('[data-slot="dialog-content"]') != null &&
+    sheet.hasAttribute("data-nested-dialog-open")
+  )
+}
+
 function Sidebar({
   side = "left",
   variant = "sidebar",
@@ -158,6 +177,36 @@ function Sidebar({
 }) {
   const { isMobile, state, openMobile, setOpenMobile, openerRef } = useSidebar()
 
+  // Mounted the first time the sheet opens, as every overlay is (`lazyOverlay`), and kept
+  // after that, so Base UI can play its exit on every close. Kept only while the chunk is
+  // here: one that failed to load drew nothing, and a wrapper left mounted through that
+  // would try the import again on every render of the sidebar.
+  const [sheetOpened, setSheetOpened] = React.useState(false)
+  if (isMobile && openMobile && !sheetOpened) setSheetOpened(true)
+
+  // The sheet's place on the Escape stack (`lib/useEscape.ts`), taken as it opens, as every
+  // dialog's is. Base UI answers a key from inside the drawn sheet itself; until it is drawn
+  // — the chunk still on its way — or for a key from outside it, the layer answers, so the
+  // key never reaches what is underneath: a panel opened before it, or the shell's own
+  // listener on `window`, which takes a stray Escape as "close the thread" or "mark this
+  // channel read". "Inside" counts what the sheet opened and Base UI portalled out of it,
+  // too (`openedFromSheet`). One object for the sidebar's life: a new one would re-register
+  // the layer on top.
+  const popupRef = React.useRef<React.RefObject<HTMLElement | null> | null>(null)
+  const onDrawn = React.useCallback((popup: React.RefObject<HTMLElement | null>) => {
+    popupRef.current = popup
+  }, [])
+  const [standIn] = React.useState<StandIn>(() => ({
+    drawn: () => popupRef.current?.current != null,
+    holds: (target) => {
+      const sheet = popupRef.current?.current
+      if (!sheet || !(target instanceof Node)) return false
+      return sheet.contains(target) || openedFromSheet(sheet, target)
+    },
+    close: () => setOpenMobile(false),
+  }))
+  useEscapeLayer(isMobile && openMobile && collapsible !== "none", standIn)
+
   if (collapsible === "none") {
     return (
       <div
@@ -174,54 +223,22 @@ function Sidebar({
   }
 
   if (isMobile) {
-    return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-        <SheetContent
-          dir={dir}
-          data-sidebar="sidebar"
-          data-slot="sidebar"
-          data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground"
-          // The generated close is named only "Close"; the one below says which menu.
-          showCloseButton={false}
-          style={
-            {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-            } as React.CSSProperties
-          }
-          side={side}
-          // Back to the trigger that opened it. The dialog's own default is whatever had
-          // focus before it opened, and Safari does not focus a button that is clicked,
-          // so there it was the page. Opened some other way, the default stands — so the
-          // opener is spent here, on the close it was recorded for.
-          finalFocus={() => {
-            const opener = openerRef.current
-            openerRef.current = null
-            return opener ?? true
-          }}
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>{label}</SheetTitle>
-          </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
-          {/* The backdrop is no way out for a screen reader on a phone, where the page
-              behind the modal is inert and there is no Escape. After the children, so
-              the dialog still opens on the nav and not on this. */}
-          <SheetClose
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="absolute top-3 right-3"
-                aria-label={closeLabel}
-              />
-            }
-          >
-            <XIcon />
-          </SheetClose>
-        </SheetContent>
-      </Sheet>
-    )
+    const drawn = openMobile || (sheetOpened && loadedOverlays() !== null)
+    return drawn ? (
+      <SidebarSheet
+        open={openMobile}
+        onOpenChange={setOpenMobile}
+        side={side}
+        dir={dir}
+        width={SIDEBAR_WIDTH_MOBILE}
+        label={label}
+        closeLabel={closeLabel}
+        openerRef={openerRef}
+        onDrawn={onDrawn}
+      >
+        {children}
+      </SidebarSheet>
+    ) : null
   }
 
   return (
@@ -516,21 +533,23 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
+/** No `tooltip` prop, which the generated button has: Base UI's tooltip is overlay code,
+ *  and a sidebar row is on the page at first paint. A row on the rail carries its name
+ *  as its label and as its `title`, the browser's own tooltip — not Blob's `data-tooltip`,
+ *  an `::after` that this button's `overflow-hidden` and the scrolling `SidebarContent`
+ *  would both clip. */
 function SidebarMenuButton({
   render,
   isActive = false,
   variant = "default",
   size = "default",
-  tooltip,
   className,
   ...props
 }: useRender.ComponentProps<"button"> &
   React.ComponentProps<"button"> & {
     isActive?: boolean
-    tooltip?: string | React.ComponentProps<typeof TooltipContent>
   } & VariantProps<typeof sidebarMenuButtonVariants>) {
-  const { isMobile, state } = useSidebar()
-  const comp = useRender({
+  return useRender({
     defaultTagName: "button",
     props: mergeProps<"button">(
       {
@@ -538,7 +557,7 @@ function SidebarMenuButton({
       },
       props
     ),
-    render: !tooltip ? render : <TooltipTrigger render={render} />,
+    render,
     state: {
       slot: "sidebar-menu-button",
       sidebar: "menu-button",
@@ -546,28 +565,6 @@ function SidebarMenuButton({
       active: isActive,
     },
   })
-
-  if (!tooltip) {
-    return comp
-  }
-
-  if (typeof tooltip === "string") {
-    tooltip = {
-      children: tooltip,
-    }
-  }
-
-  return (
-    <Tooltip>
-      {comp}
-      <TooltipContent
-        side="right"
-        align="center"
-        hidden={state !== "collapsed" || isMobile}
-        {...tooltip}
-      />
-    </Tooltip>
-  )
 }
 
 function SidebarMenuAction({

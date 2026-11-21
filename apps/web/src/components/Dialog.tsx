@@ -45,8 +45,9 @@ const DialogShell = lazyOverlay((m) => m.DialogImpl);
 interface DialogProps {
   /** What assistive tech calls the dialog. */
   label: string;
-  /** A variant's host class — `lightbox-host`, `palette-host` — on the element that holds
-   *  the backdrop and the panel, where its CSS sets the shell's custom properties. */
+  /** A variant's host class — `lightbox-host`, or the palette's `[--dialog-top:12vh]`
+   *  utilities — on the element that holds the backdrop and the panel, where it sets the
+   *  shell's custom properties. */
   className?: string;
   onClose: () => void;
   children: ReactNode;

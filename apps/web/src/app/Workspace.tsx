@@ -1,6 +1,14 @@
 /** The signed-in shell: top bar, sidebar, main view, optional thread panel. */
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  Suspense,
+  lazy,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { useStore } from '../lib/store.ts';
 import { showError } from '../lib/toasts.ts';
 import { socket } from '../lib/socket.ts';
@@ -14,6 +22,7 @@ import {
 } from '../lib/router.ts';
 import { HomeView } from '../features/home/HomeView.tsx';
 import { Sidebar } from '../features/channels/Sidebar.tsx';
+import { SidebarProvider } from '../components/ui/sidebar.tsx';
 import { ChannelView } from '../features/messages/ChannelView.tsx';
 import { ThreadsView } from '../features/messages/ThreadsView.tsx';
 import { ActivityView } from '../features/messages/ActivityView.tsx';
@@ -32,7 +41,9 @@ import { DraftsView } from '../features/messages/DraftsView.tsx';
 import { AgentTerminalPanel } from '../features/agentic/AgentTerminalPanel.tsx';
 import { FilePreviewPanel } from '../features/messages/FilePreviewPanel.tsx';
 import { closeFilePreview } from '../lib/filePreview.ts';
-import { CommandPalette } from '../features/palette/CommandPalette.tsx';
+// A chunk of its own, fetched beside the overlay chunk once the page is idle: cmdk is not
+// first-load code.
+import { CommandPalette } from '../features/palette/lazyPalette.ts';
 import { SearchView } from '../features/search/SearchView.tsx';
 // Lazy: the consoles are ~3,000 lines of JSX an ordinary member never renders,
 // and they were arriving in everyone's first paint.
@@ -75,6 +86,16 @@ import { updateBadge } from '../lib/badge.ts';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { cancelCallSwitch, confirmCallSwitch, isFullScreenFor } from '../lib/calls.ts';
 
+/**
+ * The channel list's widths, in Blob's tokens, so the sidebar and the legacy grid that
+ * leaves it a column (`styles/app/shell.css`) are given one number each: 240px open, and a
+ * 4rem rail folded. Legacy CSS may not read shadcn's own variables (`tokenNames.test.ts`).
+ */
+const SHELL_SIDEBAR = {
+  '--sidebar-width': 'var(--blob-sidebar-width)',
+  '--sidebar-width-icon': 'var(--blob-sidebar-rail)',
+} as CSSProperties;
+
 export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const channels = useStore((s) => s.channels);
   const users = useStore((s) => s.users);
@@ -100,12 +121,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   /** Which list ⌘K opened. ⌘⇧K opens the same picker showing only people. */
   const [paletteOnly, setPaletteOnly] = useState<'people' | undefined>(undefined);
-  // The channel drawer on narrow viewports. Scoped to the conversation it was opened
-  // from, so changing channels dismisses it without an effect-driven reset.
-  const [sidebarDrawer, setSidebarDrawer] = useState<{ open: boolean; scope: string }>({
-    open: false,
-    scope: '',
-  });
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   /** Whether the thread panel is in the document at all — open, or still leaving. */
@@ -126,8 +141,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   const [permalinkError, setPermalinkError] = useState<{ id: string; message: string } | null>(
     null,
   );
-  const sidebarScope = `${view}:${activeChannelId ?? ''}`;
-  const sidebarOpen = sidebarDrawer.open && sidebarDrawer.scope === sidebarScope;
 
   useEffect(() => {
     try {
@@ -145,18 +158,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     // Drafts typed on your other devices, and anything this tab typed offline (ADR 0037).
     void useStore.getState().syncDrafts();
   }, []);
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarDrawer((current) =>
-      current.open && current.scope === sidebarScope
-        ? { open: false, scope: sidebarScope }
-        : { open: true, scope: sidebarScope },
-    );
-  }, [sidebarScope]);
-
-  const closeSidebar = useCallback(() => {
-    setSidebarDrawer({ open: false, scope: sidebarScope });
-  }, [sidebarScope]);
 
   // Two jobs, one effect: send a member who typed /admin back to the conversation, and
   // rewrite a stale or misspelt URL to the route it actually resolved to, so the address
@@ -365,9 +366,10 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           if (helpOpen) setHelpOpen(false);
           else if (feedbackOpen) setFeedbackOpen(false);
           else if (paletteOpen) setPaletteOpen(false);
-          // The drawer is an overlay over the conversation, so it closes before the
-          // thread underneath it and long before Esc means "mark this channel read".
-          else if (sidebarOpen) closeSidebar();
+          // No branch for the channel list's Sheet below 768px: like every dialog it holds
+          // the top of the Escape stack while it is open (`components/ui/sidebar.tsx`), so an
+          // Escape meant for it never reaches this listener — not before the overlay chunk
+          // has drawn it, and not after.
           else if (activeThreadRootId) closeThread();
           else if (activeChannelId) {
             // Nothing left to close: Slack's Esc — the channel is read. Deliberately
@@ -390,8 +392,6 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     paletteOpen,
     helpOpen,
     feedbackOpen,
-    sidebarOpen,
-    closeSidebar,
     activeThreadRootId,
     openThread,
     channels,
@@ -420,6 +420,13 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
   // anything. Derived rather than reported up by the slot on unmount, because that report
   // is an effect: it would land a commit late and paint one frame of an empty column.
   const panelPresent = panelOpen || (inConversation && threadPanelPresent);
+
+  // ⌘K in every branch. Nothing is drawn until its chunk is here, which the idle preload
+  // has normally seen to; a press that comes first starts the fetch itself, and one that
+  // cannot fetch it is a toast and a closed palette, not a Suspense or a crash.
+  const palette = paletteOpen && (
+    <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
+  );
 
   // In every branch: the bar, floating in the consoles because there is no channel list
   // to stand in there, and the "leave this one?" question. The room's own audio is
@@ -472,9 +479,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             onSignedOut={onSignedOut}
           />
         </Suspense>
-        {paletteOpen && (
-          <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
-        )}
+        {palette}
         <DialogPresence when={feedbackOpen}>
           {() => <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
         </DialogPresence>
@@ -505,9 +510,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             />
           )}
         </Suspense>
-        {paletteOpen && (
-          <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
-        )}
+        {palette}
         <DialogPresence when={feedbackOpen}>
           {() => <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
         </DialogPresence>
@@ -519,22 +522,25 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
     );
   } else {
     body = (
-      <div
-        className="shell"
+      <SidebarProvider
+        // The shell's grid, which the legacy rules lay out (`styles/app/shell.css`), on the
+        // sidebar's provider. `grid` is a utility because the provider's own `flex` is one,
+        // and a utility beats any legacy rule.
+        className="shell grid min-h-0"
+        // No `data-slot`: it is what keeps the preflight repair (`styles/app/base.css`) out
+        // of a shadcn component, and every view in here is legacy markup that needs it.
+        data-slot={undefined}
+        style={SHELL_SIDEBAR}
+        open={!sidebarCollapsed}
+        onOpenChange={(open) => setSidebarCollapsed(!open)}
         data-panel={panelPresent ? 'open' : 'closed'}
         // A file wants more of the width than a thread does: a page or a PDF in a thread's
         // 380px is a page nobody can read.
         data-panel-kind={panelOpen && filePreview ? 'file' : undefined}
-        data-sidebar={sidebarOpen ? 'open' : 'closed'}
-        data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}
         data-in-call={callBarPresent ? 'true' : undefined}
       >
         <TopBar
           onFeedback={() => setFeedbackOpen(true)}
-          onToggleSidebar={toggleSidebar}
-          sidebarOpen={sidebarOpen}
-          onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
-          sidebarCollapsed={sidebarCollapsed}
           view={view}
           minimal
           onSearch={() => {
@@ -542,15 +548,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             setPaletteOpen(true);
           }}
         />
-        <Sidebar collapsed={sidebarCollapsed} />
-        {sidebarOpen && (
-          <button
-            type="button"
-            className="drawer-scrim"
-            aria-label="Close channel list"
-            onClick={closeSidebar}
-          />
-        )}
+        <Sidebar />
 
         {view === 'permalink' && (
           <main className="pane">
@@ -636,9 +634,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
             <ThreadPanelSlot rootId={activeThreadRootId} onPresence={setThreadPanelPresent} />
           )
         )}
-        {paletteOpen && (
-            <CommandPalette only={paletteOnly} onClose={() => setPaletteOpen(false)} />
-          )}
+        {palette}
         {/* The dialogs leave as well as arrive: each mounts on the render that opens it,
             as `{open && <X/>}` did, and is held through one exit after. The palette and
             the lightbox keep the plain mount — the palette gets no motion at all. */}
@@ -666,7 +662,7 @@ export function Workspace({ onSignedOut }: { onSignedOut: () => void }) {
           )}
         </DialogPresence>
         {callLayer(false)}
-      </div>
+      </SidebarProvider>
     );
   }
 

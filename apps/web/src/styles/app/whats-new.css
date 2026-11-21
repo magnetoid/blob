@@ -1,13 +1,4 @@
 /* ─── what's new ──────────────────────────────────────────────────────────── */
-/* A mark, not a count. Release notes are something to read, not something to clear. */
-.menu-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--blob-accent);
-  flex: none;
-}
-
 .whats-new {
   flex: 1;
   min-height: 0;

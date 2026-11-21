@@ -21,7 +21,7 @@ import { navigate } from "../../lib/router.ts";
 import { CallButton } from "../calls/CallButton.tsx";
 import { PinnedPanel } from "./PinnedPanel.tsx";
 import { CatchUpStrip } from "./CatchUpStrip.tsx";
-import { ChannelMenu } from "../channels/ChannelMenu.tsx";
+import { ChannelMenu } from "../channels/lazyMenus.ts";
 import { ChannelDetails } from "../channels/ChannelDetails.tsx";
 import { RunHistoryDialog } from "./RunHistoryDialog.tsx";
 import { DialogPresence } from "../../components/Dialog.tsx";
@@ -66,7 +66,6 @@ export function ChannelView() {
   const channelTitle = useStore((s) => s.channelTitle);
 
   const [pinsOpen, setPinsOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [runsOpen, setRunsOpen] = useState(false);
   // Which tab each work channel is on, keyed by channel so switching channels never
@@ -256,29 +255,29 @@ export function ChannelView() {
             {/* Slack puts the channel's own actions behind its name, and that is
                 where a hand goes looking. Everything in here — mute, star, topic,
                 who is in it, leaving — had a route and no control. */}
-            <button
-              className="pane-name-trigger"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={(event) => {
-                event.stopPropagation();
-                setMenuOpen((open) => !open);
-              }}
-            >
-              {!isDm && (
-                <span className="pane-prefix" aria-hidden="true">
-                  #
-                </span>
-              )}
-              <h1 className="pane-title">{title}</h1>
-              {agent && <span className="agent-badge">Agent</span>}
-              {channel.membership?.isStarred && (
-                <span className="pane-star" title="Starred">
-                  ★
-                </span>
-              )}
-              <ChevronDownIcon size="sm" />
-            </button>
+            <ChannelMenu
+              channel={channel}
+              onOpenDetails={() => setDetailsOpen(true)}
+              onOpenRuns={() => setRunsOpen(true)}
+              runsLabel={agent ? `What ${agent.displayName} has done` : 'Agent runs'}
+              trigger={
+                <button className="pane-name-trigger">
+                  {!isDm && (
+                    <span className="pane-prefix" aria-hidden="true">
+                      #
+                    </span>
+                  )}
+                  <h1 className="pane-title">{title}</h1>
+                  {agent && <span className="agent-badge">Agent</span>}
+                  {channel.membership?.isStarred && (
+                    <span className="pane-star" title="Starred">
+                      ★
+                    </span>
+                  )}
+                  <ChevronDownIcon size="sm" />
+                </button>
+              }
+            />
           </div>
           {/* An agent's room says what the agent is rather than that this is a DM, which
               the avatar and the badge have already said. The sentence is the one thing
@@ -293,15 +292,6 @@ export function ChannelView() {
                 "Acts with your permissions — it can reach exactly what you can reach.")
               : channel.topic || (isDm ? "Direct message" : "No topic set")}
           </div>
-          {menuOpen && (
-            <ChannelMenu
-              channel={channel}
-              onClose={() => setMenuOpen(false)}
-              onOpenDetails={() => setDetailsOpen(true)}
-              onOpenRuns={() => setRunsOpen(true)}
-              runsLabel={agent ? `What ${agent.displayName} has done` : "Agent runs"}
-            />
-          )}
         </div>
 
         <div className="pane-spacer" />

@@ -35,11 +35,11 @@ import { FALLBACK_MS } from '../../lib/usePresence.ts';
 import { useMinute } from '../../lib/useMinute.ts';
 import {
   CheckIcon,
-  FileIcon,
   MembersIcon,
   MentionIcon,
   SendIcon,
   SparkIcon,
+  TaskIcon,
 } from '../../components/Icon.tsx';
 import { Avatar } from '../../components/Avatar.tsx';
 import { Count } from '../../components/Count.tsx';
@@ -302,7 +302,7 @@ export function HomeView() {
           <Stat
             label="Open tasks"
             value={openTaskCount}
-            icon={<FileIcon size="md" />}
+            icon={<TaskIcon size="md" />}
             onOpen={() => navigate('/tasks')}
           />
           <Stat
