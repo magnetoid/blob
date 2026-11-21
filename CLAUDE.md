@@ -576,7 +576,10 @@ Eight rules the file will not tell you on its own:
   press until the module lands, and the palette's loader (`features/palette/lazyPalette.ts`)
   for ⌘K. Each takes its layer on the Escape stack as it opens — a drawn menu through
   `lib/useMenuEscapeLayer.ts`, a press or the palette still waiting on its module through
-  `useEscape`.
+  `useEscape`. A module that failed to load is asked for again on the next press, which
+  Chromium and Firefox fetch and WebKit does not: it keeps the failure until a reload, which
+  `lib/staleBuild.ts`'s notice asks for once — so a failure's own message asks for a reload,
+  not another press.
 * **Overlays enter and leave — dialogs, menus, popovers, toasts, the thread panel, the
   conversation notices, the typing line and inline notes.** Base UI's own play their exit
   on `data-ending-style` and report its end (`onOpenChangeComplete`); `Menu` and `Popover`

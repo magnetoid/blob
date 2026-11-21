@@ -14,8 +14,14 @@
  * second. And a lazy whose import fails throws while rendering, up to the app's error
  * boundary — "Something broke" in place of the whole workspace, for a key press — and keeps
  * the failure, so ⌘K stays dead until a reload. Here a failure is a toast and a closed
- * palette, and the next ⌘K tries again, since `memoiseImport` forgets a failed import. A
- * deploy that replaced the chunk is `lib/staleBuild.ts`'s to explain.
+ * palette, and the next ⌘K asks for the module again, since `memoiseImport` forgets a failed
+ * import. Chromium and Firefox fetch it again; WebKit keeps a module that failed for the
+ * life of the page and answers the same failure without asking the network, so there only a
+ * reload helps. `lib/staleBuild.ts`'s "Reload to carry on" says so once per page, as the idle
+ * preload fails, and is gone six seconds later — long before a ⌘K, as a rule. So the
+ * palette's own toast says it: reload, which works in every engine, never "try again", which
+ * would be wrong in one engine in three. Offline, a reload would lose the page, so it says
+ * that instead.
  *
  * Whether the module is here is read once, as the palette mounts, and only goes from absent
  * to here, so an open palette is never swapped for another under somebody typing.
@@ -50,6 +56,10 @@ type Palette = typeof import('./CommandPalette.tsx').default;
 
 /** The palette once its module has arrived; never unset, as a loaded module stays loaded. */
 let arrived: Palette | null = null;
+
+/** What the toast says when the palette's module will not load. */
+export const PALETTE_FAILED = 'Couldn’t open search. Reload the page to try again.';
+export const PALETTE_OFFLINE = 'Couldn’t open search while you’re offline.';
 
 export const loadPalette = memoiseImport(() =>
   import('./CommandPalette.tsx').then((module) => {
@@ -87,7 +97,7 @@ export function CommandPalette(props: ComponentProps<Palette>): ReactElement | n
 
   const failed = useEffectEvent((error: unknown) => {
     console.error('palette failed to load', error);
-    showError(new Error('Couldn’t open search. Try again.'));
+    showError(new Error(navigator.onLine === false ? PALETTE_OFFLINE : PALETTE_FAILED));
     props.onClose();
   });
 

@@ -575,9 +575,16 @@ The calls made without the user, as the plan listed them and as they turned out:
   preload had landed opened about 400 ms late. And a failed lazy import throws to the app's
   `ErrorBoundary` — "Something broke" over the workspace, for a keystroke — and caches the
   rejection, so ⌘K stayed dead until a reload. Now a palette whose chunk is here is drawn in
-  the render that opens it; a chunk that will not load is a toast ("Couldn’t open search.
-  Try again.") and a closed palette; and the next ⌘K tries again. A ⌘K pressed before the
-  chunk lands draws nothing until it does, and keys typed in between go where focus is.
+  the render that opens it; a chunk that will not load is a toast and a closed palette; and
+  the next ⌘K asks for the module again. Chromium and Firefox fetch it again. WebKit keeps a
+  failed module for the life of the page and never asks the network twice (seen in the
+  production-bundle smoke, 2026-11-21), so there only a reload helps — and
+  `lib/staleBuild.ts`'s "Reload to carry on", shown once as the idle preload fails, is gone
+  six seconds later. So the toast itself asks for the reload ("Couldn’t open search. Reload
+  the page to try again."), which works in every engine, or, offline, says that instead. A ⌘K pressed
+  before the chunk lands draws nothing until it does; keys typed in between go where focus
+  is, except Enter, which is swallowed so a half-typed query is never sent from the
+  composer.
   `ComboboxState` corrects cmdk's input, which hard-codes `aria-expanded="true"` and, when
   cmdk selects a row itself (on opening, on a new query), computes `aria-activedescendant`
   before the new selection is drawn, so it named the row an arrow had left: it writes both

@@ -7,7 +7,7 @@
  * `lazy()`, the session's first ⌘K waited up to 300ms for a module that was already there,
  * because React suspends on a lazy's first render however settled its import is. And a
  * chunk that will not load costs the palette and nothing else: a toast, a closed palette,
- * the workspace still standing, and the next ⌘K tries again. A `lazy()` would have thrown
+ * the workspace still standing, and the next ⌘K asks for it again. A `lazy()` would have thrown
  * to the app's error boundary — "Something broke" for a key press — and kept the failure
  * until a reload.
  */
@@ -90,7 +90,7 @@ describe('the palette’s chunk', () => {
     expect(screen.getByText('the workspace')).toBeTruthy();
     expect(screen.queryByText('Something broke')).toBeNull();
     expect(useToasts.getState().toasts).toEqual([
-      expect.objectContaining({ kind: 'error', text: 'Couldn’t open search. Try again.' }),
+      expect.objectContaining({ kind: 'error', text: fresh.PALETTE_FAILED }),
     ]);
     expect(consoleError).toHaveBeenCalledWith('palette failed to load', expect.any(Error));
     expect(screen.queryByText('the palette')).toBeNull();
@@ -103,6 +103,27 @@ describe('the palette’s chunk', () => {
     expect(chunk.tries).toBe(2);
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(screen.getByText('the workspace')).toBeTruthy();
+  });
+
+  it('says so, rather than "reload", when the palette will not load offline', async () => {
+    vi.resetModules();
+    vi.doMock('./CommandPalette.tsx', async () => {
+      throw new TypeError('Failed to fetch dynamically imported module');
+    });
+    const fresh = await import('./lazyPalette.ts');
+    const { useToasts } = await import('../../lib/toasts.ts');
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const onClose = vi.fn();
+    render(<Host Palette={fresh.CommandPalette} onClose={onClose} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(useToasts.getState().toasts).toEqual([
+      expect.objectContaining({ kind: 'error', text: fresh.PALETTE_OFFLINE }),
+    ]);
+    online.mockRestore();
   });
 });
 
