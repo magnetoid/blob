@@ -680,10 +680,12 @@ out:
   `mount: 'arrival'`.
 - **Remind me… is a submenu** (`DropdownMenuSub`) of its presets, as Slack's is. Its presets
   used to unfold inline inside the menu.
-- **The toolbar is held up by `.message:has([data-popup-open]) .message-actions`.** Base UI
-  marks an open trigger `data-popup-open`, and the panel is no longer drawn inside the row,
-  so the row's `:hover` and `:focus-within` stopped holding the toolbar up the moment the
-  pointer left for the popup.
+- **The toolbar is held up by `.message-actions:has([data-popup-open])`.** Base UI marks an
+  open trigger `data-popup-open`, and the panel is no longer drawn inside the row, so the
+  row's `:hover` and `:focus-within` stopped holding the toolbar up the moment the pointer
+  left for the popup. The rule asks the toolbar, so it holds for a popup opened from the
+  toolbar — More actions, Add reaction — and not for the person card, whose trigger is the
+  author's name outside it.
 - **A dialog opened from a message's menu gives focus back to the row.** By the time it
   closes the toolbar is hidden, and a `visibility: hidden` More actions cannot take focus,
   so focus fell to `<body>`. `DialogPresence` and `DialogImpl` take an opt-in `returnFocus`,

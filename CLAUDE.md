@@ -575,9 +575,11 @@ Eight rules the file will not tell you on its own:
   stands in, and a press on it opens the popup as the module arrives. A message row's
   popups mount on the first press (`mount: 'press'`), since the list is virtualised and a
   row nobody presses should not carry Base UI roots through every scroll. They are
-  portalled out of the row, so `:hover` and `:focus-within` no longer hold its toolbar up:
-  `.message:has([data-popup-open])` does, and a dialog opened from a message's menu gives
-  focus back to the row (`returnFocus`), because More actions is hidden by then. Each popup
+  portalled out of the row, so `:hover` and `:focus-within` no longer hold its toolbar up
+  while one opened from it is open: `.message-actions:has([data-popup-open])` does — More
+  actions, Add reaction — and the person card, whose trigger is the author's name outside
+  the toolbar, does not. A dialog opened from a message's menu gives focus back to the row
+  (`returnFocus`), because More actions is hidden by then. Each popup
   takes its layer on the Escape stack as it opens — a drawn menu or popover, with every
   submenu its items opened, through `lib/useMenuEscapeLayer.ts`; a press or the palette
   still waiting on its module through `useEscape`. A module that failed to load is asked
