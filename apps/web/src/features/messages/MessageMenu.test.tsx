@@ -9,7 +9,7 @@
  * was opened from is hidden once the pointer has gone.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { Message } from '@blob/shared';
 import { MessageMenu } from './MessageMenu.tsx';
 import { MessageMenuPopup } from './lazyPopups.ts';
@@ -69,10 +69,13 @@ function draw(message: Message = MESSAGE, mine = true) {
   return moreActions();
 }
 
+/** A mouse's click, which counts one: a click that counts none is a key's (`detail: 0`). */
+const POINTER = { detail: 1 };
+
 /** Open it by pointer, and wait for Base UI to draw the portal's contents. */
 async function open(message: Message = MESSAGE, mine = true) {
   const row = draw(message, mine).closest('article')!;
-  fireEvent.click(moreActions());
+  fireEvent.click(moreActions(), POINTER);
   const menu = await screen.findByRole('menu');
   return { row, menu };
 }
@@ -84,6 +87,9 @@ function pressEnter(element: HTMLElement) {
   fireEvent.click(element, { detail: 0 });
   fireEvent.keyUp(element, { key: 'Enter' });
 }
+
+/** One frame, for what Base UI's focus manager does on the next one. */
+const nextFrame = () => act(() => new Promise<void>((done) => requestAnimationFrame(() => done())));
 
 beforeEach(() => signIn());
 afterEach(() => {
@@ -100,25 +106,26 @@ describe('the message’s More actions', () => {
     expect(row.querySelector('[data-slot="dropdown-menu-trigger"]')).toBeNull();
     expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
 
-    fireEvent.click(trigger);
+    fireEvent.click(trigger, POINTER);
 
     expect(await screen.findByRole('menu')).toBeTruthy();
     expect(row.querySelector('[data-slot="dropdown-menu-trigger"]')).toBe(moreActions());
   });
 
   it('opens from More actions and walks its items with the arrow keys', async () => {
+    // The row's first open, which is nearly every keyboard open in a virtualised list: the
+    // key lands on the placeholder, not on Base UI's trigger, and the menu still starts on
+    // its first item — so Enter, Enter copies the link, and Enter, ↓, Enter forwards.
     const trigger = draw();
+    expect(trigger.getAttribute('data-slot')).toBeNull();
 
     pressEnter(trigger);
 
-    const menu = await screen.findByRole('menu');
+    await screen.findByRole('menu');
     expect(moreActions().getAttribute('aria-expanded')).toBe('true');
     const items = screen.getAllByRole('menuitem');
     expect(items[0]?.textContent).toBe('Copy link');
     expect(items[1]?.textContent).toBe('Forward…');
-    // Opened as it is drawn, the menu takes focus itself; the first arrow reaches the first item.
-    await waitFor(() => expect(document.activeElement).toBe(menu));
-    fireEvent.keyDown(menu, { key: 'ArrowDown' });
     await waitFor(() => expect(document.activeElement).toBe(items[0]));
 
     fireEvent.keyDown(items[0]!, { key: 'ArrowDown' });
@@ -126,27 +133,52 @@ describe('the message’s More actions', () => {
     await waitFor(() => expect(document.activeElement).toBe(items[1]));
   });
 
-  it('marks More actions while open, which the toolbar keys on', async () => {
-    // `.message-actions:has([data-popup-open])` keeps the toolbar up once the pointer has
-    // left the row for the menu, which is portalled out of it.
+  it('opened by pointer, starts on the menu itself, with no item picked out', async () => {
+    // As Base UI opens one from its own trigger: the first item is a key's starting point.
+    const { menu } = await open();
+
+    await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+    await nextFrame();
+    expect(document.activeElement).toBe(menu);
+    expect(screen.getAllByRole('menuitem')).not.toContain(document.activeElement);
+  });
+
+  it('marks More actions while open and through its exit, which the toolbar keys on', async () => {
+    // `.message-actions:has([data-popup-open], [data-popup-held])` keeps the toolbar up once
+    // the pointer has left the row for the menu, which is portalled out of it. Base UI drops
+    // `data-popup-open` as the close begins; `data-popup-held` stays until the exit has
+    // played, since only then does focus come back to More actions.
     const { menu } = await open();
     expect(moreActions().hasAttribute('data-popup-open')).toBe(true);
+    expect(moreActions().hasAttribute('data-popup-held')).toBe(true);
 
     fireEvent.keyDown(document.activeElement ?? menu, { key: 'Escape' });
 
-    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     expect(moreActions().hasAttribute('data-popup-open')).toBe(false);
+    expect(moreActions().hasAttribute('data-popup-held')).toBe(true);
+    expect(screen.getByRole('menu', { hidden: true })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(moreActions().hasAttribute('data-popup-held')).toBe(false);
   });
 
-  it('closes on Escape and gives focus back to More actions', async () => {
-    await open();
-    const item = screen.getByRole('menuitem', { name: 'Copy link' });
-    item.focus();
+  it('closes on Escape and gives focus back to More actions, and the shell hears nothing', async () => {
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+    try {
+      await open();
+      const item = screen.getByRole('menuitem', { name: 'Copy link' });
+      item.focus();
 
-    fireEvent.keyDown(item, { key: 'Escape' });
+      fireEvent.keyDown(item, { key: 'Escape' });
 
-    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    expect(document.activeElement).toBe(moreActions());
+      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+      expect(document.activeElement).toBe(moreActions());
+      // The shell's listener on `window` takes a stray Escape as "close the thread" or
+      // "mark this channel read"; the menu's own was not one.
+      expect(shell).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', shell);
+    }
   });
 
   it('closes only the reminder submenu on Escape, and the next Escape closes the menu', async () => {
@@ -246,7 +278,7 @@ describe('a dialog opened from the menu', () => {
     } as never);
     render(<MessageRow message={MESSAGE} previous={null} onOpenThread={vi.fn()} />);
     const row = document.querySelector<HTMLElement>(`article[data-message-id="${MESSAGE.id}"]`)!;
-    fireEvent.click(moreActions());
+    fireEvent.click(moreActions(), POINTER);
 
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete message' }));
     await screen.findByRole('alertdialog');

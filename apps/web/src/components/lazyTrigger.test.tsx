@@ -10,10 +10,10 @@
  * And a press whose module will not load says so — reload, since WebKit keeps a failed
  * import for the life of the page — rather than doing nothing.
  *
- * The modules here are real ones, built from shadcn's Popover and DropdownMenu, imported
- * while the file is collected; only the moment an import resolves is the test's to choose.
+ * The modules here are real ones, built from shadcn's Popover, imported while the file is
+ * collected; only the moment an import resolves is the test's to choose.
  */
-import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ComponentType } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx';
@@ -76,17 +76,16 @@ function heldImport(Module: ComponentType<TriggerModuleProps> = ProfileCard) {
 }
 
 const ada = () => screen.getByRole('button', { name: 'Ada' });
+const grace = () => screen.getByRole('button', { name: 'Grace' });
 
-let consoleError: MockInstance<typeof console.error>;
 beforeEach(() => {
   vi.mocked(preloadAlso).mockReset();
   useToasts.setState({ toasts: [] });
   drawn.length = 0;
-  consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => {
   cleanup();
-  consoleError.mockRestore();
+  vi.restoreAllMocks();
 });
 
 describe('lazyTrigger', () => {
@@ -140,7 +139,32 @@ describe('lazyTrigger', () => {
     expect(document.activeElement).toBe(ada());
   });
 
+  it('opens only the later of two presses waiting on the module, where a click leaves focus be', async () => {
+    // WebKit, and Firefox on macOS, do not focus a button that is clicked, so the second
+    // press does not move focus off the first and cancel it that way. The person has gone
+    // on from the first all the same, and one popup opens: the one pressed last.
+    const { load, release } = heldImport(QuietCard);
+    const Card = lazyTrigger(load, { name: 'this profile', popup: 'dialog' });
+    render(
+      <>
+        <Card trigger={<button type="button">Ada</button>} />
+        <Card trigger={<button type="button">Grace</button>} />
+      </>,
+    );
+    fireEvent.click(ada());
+    fireEvent.click(grace());
+    expect(document.activeElement).toBe(document.body);
+
+    await act(async () => release());
+
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(ada().getAttribute('aria-expanded')).toBe('false');
+    expect(grace().getAttribute('aria-expanded')).toBe('true');
+  });
+
   it('says so when a pressed module will not load, and stays closed', async () => {
+    // The log is the one console.error expected here; any other case's would be a warning.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { load, fail } = heldImport();
     const Menu = lazyTrigger(load, { name: 'this menu', popup: 'menu' });
 
@@ -149,6 +173,10 @@ describe('lazyTrigger', () => {
     fireEvent.click(placeholder);
     await act(async () => fail());
 
+    expect(consoleError).toHaveBeenCalledWith(
+      'module for this menu failed to load',
+      expect.any(TypeError),
+    );
     expect(useToasts.getState().toasts).toEqual([
       expect.objectContaining({
         kind: 'error',

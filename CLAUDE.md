@@ -576,8 +576,10 @@ Eight rules the file will not tell you on its own:
   popups mount on the first press (`mount: 'press'`), since the list is virtualised and a
   row nobody presses should not carry Base UI roots through every scroll. They are
   portalled out of the row, so `:hover` and `:focus-within` no longer hold its toolbar up
-  while one opened from it is open: `.message-actions:has([data-popup-open])` does — More
-  actions, Add reaction — and the person card, whose trigger is the author's name outside
+  while one opened from it is open:
+  `.message-actions:has([data-popup-open], [data-popup-held])` does — More actions and Add
+  reaction mark their trigger `data-popup-held` until their exit has played, since focus
+  comes home only then — and the person card, whose trigger is the author's name outside
   the toolbar, does not. A dialog opened from a message's menu gives focus back to the row
   (`returnFocus`), because More actions is hidden by then. Each popup
   takes its layer on the Escape stack as it opens — a drawn menu or popover, with every

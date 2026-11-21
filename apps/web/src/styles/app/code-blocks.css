@@ -185,10 +185,17 @@
 /* Shown on hover, with focus inside, and while a popup that hangs from it is open. The
    menu is portalled out of the row, so the pointer leaving the row for it, or focus going
    into it, would otherwise take the toolbar — and the button the menu is anchored to —
-   away from under it. Base UI marks the trigger `data-popup-open` while its popup is open. */
+   away from under it. Base UI marks the trigger `data-popup-open` while its popup is open,
+   and drops it as the close begins; but it gives focus back to the trigger only once the
+   popup's exit has played (`duration-100`, `ui/dropdown-menu.tsx` and `ui/popover.tsx`),
+   and this toolbar hides at `--dur-fast`, 120 ms, above. A 20 ms margin is one dropped
+   frame: the trigger was hidden first, focus fell to <body>, and the next Escape reached
+   the shell. So More actions and Add reaction also mark their trigger `data-popup-held`
+   from the open until Base UI reports the exit done (`onOpenChangeComplete`), by which
+   time focus is home and `:focus-within` holds the toolbar. */
 .message:hover .message-actions,
 .message:focus-within .message-actions,
-.message-actions:has([data-popup-open]) {
+.message-actions:has([data-popup-open], [data-popup-held]) {
   opacity: 1;
   visibility: visible;
   transform: none;

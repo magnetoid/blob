@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { lazyTrigger, type TriggerModuleProps } from './lazyTrigger.tsx';
+import { lazyTrigger, type LazyTriggerComponent, type TriggerModuleProps } from './lazyTrigger.tsx';
 
 /**
  * What a menu module's default export takes: the button that opens it, which the module
@@ -20,6 +20,6 @@ export type DropdownModuleProps = TriggerModuleProps;
  */
 export function lazyDropdown<P extends DropdownModuleProps>(
   load: () => Promise<{ default: ComponentType<P> }>,
-): ComponentType<Omit<P, 'defaultOpen'>> & { preload(): Promise<void> } {
+): LazyTriggerComponent<P> {
   return lazyTrigger(load, { name: 'this menu', popup: 'menu' });
 }

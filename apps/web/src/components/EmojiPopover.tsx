@@ -7,10 +7,12 @@
  *
  * It opens with the cursor in its search field, and a pick closes it. While open it holds
  * its place on the Escape stack (`lib/useMenuEscapeLayer.ts`), so that Escape is the
- * picker's and not the thread's or the file panel's behind it. Both of its triggers sit in
- * UI that is drawn many times over or remounted often — a message row in a virtualised
- * list, a thread's composer — so it is drawn only once its trigger is pressed
- * (`mount: 'press'`).
+ * picker's and not the thread's or the file panel's behind it. From the open until its exit
+ * has played it marks its trigger `data-popup-held`, which keeps a message's toolbar, where
+ * Add reaction sits, up until Base UI has given focus back (`styles/app/code-blocks.css`).
+ * Both of its triggers sit in UI that is drawn many times over or remounted often — a
+ * message row in a virtualised list, a thread's composer — so it is drawn only once its
+ * trigger is pressed (`mount: 'press'`).
  *
  * Where focus goes after a pick is left as Base UI leaves it: back to the trigger, unless
  * something has taken it by the time the popup has gone. The composer does — it puts focus
@@ -46,10 +48,23 @@ export default function EmojiPopover({
   const [open, setOpen] = useState(defaultOpen ?? false);
   const { popupRef, triggerRef } = useMenuEscapeLayer(open, setOpen);
   const searchRef = useRef<HTMLInputElement>(null);
+  // From the open until the exit has played, as `MessageMenuPanel` holds its own.
+  const [held, setHeld] = useState(open);
+  if (open && !held) setHeld(true);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger ref={triggerRef} render={trigger} />
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen) setHeld(false);
+      }}
+    >
+      <PopoverTrigger
+        ref={triggerRef}
+        render={trigger}
+        data-popup-held={held ? '' : undefined}
+      />
       {/* The picker's own size, and a column its search, grid and tones are laid out in,
           capped to the room there is on the side it hangs. 6px clear of its trigger. */}
       <PopoverContent

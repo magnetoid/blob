@@ -8,8 +8,10 @@
  * (`lib/useMenuEscapeLayer.ts`), so that Escape is the menu's and not the thread's behind it.
  *
  * The panel is portalled out of the row, so the toolbar it hangs from would hide the moment
- * the pointer left the row for it; the trigger's `data-popup-open` is what keeps it up
- * (`styles/app/code-blocks.css`). The dialogs its items open are not drawn here — they
+ * the pointer left the row for it; the trigger's `data-popup-open`, and `data-popup-held`
+ * until the exit has played, are what keep it up (`styles/app/code-blocks.css`). Drawn open
+ * by a key on the placeholder, it starts on its first item, as a key on its own trigger
+ * would have it (`openedByKeyboard`). The dialogs its items open are not drawn here — they
  * outlive the menu, so they are `MessageMenu`'s and the row's, and an item asks for one by
  * callback. Choosing it closes the menu, and the dialog gives focus back to the message's
  * row when it ends, because the item is gone and More actions is hidden by then.
@@ -61,6 +63,14 @@ const REMIND_PRESETS: Array<{ label: string; at: () => Date }> = [
 /** The 44px minimum under a coarse pointer. */
 const ITEM = 'pointer-coarse:min-h-11';
 
+/**
+ * Where focus starts when a key opened the menu: on its first item. `Menu.Popup` reads
+ * `initialFocus` and hands it to its focus manager (`MenuPopup.mjs`), as `Popover.Popup`
+ * does, though Base UI 1.9's props type for it leaves it out; and focusing an item is what
+ * Base UI's highlight follows, so the next arrow goes on from there.
+ */
+type InitialFocus = { initialFocus?: () => HTMLElement | true };
+
 export interface MessageMenuPanelProps extends TriggerModuleProps {
   message: Message;
   /** Edit and delete are offered only on your own messages. */
@@ -80,6 +90,7 @@ export interface MessageMenuPanelProps extends TriggerModuleProps {
 export default function MessageMenuPanel({
   trigger,
   defaultOpen,
+  openedByKeyboard,
   message,
   mine,
   onCopyLink,
@@ -92,6 +103,21 @@ export default function MessageMenuPanel({
 }: MessageMenuPanelProps) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const { popupRef, triggerRef } = useMenuEscapeLayer(open, setOpen);
+  // From the open until the exit has played, which `data-popup-open` does not cover: it goes
+  // as the close begins, and the toolbar's hold with it (`styles/app/code-blocks.css`).
+  // Adjusted during render, as `DialogPresence` adjusts its own.
+  const [held, setHeld] = useState(open);
+  if (open && !held) setHeld(true);
+  // The open this was drawn with, if a key made it on the placeholder, which Base UI never
+  // heard. Spent as it closes: every later open is the real trigger's, read by Base UI.
+  const [keyOpened, setKeyOpened] = useState(open && openedByKeyboard === true);
+  if (!open && keyOpened) setKeyOpened(false);
+  const firstItem: InitialFocus = keyOpened
+    ? {
+        initialFocus: () =>
+          popupRef.current?.querySelector<HTMLElement>('[role="menuitem"]') ?? true,
+      }
+    : {};
   // An admin may read what a legal hold kept of an edited message (ADR 0039 addendum).
   const isAdmin = useStore(
     (s) => s.currentUser?.role === 'admin' || s.currentUser?.role === 'owner',
@@ -114,11 +140,26 @@ export default function MessageMenuPanel({
   }
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger ref={triggerRef} render={trigger} />
+    <DropdownMenu
+      open={open}
+      onOpenChange={setOpen}
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen) setHeld(false);
+      }}
+    >
+      <DropdownMenuTrigger
+        ref={triggerRef}
+        render={trigger}
+        data-popup-held={held ? '' : undefined}
+      />
       {/* Hung from the right of its trigger, at the right edge of the row; narrower than
           a channel menu, because its rows are a word or two. */}
-      <DropdownMenuContent ref={popupRef} align="end" className="w-auto min-w-42">
+      <DropdownMenuContent
+        ref={popupRef}
+        align="end"
+        className="w-auto min-w-42"
+        {...firstItem}
+      >
         {/* First, because it is the one people reach for most: a message is quoted into
             another channel or a ticket far more often than it is pinned or saved. */}
         <DropdownMenuItem className={ITEM} onClick={onCopyLink}>

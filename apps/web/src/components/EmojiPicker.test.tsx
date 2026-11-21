@@ -206,6 +206,22 @@ describe('the picker’s popover', () => {
     expect(onPick).not.toHaveBeenCalled();
   });
 
+  it('marks Add reaction while open and through its exit, which a message’s toolbar keys on', async () => {
+    // `.message-actions:has([data-popup-open], [data-popup-held])`: Base UI drops
+    // `data-popup-open` as the close begins, and gives focus back only once the exit has
+    // played, so the toolbar Add reaction sits in is held until then.
+    addReaction();
+    const { field } = await open();
+    expect(trigger().hasAttribute('data-popup-held')).toBe(true);
+
+    fireEvent.keyDown(field, { key: 'Escape' });
+
+    expect(trigger().hasAttribute('data-popup-open')).toBe(false);
+    expect(trigger().hasAttribute('data-popup-held')).toBe(true);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(trigger().hasAttribute('data-popup-held')).toBe(false);
+  });
+
   it('takes one Escape beside an open panel: the picker closes and the panel stays', async () => {
     // A panel behind the picker — the file panel, say — is a layer on the stack that was
     // there first.
