@@ -167,8 +167,6 @@
 .reaction:active,
 .thread-summary:active,
 .new-message-person:active:not(:disabled),
-.emoji-cell:active,
-.emoji-tone:active,
 .attachment-chip-remove:active,
 .unread-jump-dismiss:active,
 .catchup-strip-dismiss:active,
@@ -181,7 +179,7 @@
    single frame. The same 120ms the buttons and the sidebar's rows already take;
    transform and scale for the presses. Not a keyboard highlight — the autocomplete's
    and the emoji grid's move under hands that are typing, and a highlight a beat behind
-   the key reads as lag; the emoji cell is handled beside its own rules. */
+   the key reads as lag; the emoji picker sets its own (components/EmojiPicker.tsx). */
 .message-action,
 .menu-item,
 .thread-summary,
@@ -190,7 +188,6 @@
 .attachment-chip-remove,
 .chip,
 .summary-cite,
-.emoji-tone,
 .ephemeral-dismiss,
 .pinned-item,
 .browse-row,

@@ -25,10 +25,8 @@ import { localCommand, parseCommand } from "../../lib/commands.ts";
 import { matchShortcut } from "../../lib/shortcuts.ts";
 import { openAgentTerminal } from "../../lib/agentTerminal.ts";
 import { showChannel } from "../../lib/navigation.ts";
-import { useEscape } from "../../lib/useEscape.ts";
 import { localZone, describeRepeat } from "./schedulePresets.ts";
 import { codeMarkers, wrapSelection } from "./markdownWrap.ts";
-import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import {
   AttachIcon,
   EmojiIcon,
@@ -42,6 +40,7 @@ import { AttachmentTray } from "./AttachmentTray.tsx";
 import { VoiceRecordButton } from "./VoiceRecordButton.tsx";
 import { FormatToolbar } from "./FormatToolbar.tsx";
 import { SchedulePicker } from "./SchedulePicker.tsx";
+import { EmojiPopup } from "./lazyPopups.ts";
 import {
   CommandOptions,
   EmojiOptions,
@@ -91,14 +90,11 @@ export function Composer({
   const [error, setError] = useState<string | null>(null);
   /** A command's reply to the person who ran it. Never stored, never broadcast. */
   const [ephemeral, setEphemeral] = useState<string | null>(null);
-  const [emojiOpen, setEmojiOpen] = useState(false);
   // On a phone the marks sit behind Aa, as in Slack's app: a row of them above every
   // message costs a line of conversation for something most messages never use.
   const [formatting, setFormatting] = useState(false);
   // Asking a poll (ADR 0041): its own dialog, the composer's words as the question.
   const [pollOpen, setPollOpen] = useState(false);
-  const emojiRef = useRef<HTMLDivElement>(null);
-  const emojiTriggerRef = useRef<HTMLButtonElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastTypingRef = useRef(0);
@@ -121,31 +117,6 @@ export function Composer({
     const channel = s.channels[channelId];
     return channel ? s.channelTitle(channel) : "this conversation";
   });
-
-  // Escape through the shared stack, so closing the picker does not also let the shell
-  // act on the key. See `lib/useEscape`.
-  const closeEmoji = useCallback(() => setEmojiOpen(false), []);
-  useEscape(closeEmoji, emojiOpen);
-
-  // Dismiss on a click anywhere else, or Escape — the same contract as every other panel
-  // in the app. The trigger is checked too, and deliberately: the panel renders above the
-  // composer box while the button lives in the footer, so unlike the account menu it
-  // cannot simply sit inside the same ref. Without this the capture listener would close
-  // on the way down and the button's own toggle would reopen on the way back up, leaving
-  // a picker that could never be dismissed by clicking the thing that opened it.
-  useEffect(() => {
-    if (!emojiOpen) return undefined;
-    // Qualified, because this file imports React's KeyboardEvent for the textarea
-    // handlers and the bare names would resolve to those rather than to the DOM's.
-    const onClick = (event: globalThis.MouseEvent) => {
-      const target = event.target as Node;
-      if (emojiRef.current?.contains(target)) return;
-      if (emojiTriggerRef.current?.contains(target)) return;
-      setEmojiOpen(false);
-    };
-    window.addEventListener("click", onClick, true);
-    return () => window.removeEventListener("click", onClick, true);
-  }, [emojiOpen]);
 
   // Grow with content rather than scrolling a fixed two-line box.
   //
@@ -178,7 +149,9 @@ export function Composer({
    * Appending is fine for the `@` button, which is always starting a new mention; an
    * emoji is just as often going into the middle of a sentence already typed. The caret
    * is restored past the inserted text on the next frame, once React has written the
-   * new value — setting it synchronously targets the old one.
+   * new value — setting it synchronously targets the old one. Focus comes back to the
+   * field with it, from the picker the emoji was chosen in, which leaves focus where it
+   * finds it once the picker has gone (`components/EmojiPopover.tsx`).
    */
   function insertAtCursor(value: string) {
     const el = textareaRef.current;
@@ -489,23 +462,6 @@ export function Composer({
           />
         )}
 
-        {emojiOpen && (
-          <div
-            className="emoji-picker-anchor"
-            data-composer="true"
-            ref={emojiRef}
-          >
-            <EmojiPicker
-              label="Insert an emoji"
-              onClose={() => setEmojiOpen(false)}
-              onPick={(value) => {
-                insertAtCursor(value);
-                setEmojiOpen(false);
-              }}
-            />
-          </div>
-        )}
-
         <DialogPresence when={pollOpen}>
           {() => (
             <PollDialog
@@ -581,19 +537,25 @@ export function Composer({
               <AttachIcon />
             </button>
             <VoiceRecordButton onRecorded={files.attachVoice} onError={setError} />
-            <button
-              ref={emojiTriggerRef}
-              className="icon-btn"
-              type="button"
-              aria-label="Emoji"
-              data-tooltip="Emoji"
-              data-tooltip-place="top"
-              onClick={() => setEmojiOpen((open) => !open)}
-              aria-expanded={emojiOpen}
-              aria-haspopup="dialog"
-            >
-              <EmojiIcon />
-            </button>
+            {/* Above the composer, which sits at the bottom of the window, from the
+                button's left edge. */}
+            <EmojiPopup
+              label="Insert an emoji"
+              side="top"
+              align="start"
+              onPick={insertAtCursor}
+              trigger={
+                <button
+                  className="icon-btn"
+                  type="button"
+                  aria-label="Emoji"
+                  data-tooltip="Emoji"
+                  data-tooltip-place="top"
+                >
+                  <EmojiIcon />
+                </button>
+              }
+            />
             <button
               className="icon-btn"
               type="button"

@@ -25,6 +25,7 @@
 @source "../components/PanelAnchor.tsx";
 @source "../components/PersonCard.tsx";
 @source "../components/EmojiPicker.tsx";
+@source "../components/EmojiPopover.tsx";
 @source "../components/Toasts.tsx";
 @source "../components/Confirmation.tsx";
 @source "../components/Avatar.tsx";

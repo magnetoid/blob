@@ -1,14 +1,18 @@
 // @vitest-environment happy-dom
 /**
- * `:shortcode` autocomplete in the composer.
+ * Emoji in the composer: the `:shortcode` autocomplete, and the picker behind the Emoji
+ * button.
  *
- * The picker already inserts at the caret. Typing `:tada` used to do nothing until
- * you opened that picker — Slack's fast path is the colon, not the grid.
+ * The picker inserts at the caret. Typing `:tada` used to do nothing until you opened that
+ * picker — Slack's fast path is the colon, not the grid.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Composer } from './Composer.tsx';
+import { EmojiPopup } from './lazyPopups.ts';
 import { useStore } from '../../lib/store.ts';
+
+await EmojiPopup.preload();
 
 afterEach(cleanup);
 
@@ -57,5 +61,27 @@ describe('colon autocomplete', () => {
     typeAtEnd(':ship');
 
     expect(screen.getByRole('listbox').textContent).toContain('shipit');
+  });
+});
+
+describe('the emoji picker', () => {
+  it('inserts at the caret and gives focus back to the message field', async () => {
+    renderComposer();
+    const box = typeAtEnd('hello world');
+    box.setSelectionRange(5, 5);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Emoji' }));
+    await screen.findByRole('dialog', { name: 'Insert an emoji' });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Search emoji')));
+    fireEvent.click(screen.getByRole('button', { name: ':tada:' }));
+
+    expect(box.value).toBe('hello🎉  world');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(box));
+    // And it stays there: nothing hands it back to the Emoji button once the picker is gone.
+    await act(() => new Promise((done) => setTimeout(done, 50)));
+    expect(document.activeElement).toBe(box);
+    expect(box.selectionStart).toBe('hello🎉 '.length);
+    expect(box.selectionEnd).toBe('hello🎉 '.length);
   });
 });

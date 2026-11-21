@@ -1,47 +1,19 @@
 /**
- * The emoji picker, used both to react to a message and to insert into the composer.
+ * The emoji picker's body — its search, its grid, its keys and its skin tones — used both
+ * to react to a message and to insert into the composer. The popover round it, and so
+ * opening, closing, Escape and where focus goes, is `EmojiPopover.tsx`'s.
  *
  * Slack's picker opens on a search field with the cursor already in it, because the fast
- * path is typing three letters and pressing Enter — not hunting a grid. So Enter takes
- * the first result, the arrow keys walk the list, and Escape closes without picking.
+ * path is typing three letters and pressing Enter — not hunting a grid. So the popover puts
+ * the cursor there (`searchRef`), Enter takes the first result, and the arrow keys walk the
+ * list.
  *
  * A workspace's own emoji come first and stay first. They are the vocabulary that is
  * actually specific to the people using this deployment; the Unicode set is the same
  * everywhere and can wait one row.
- *
- * The shell is shadcn's popover, from the overlay chunk (`components/overlays/PopoverImpl.tsx`):
- * it places the panel — below "Add reaction", or above the composer, as the caller's
- * stylesheet says in `--popover-side` and `--popover-align` on `.emoji-picker` — wears
- * shadcn's popover surface, plays the entrance, and puts the cursor in the search field.
- * The search, the grid, the keys and the tones inside it are the picker's own legacy
- * markup, in a `data-legacy` island so legacy CSS still reaches it inside shadcn's popup.
- *
- * Closing is its callers'. They keep the open state, the anchor round it, Escape through
- * `lib/useEscape` and the click outside, decided by `contains` on that anchor — so the
- * panel is drawn in place, inside the anchor, where `contains` finds it, and the picker
- * brings no second Escape or outside click of its own (one Escape closes one layer). It is
- * open for as long as it is mounted and goes when its caller unmounts it, with no exit,
- * as before. The one close it asks for itself, through the caller's `onClose`, is focus
- * moving out of it by the keyboard — see below.
- *
- * Why that one. Base UI's popover takes everything in its panel out of the tab order the
- * moment focus leaves it, and gives it back only to focus coming in through the guards it
- * draws round the panel — hidden here, because the panel is drawn in place (`PanelAnchor`).
- * A picker left open behind focus that had Tabbed on could not be reached again by Tab or
- * Shift+Tab. So it closes then, by the rule the menus use (`focusMovedOut`) — but only for
- * the keyboard. Once a pointer has been pressed, focus moving out is that press's doing until
- * the next key, and a press is the caller's to judge by `contains`: on its own trigger, the
- * caller's toggle closes the picker, where closing on the focus would have had the toggle
- * open it again. Not "while a pointer is down": a tap moves focus after the finger has lifted
- * (Chrome sends pointerup, then the mousedown it makes up for the tap, which is what focuses
- * the button). Every move the keyboard makes comes after a keydown, so the next key always
- * hands the close back to the keyboard, and no lost pointerup can keep it from it.
- *
- * Scaffolding, with an exit: the callers move to `PopoverTrigger` in phase 5, and the
- * anchor, the in-place drawing and the callers' own dismissal go then.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import {
   EMOJI_CATEGORIES,
   SKIN_TONES,
@@ -54,29 +26,37 @@ import {
   takesSkinTone,
   type ResolvedEmoji,
   type SkinToneId,
-} from "../lib/emoji.ts";
-import { useStore } from "../lib/store.ts";
-import { focusMovedOut } from "../lib/useDismissal.ts";
-import { lazyOverlay } from "./lazyOverlay.tsx";
-import { PanelAnchor } from "./PanelAnchor.tsx";
-
-/** Base UI's popover root, portal, positioner and popup, from the overlay chunk. */
-const PickerPanel = lazyOverlay((m) => m.PopoverImpl);
+} from '../lib/emoji.ts';
+import { useStore } from '../lib/store.ts';
+import { Input } from './ui/input.tsx';
+import { Toggle } from './ui/toggle.tsx';
 
 interface Props {
   /** Receives the value to store: the character, or `:name:` for a custom emoji. */
   onPick: (value: string) => void;
-  onClose: () => void;
-  /** Labels the panel for assistive tech — "React with an emoji" vs "Insert an emoji". */
-  label: string;
+  /** The search field, which the popover puts the cursor in as it opens. */
+  searchRef?: Ref<HTMLInputElement> | undefined;
 }
 
-function displayedChar(emoji: Extract<ResolvedEmoji, { kind: "unicode" }>, modifier: string): string {
+/**
+ * One cell of the grid. The keyboard's cursor (`data-active`) is painted as an image layer
+ * over the cell's ground rather than as the ground itself, because the ground is what the
+ * pointer's highlight fades — and a transition cannot tell which of the two changed it, so
+ * a cursor painted there faded out of every cell the arrow keys left. The focus ring sits
+ * inside the cell's edge: the cells touch, so a ring outside one would be drawn over its
+ * neighbours.
+ */
+const CELL =
+  'flex aspect-square cursor-pointer items-center justify-center rounded-sm text-(length:--blob-text-lg) leading-none outline-none transition-[background-color,scale] duration-(--dur-fast) ease-(--blob-ease-out) hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset active:scale-(--motion-press) data-[active=true]:bg-[image:linear-gradient(var(--blob-accent-wash),var(--blob-accent-wash))] data-[active=true]:shadow-[inset_0_0_0_1px_var(--blob-accent-border)]';
+
+const GRID = 'grid grid-cols-8 gap-0.5';
+
+function displayedChar(emoji: Extract<ResolvedEmoji, { kind: 'unicode' }>, modifier: string): string {
   return takesSkinTone(emoji.name) ? applySkinTone(emoji.char, modifier) : emoji.char;
 }
 
 function pickValue(emoji: ResolvedEmoji, modifier: string): string {
-  if (emoji.kind === "custom") return reactionValue(emoji);
+  if (emoji.kind === 'custom') return reactionValue(emoji);
   return displayedChar(emoji, modifier);
 }
 
@@ -94,15 +74,17 @@ function EmojiButton({
 }) {
   return (
     <button
-      className="emoji-cell"
+      className={CELL}
       data-active={active}
       type="button"
       title={`:${emoji.name}:`}
       aria-label={`:${emoji.name}:`}
       onClick={() => onPick(pickValue(emoji, modifier))}
     >
-      {emoji.kind === "custom" ? (
-        <img className="custom-emoji" src={emoji.url} alt="" loading="lazy" />
+      {emoji.kind === 'custom' ? (
+        // Sized to the line, as a custom emoji is wherever it renders (`.custom-emoji`), so
+        // it matches the Unicode one beside it.
+        <img className="size-[1.35em] object-contain" src={emoji.url} alt="" loading="lazy" />
       ) : (
         displayedChar(emoji, modifier)
       )}
@@ -110,48 +92,30 @@ function EmojiButton({
   );
 }
 
-export function EmojiPicker({ onPick, onClose, label }: Props) {
+/**
+ * A named group of emoji. Groups, not headings: a picker's internal labels are not
+ * document structure, and no heading level is reliably right, because what precedes a
+ * popover depends on where it opened. They were h4, which skipped a level and broke
+ * heading navigation for the whole page. A reader still hears "Smileys and people, group"
+ * on the way in.
+ */
+function Group({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    <section role="group" aria-labelledby={id}>
+      <p className="mb-1 px-0.5 text-xs font-semibold text-muted-foreground" id={id}>
+        {label}
+      </p>
+      <div className={GRID}>{children}</div>
+    </section>
+  );
+}
+
+export function EmojiPicker({ onPick, searchRef }: Props) {
   const customEmoji = useStore((s) => s.customEmoji);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   const [toneId, setToneId] = useState<SkinToneId>(loadSkinToneId);
-  const inputRef = useRef<HTMLInputElement>(null);
   const modifier = skinToneById(toneId).modifier;
-
-  // Where the panel is drawn, inside the caller's anchor, so the caller's `contains` finds it.
-  const anchorRef = useRef<HTMLSpanElement>(null);
-  // What had focus as the picker opened: the button that opened it. The cursor goes into the
-  // search field only from there, or from nowhere — a picker opened before the chunk landed
-  // is drawn late, and by then the person may have moved on (`PopoverImpl`'s `initialFocus`).
-  const openerRef = useRef<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    openerRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  }, []);
-
-  // Closed when the keyboard moves focus out of it (the docblock says why). Which of the two
-  // was used last: a pointer from its press until the next key, the keyboard from that key on.
-  const byPointerRef = useRef(false);
-  useEffect(() => {
-    const anchor = anchorRef.current;
-    const pointer = () => {
-      byPointerRef.current = true;
-    };
-    const keyboard = () => {
-      byPointerRef.current = false;
-    };
-    const onFocusOut = (event: FocusEvent) => {
-      if (!byPointerRef.current && focusMovedOut(event, anchor)) onClose();
-    };
-    window.addEventListener("pointerdown", pointer, true);
-    window.addEventListener("keydown", keyboard, true);
-    anchor?.addEventListener("focusout", onFocusOut);
-    return () => {
-      window.removeEventListener("pointerdown", pointer, true);
-      window.removeEventListener("keydown", keyboard, true);
-      anchor?.removeEventListener("focusout", onFocusOut);
-    };
-  }, [onClose]);
 
   const results = useMemo(
     () => (query.trim() ? searchEmoji(query, customEmoji) : []),
@@ -161,162 +125,116 @@ export function EmojiPicker({ onPick, onClose, label }: Props) {
   // A query that narrows under the cursor would otherwise leave it pointing past the end.
   const clamped = Math.min(cursor, Math.max(results.length - 1, 0));
 
-  const onKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onClose();
-      return;
-    }
+  const onKeyDown = (event: KeyboardEvent) => {
     if (!results.length) return;
 
-    if (event.key === "Enter") {
+    if (event.key === 'Enter') {
       event.preventDefault();
       const chosen = results[clamped];
       if (chosen) onPick(pickValue(chosen, modifier));
       return;
     }
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
       event.preventDefault();
       setCursor(Math.min(clamped + 1, results.length - 1));
       return;
     }
-    if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
       event.preventDefault();
       setCursor(Math.max(clamped - 1, 0));
     }
   };
 
   const own: ResolvedEmoji[] = customEmoji.map((c) => ({
-    kind: "custom",
+    kind: 'custom',
     name: c.name,
     url: c.url,
   }));
 
   return (
-    <PanelAnchor anchor={anchorRef}>
-      <PickerPanel
-        open
-        anchor={anchorRef}
-        opener={openerRef}
-        label={label}
-        className="emoji-picker"
-        initialFocus={inputRef}
-      >
-        <div data-legacy="" className="contents">
-          <input
-            ref={inputRef}
-            className="emoji-search"
-            type="search"
-            value={query}
-            placeholder="Search emoji"
-            aria-label="Search emoji"
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setCursor(0);
-            }}
-            onKeyDown={onKeyDown}
-          />
+    <>
+      <Input
+        ref={searchRef}
+        type="search"
+        value={query}
+        placeholder="Search emoji"
+        aria-label="Search emoji"
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setCursor(0);
+        }}
+        onKeyDown={onKeyDown}
+      />
 
-          <div className="emoji-scroll">
-            {query.trim() ? (
-              results.length ? (
-                <div className="emoji-grid">
-                  {results.map((emoji, index) => (
-                    <EmojiButton
-                      key={`${emoji.kind}:${emoji.name}`}
-                      emoji={emoji}
-                      active={index === clamped}
-                      modifier={modifier}
-                      onPick={onPick}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <p className="emoji-empty">No emoji matches “{query.trim()}”.</p>
-              )
-            ) : (
-              <>
-                {/* Groups, not headings.
-                    These were h4, which skipped a level and broke heading navigation for
-                    the whole page — and no level is reliably right, because what precedes
-                    a popover depends on where it opened. The document's own order is
-                    already h2, h2, h1: the sidebar's section labels come before the
-                    channel title. A picker's internal labels are not document structure,
-                    so they name a group instead of joining the outline, and a reader still
-                    hears "Smileys and people, group" on the way in. */}
-                {own.length > 0 && (
-                  <section
-                    className="emoji-section"
-                    role="group"
-                    aria-labelledby="emoji-group-own"
-                  >
-                    <p className="emoji-heading" id="emoji-group-own">
-                      {"This workspace"}
-                    </p>
-                    <div className="emoji-grid">
-                      {own.map((emoji) => (
-                        <EmojiButton
-                          key={`custom:${emoji.name}`}
-                          emoji={emoji}
-                          active={false}
-                          modifier={modifier}
-                          onPick={onPick}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {EMOJI_CATEGORIES.map((category) => (
-                  <section
-                    className="emoji-section"
-                    key={category.id}
-                    role="group"
-                    aria-labelledby={`emoji-group-${category.id}`}
-                  >
-                    <p className="emoji-heading" id={`emoji-group-${category.id}`}>
-                      {category.label}
-                    </p>
-                    <div className="emoji-grid">
-                      {category.entries.map((entry) => (
-                        <EmojiButton
-                          key={entry.name}
-                          emoji={{
-                            kind: "unicode",
-                            name: entry.name,
-                            char: entry.char,
-                          }}
-                          active={false}
-                          modifier={modifier}
-                          onPick={onPick}
-                        />
-                      ))}
-                    </div>
-                  </section>
+      <div className="min-h-0 overflow-y-auto">
+        {query.trim() ? (
+          results.length ? (
+            <div className={GRID}>
+              {results.map((emoji, index) => (
+                <EmojiButton
+                  key={`${emoji.kind}:${emoji.name}`}
+                  emoji={emoji}
+                  active={index === clamped}
+                  modifier={modifier}
+                  onPick={onPick}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="mx-1 my-3 text-(length:--blob-text-sm) text-muted-foreground">
+              No emoji matches “{query.trim()}”.
+            </p>
+          )
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {own.length > 0 && (
+              <Group id="emoji-group-own" label="This workspace">
+                {own.map((emoji) => (
+                  <EmojiButton
+                    key={`custom:${emoji.name}`}
+                    emoji={emoji}
+                    active={false}
+                    modifier={modifier}
+                    onPick={onPick}
+                  />
                 ))}
-              </>
+              </Group>
             )}
-          </div>
 
-          <div className="emoji-tones" role="group" aria-label="Skin tone">
-            {SKIN_TONES.map((tone) => (
-              <button
-                key={tone.id}
-                className="emoji-tone"
-                type="button"
-                aria-label={tone.label}
-                aria-pressed={tone.id === toneId}
-                onClick={() => {
-                  setToneId(tone.id);
-                  saveSkinToneId(tone.id);
-                }}
-              >
-                {tone.swatch}
-              </button>
+            {EMOJI_CATEGORIES.map((category) => (
+              <Group key={category.id} id={`emoji-group-${category.id}`} label={category.label}>
+                {category.entries.map((entry) => (
+                  <EmojiButton
+                    key={entry.name}
+                    emoji={{ kind: 'unicode', name: entry.name, char: entry.char }}
+                    active={false}
+                    modifier={modifier}
+                    onPick={onPick}
+                  />
+                ))}
+              </Group>
             ))}
           </div>
-        </div>
-      </PickerPanel>
-    </PanelAnchor>
+        )}
+      </div>
+
+      <div className="flex gap-0.5 border-t border-border pt-2" role="group" aria-label="Skin tone">
+        {SKIN_TONES.map((tone) => (
+          <Toggle
+            key={tone.id}
+            className="flex-1 rounded-sm text-(length:--blob-text-lg) leading-none active:scale-(--motion-press) aria-pressed:bg-(--blob-accent-wash) aria-pressed:shadow-[inset_0_0_0_1px_var(--blob-accent-border)]"
+            aria-label={tone.label}
+            pressed={tone.id === toneId}
+            // The tone shown pressed is the one in use, so pressing it again keeps it.
+            onPressedChange={() => {
+              setToneId(tone.id);
+              saveSkinToneId(tone.id);
+            }}
+          >
+            {tone.swatch}
+          </Toggle>
+        ))}
+      </div>
+    </>
   );
 }

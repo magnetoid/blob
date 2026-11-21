@@ -28,3 +28,13 @@ export const PersonCardPopup = lazyTrigger(() => import('../../components/Person
   popup: 'dialog',
   mount: 'press',
 });
+
+/**
+ * The emoji picker, behind a message's Add reaction and the composer's Emoji. A row's is
+ * drawn on every scroll and a thread's composer with every thread, so it mounts on the press.
+ */
+export const EmojiPopup = lazyTrigger(() => import('../../components/EmojiPopover.tsx'), {
+  name: 'the emoji picker',
+  popup: 'dialog',
+  mount: 'press',
+});

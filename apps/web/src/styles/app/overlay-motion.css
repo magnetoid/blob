@@ -3,12 +3,14 @@
    and the dialogs enter and leave. Each but the dialogs, the menus and the popovers is held
    in the document through its exit by usePresence. Those three are shadcn's now, and Base
    UI holds them: the dialog shell in `components/overlays/DialogImpl.tsx`, and the menu
-   panel and the popover — the person card, the emoji picker — drawn in place by
-   `MenuImpl.tsx` and `PopoverImpl.tsx` (`components/overlays/inPlace.ts`). They play
-   `overlay-in` (and the backdrop `fade-in`) below as they arrive and `overlay-out`
-   (`fade-out`) while Base UI marks them `data-ending-style`, and Base UI unmounts them when
-   those have finished. They are the same keyframes on the same tokens as before, so all of
-   them move as they did. The emoji picker still has no exit: its callers unmount it.
+   panel and the popover drawn in place by `MenuImpl.tsx` and `PopoverImpl.tsx`
+   (`components/overlays/inPlace.ts`). They play `overlay-in` (and the backdrop `fade-in`)
+   below as they arrive and `overlay-out` (`fade-out`) while Base UI marks them
+   `data-ending-style`, and Base UI unmounts them when those have finished. They are the
+   same keyframes on the same tokens as before, so all of them move as they did. The
+   conversation's own menus and popovers — More actions, the clock, the person card and the
+   emoji picker — are shadcn's as it ships them, portalled, with its entrance and exit
+   (`components/ui/`).
 
    The toasts and the "Link copied" note take theirs from their own utilities too
    (`components/Toasts.tsx`, `Confirmation.tsx`), on the keyframes below.
