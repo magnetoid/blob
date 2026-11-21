@@ -646,3 +646,100 @@ And what the phase settled on the way:
   person row's accessible name starts with the avatar's initial ("A Ana") when there is no
   picture, because the initials are not hidden from it; that predates this phase and is
   `Avatar`'s, for phases 5–6.
+
+## Phase 5a: the conversation's menus and popovers (2026-11-21)
+
+Phase 5 ships as three PRs, stacked: 5a, the menus and popovers; then 5b, the message
+list, and 5c, the composer and the right-hand panel, both cut from 5a. The spec lets
+phases 5 and 6 split by screen, each PR finished on its own. 5a goes first because it is
+behaviour rather than paint, and the other two re-skin files it touches (`MessageRow.tsx`,
+`Composer.tsx`). It moved every popup in the conversation onto a trigger of its own — a
+message's More actions is a `DropdownMenu`, the schedule clock a `Popover`, the person card
+and both emoji pickers open from a `PopoverTrigger` — and then deleted phase 2's
+scaffolding. The calls made without the user, as the plan listed them and as they turned
+out:
+
+- **One way to own a trigger, for menus and popovers alike.** Phase 4's `lazyDropdown` is
+  now `components/lazyTrigger.tsx` — `lazyTrigger(load, { name, popup, mount })`, `popup`
+  being `'menu'` or `'dialog'` — on one loader, `lib/lazyModule.ts`, which ⌘K's
+  (`features/palette/lazyPalette.ts`) stands on too. `lazyDropdown` is `lazyTrigger` with
+  `popup: 'menu'`. The module is an ordinary shadcn `DropdownMenu` or `Popover` with
+  `defaultOpen` and its trigger rendered from the caller's button; until it lands, that
+  button stands in, says what it opens, and holds a press — the module opens with
+  `defaultOpen` when it arrives, unless the person moved on first — with a layer on the
+  Escape stack while it waits, and hands focus to the real trigger as it is swapped.
+  `features/messages/lazyPopups.ts` is the conversation's four: `MessageMenuPopup`,
+  `SchedulePopup`, `PersonCardPopup` and `EmojiPopup`.
+- **A row's popups mount on the first press** (`mount: 'press'`). The list is virtualised,
+  so a row mounts on every scroll, and each has three popups — More actions, Add reaction
+  and the person card — that would otherwise be three closed Base UI roots rebuilt every
+  time. Until somebody presses, the row draws the placeholder, which looks and reads the
+  same; the press draws the module, open, and from then on it stays drawn for that row's
+  life. The composer's emoji picker mounts on press too, since a thread's composer comes
+  with every thread. The shell's menus and the clock, one per composer, keep
+  `mount: 'arrival'`.
+- **Remind me… is a submenu** (`DropdownMenuSub`) of its presets, as Slack's is. Its presets
+  used to unfold inline inside the menu.
+- **The toolbar is held up by `.message:has([data-popup-open]) .message-actions`.** Base UI
+  marks an open trigger `data-popup-open`, and the panel is no longer drawn inside the row,
+  so the row's `:hover` and `:focus-within` stopped holding the toolbar up the moment the
+  pointer left for the popup.
+- **A dialog opened from a message's menu gives focus back to the row.** By the time it
+  closes the toolbar is hidden, and a `visibility: hidden` More actions cannot take focus,
+  so focus fell to `<body>`. `DialogPresence` and `DialogImpl` take an opt-in `returnFocus`,
+  asked as the dialog leaves; a null answer falls back to where focus was as it opened.
+- **A popup whose module will not load says so,** once per attempt however many presses
+  were waiting: "Couldn’t open ⟨name⟩. Reload the page to try again.", or, offline, that it
+  cannot open while offline. That is ⌘K's wording from phase 4, for the same reason —
+  WebKit keeps a failed import until a reload, so another press never helps there — and
+  `lib/lazyModule.ts` is now the one place it is said. Phase 4's menus, which only logged a
+  failed load, toast it now as well.
+- **The clock and both emoji pickers are dialog-kind popovers** (`aria-haspopup="dialog"`).
+  The clock holds a list of presets, a Repeat select and a time field, and the pickers a
+  search and a grid; under ARIA none of those is a menu item, and Base UI's menu would have
+  taken the select's and the field's arrows. The person card was a named dialog already
+  (phase 2).
+- **Every menu and popover takes its layer on the Escape stack through
+  `lib/useMenuEscapeLayer.ts`**, as the shell's menus did in phase 4, its submenus
+  included. A submenu's popup is portalled beside its menu's, not inside it, so a key from
+  there counted as from outside, and one Escape in Remind me… closed the whole menu; the
+  layer now holds every popup an item of the menu opened, at any depth, found by the
+  relation assistive tech reads (`aria-haspopup="menu"` and `aria-controls`). The popovers
+  were not in the plan's list: without a layer, an Escape inside one opened beside a
+  stack layer — the file panel — closed the panel and left the popover open, phase 4's
+  defect again. The hook decides by popup and trigger, so nothing in it was menu-only.
+
+And what the phase settled on the way:
+
+- **A menu inside a dialog takes its own Escape.** The spec said `Opening`'s `holds` would
+  have to change once a menu inside a dialog was a real one, and the test written first
+  (`components/Dialog.test.tsx`, a plain shadcn `DropdownMenu` opened inside `Dialog`)
+  failed: Base UI portals the menu into the dialog's portal node, beside its popup, so the
+  dialog's layer took a key from the menu for one from outside, closed the dialog, and the
+  menu never heard it. `holds` now asks the portal node (`[data-slot="dialog-portal"]`),
+  which holds the backdrop, the popup and whatever was portalled from inside it; the first
+  Escape closes the menu with focus back on its trigger, and the second the dialog. Blob's
+  own menus never met this, because each brings a layer of its own, which is innermost and
+  lets the key through to Base UI; a popup that brings none did.
+- **What was deleted.** `components/Menu.tsx`, `components/Popover.tsx`,
+  `components/PanelAnchor.tsx` and `components/menuItems.ts`;
+  `components/overlays/MenuImpl.tsx`, `PopoverImpl.tsx` and `inPlace.ts`, with their
+  exports from the overlay barrel — and with them the menu root's `disabled`, both Impls'
+  cancel-every-close and the hidden focus guards; `lib/useDismissal.ts` and
+  `lib/useHeldThroughExit.ts`; the emoji picker's pointer-mode focus-out close; and their
+  tests, the `[data-base-ui-focus-guard]` canary in `Menu.test.tsx` and `Popover.test.tsx`
+  among them, and `Popover.chunk.test.tsx` before them. That is 888 lines of source and
+  1,241 of tests. In the stylesheets: the `@property --menu-*` and `--popover-*` rules,
+  `scheduling.css` whole, most of the emoji picker's sheet, the rule that lifted a message
+  row while a panel was open inside it (nothing in a row is a panel now), and
+  `--focus-ring-offset`, a knob on the focus ring whose last setter was the emoji cell.
+  `styles/legacyIsland.test.ts` lost the case that held the in-place panels to the legacy
+  `overlay-in` and `overlay-out`; shadcn's popups are held to reduced motion by the case
+  before it, which stills their transforms.
+- **The budget.** The JavaScript first load measures 235.4 KB, against 238.8 at the phase's
+  start (6916ce47): the person card, `Popover.tsx` and the emoji picker left it, for chunks
+  of their own. So `BUDGET_KB` comes down from 241 to 237 — the measure rounded up,
+  plus 1 KB — 23 KB under the ceiling. The stylesheet measures 44.2 KB, against 44.7, and
+  `CSS_BUDGET_KB` stays 46 by the same rule. No chunk `index.html` names carries the code of
+  `MessageMenuPanel`, `SchedulePanel`, `EmojiPopover` or `PersonCard`; their names are in
+  the entry chunk only as the paths of their dynamic imports.

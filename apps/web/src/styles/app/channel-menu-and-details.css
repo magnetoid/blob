@@ -1,33 +1,8 @@
 /* ─── channel menu and details ────────────────────────────────────────────── */
-/* A generic dropdown. The workspace name and the message ••• each grew their own
-   before this existed; those are left alone, and anything new lands here.
-
-   How it looks, not where it is: Base UI's positioner places every panel the shared Menu
-   draws (components/overlays/MenuImpl.tsx) — below its trigger from the left edge, 4px
-   clear, unless a panel's class says otherwise in `--menu-side` (bottom or top),
-   `--menu-align` (start or end) and `--menu-gap` — and turns it over to the other side
-   where the box that clips it has no room, as the ••• on the newest message needs. */
-
-/* Each panel's own, and not handed down: registered so they do not inherit, a panel nested
-   in something that sets them takes the defaults below rather than its container's
-   placement. The initial values are the defaults MenuImpl falls back to. */
-@property --menu-side {
-  syntax: 'bottom | top';
-  inherits: false;
-  initial-value: bottom;
-}
-
-@property --menu-align {
-  syntax: 'start | end';
-  inherits: false;
-  initial-value: start;
-}
-
-@property --menu-gap {
-  syntax: '<length>';
-  inherits: false;
-  initial-value: 4px;
-}
+/* A generic dropdown's look. Every menu is shadcn's DropdownMenu now
+   (`components/ui/dropdown-menu.tsx`), and Base UI places it; these are for the lists in
+   Blob's own markup that still borrow a menu's rows — ArtifactsTab's and ForwardDialog's —
+   until phase 6 converts them. */
 
 .menu {
   min-width: 232px;

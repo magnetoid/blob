@@ -153,6 +153,12 @@ export function DialogPresence<T>({
   );
 }
 
+/** The node Base UI portals a dialog into: its backdrop, its popup, and whatever was
+ *  portalled from inside the popup. */
+function portalOf(popup: HTMLElement | null | undefined): Element | null {
+  return popup?.closest('[data-slot="dialog-portal"]') ?? null;
+}
+
 /**
  * One opening of a dialog: its place on the Escape stack, and the shell round it.
  *
@@ -170,6 +176,11 @@ export function DialogPresence<T>({
  * listener in every dialog open would hear it. Either way it comes off the stack as soon as
  * the dialog has been answered or starts to leave, so the next Escape reaches whatever is
  * underneath.
+ *
+ * "Inside" is the dialog's portal node, not only its popup. A menu or a popover opened from
+ * the dialog is portalled by Base UI into that node, beside the popup rather than in it, and
+ * a key from there is the menu's: counted as outside, the layer closed the dialog on the
+ * Escape that should have closed the menu, and the menu never heard it.
  */
 function Opening({
   open,
@@ -191,7 +202,7 @@ function Opening({
   // One object for the opening's whole life: a new one would re-register the layer on top.
   const [standIn] = useState<StandIn>(() => ({
     drawn: () => drawn.current !== null,
-    holds: (target) => target instanceof Node && (drawn.current?.current?.contains(target) ?? false),
+    holds: (target) => target instanceof Node && (portalOf(drawn.current?.current)?.contains(target) ?? false),
     close: () => setEscaped(true),
   }));
   useEscapeLayer(open && !escaped, standIn);

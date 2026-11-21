@@ -559,31 +559,36 @@ Eight rules the file will not tell you on its own:
   default alone so the import still fails into `lazyOverlay`. `scripts/bundle-budget.mjs`
   fails the build if Base UI's overlay code reaches a first-load chunk, so first-load code
   never imports `ui/dialog`, `ui/alert-dialog`, `ui/dropdown-menu` or `ui/popover`. The
-  shell's four menus — account, workspace, channel, section — are shadcn's DropdownMenu
-  since phase 4, Base UI's triggers and items and all. The message and schedule menus and
-  the popovers are still phase-2 scaffolding: their callers own the triggers and the
-  `<button role="menuitem">` items, so the panels keep the legacy look and Blob's own
-  dismissal (`lib/useDismissal.ts`, first-load, so a menu clicked open before the chunk
-  lands already answers Escape and a click outside) and arrow keys, are drawn in place
-  inside `PanelAnchor`'s span with Base UI's focus guards hidden, and Base UI only places,
-  animates and focuses them (`overlays/inPlace.ts`). The spec's phase 5 says which callers
-  move next, and what is deleted then.
+  menus and popovers are shadcn's, with Base UI's own trigger, items, keys, dismissal and
+  focus return: the shell's four menus since phase 4, and since phase 5 a message's More
+  actions (Remind me… is a submenu), the schedule clock, the person card and both emoji
+  pickers. The popovers are dialog-kind (`aria-haspopup="dialog"`), because a select, a
+  time field, a grid and a person's card are not menu items under ARIA. The pinned list is
+  still a panel of Blob's own, on `useEscape`.
 
-  A menu or palette that a press or a keystroke opens is a module of its own, preloaded
-  beside the overlay chunk (`preloadAlso`) and never `lazy()`, which suspends a first
-  render however settled its import is and throws a failed one to the error boundary:
-  `components/lazyDropdown.tsx` for the shell's menus, whose trigger stands in and holds a
-  press until the module lands, and the palette's loader (`features/palette/lazyPalette.ts`)
-  for ⌘K. Each takes its layer on the Escape stack as it opens — a drawn menu through
-  `lib/useMenuEscapeLayer.ts`, a press or the palette still waiting on its module through
-  `useEscape`. A module that failed to load is asked for again on the next press, which
-  Chromium and Firefox fetch and WebKit does not: it keeps the failure until a reload, which
-  `lib/staleBuild.ts`'s notice asks for once — so a failure's own message asks for a reload,
-  not another press.
+  A popup that a press or a keystroke opens is a module of its own, preloaded beside the
+  overlay chunk (`preloadAlso`) and never `lazy()`, which suspends a first render however
+  settled its import is and throws a failed one to the error boundary. A menu or popover
+  owns its trigger through `components/lazyTrigger.tsx` (`lazyDropdown` is its menu form),
+  which loads it through `lib/lazyModule.ts`, as ⌘K's loader
+  (`features/palette/lazyPalette.ts`) does: until the module lands the caller's own button
+  stands in, and a press on it opens the popup as the module arrives. A message row's
+  popups mount on the first press (`mount: 'press'`), since the list is virtualised and a
+  row nobody presses should not carry Base UI roots through every scroll. They are
+  portalled out of the row, so `:hover` and `:focus-within` no longer hold its toolbar up:
+  `.message:has([data-popup-open])` does, and a dialog opened from a message's menu gives
+  focus back to the row (`returnFocus`), because More actions is hidden by then. Each popup
+  takes its layer on the Escape stack as it opens — a drawn menu or popover, with every
+  submenu its items opened, through `lib/useMenuEscapeLayer.ts`; a press or the palette
+  still waiting on its module through `useEscape`. A module that failed to load is asked
+  for again on the next press, which Chromium and Firefox fetch and WebKit does not: it
+  keeps the failure until a reload, which `lib/staleBuild.ts`'s notice asks for once — so a
+  failure's own toast asks for a reload ("Couldn’t open ⟨name⟩. Reload the page to try
+  again."), not another press.
 * **Overlays enter and leave — dialogs, menus, popovers, toasts, the thread panel, the
   conversation notices, the typing line and inline notes.** Base UI's own play their exit
-  on `data-ending-style` and report its end (`onOpenChangeComplete`); `Menu` and `Popover`
-  hold their lazy half for it with `lib/useHeldThroughExit.ts`. Everything else is held
+  on `data-ending-style` and report its end (`onOpenChangeComplete`); a popup's module stays
+  drawn once it has been, so nothing has to hold it for its exit. Everything else is held
   through a 150 ms exit by `lib/usePresence.ts` (`{present, state}`; `animationend` on the
   node itself, or the exported `FALLBACK_MS`), with `data-state="closed"` and `inert` on the
   leaving node (a toast instead loses its ×, because `inert` would take its words out of
@@ -612,9 +617,11 @@ Eight rules the file will not tell you on its own:
   ignores. That layer is first-load code, taken by `DialogPresence` as the dialog opens:
   until the chunk has drawn the shell it answers an Escape itself, so the shell's listener
   never hears it, and the dialog closes as soon as the chunk lands. It answers too for an
-  Escape from outside the popup — focus on the body, or on a toast — because Base UI's
+  Escape from outside the dialog — focus on the body, or on a toast — because Base UI's
   listener is on `document` in every dialog, and only the top popup stopping the key keeps
-  the rest from hearing it: "Confirm it’s you" over New channel closed both.
+  the rest from hearing it: "Confirm it’s you" over New channel closed both. "Inside" is
+  the dialog's portal node, not its popup: a menu or popover opened in a dialog is
+  portalled beside the popup, and its Escape is its own before it is the dialog's.
 * **Motion in the message list is keyed to arriving, never to mounting.** The list is
   virtualised, so a row mounts on every scroll and every channel switch, and anything
   that animates on mount replays on all of them. A message's entrance plays only while

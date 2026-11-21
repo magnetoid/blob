@@ -160,10 +160,9 @@ describe('styles/index.css', () => {
   /**
    * Directories and files Tailwind may scan, relative to `src/`. A phase that converts a
    * path adds it here in the same commit as its `@source` — the point of the list is that
-   * adding one is deliberate. The eight files in `components/` that phase 2 wrote or
+   * adding one is deliberate. The files in `components/` that phases 2 and 5 wrote or
    * converted are named one at a time, not `components/`, which still holds legacy markup.
-   * `Icon.tsx` is not here: it draws Lucide's glyphs and carries no utility; nor is
-   * `Menu.tsx`, whose panel wears the classes its callers pass.
+   * `Icon.tsx` is not here: it draws Lucide's glyphs and carries no utility.
    * The consoles came in the same way, a file at a time, until `features/admin` was converted
    * whole — every section, the workspace console and the pages the server's console draws —
    * and is one entry; its tests are excluded in `index.css` with `@source not`, since their
@@ -175,7 +174,6 @@ describe('styles/index.css', () => {
   const CONVERTED = [
     'components/ui',
     'components/overlays',
-    'components/PanelAnchor.tsx',
     'components/PersonCard.tsx',
     'components/EmojiPicker.tsx',
     'components/EmojiPopover.tsx',
