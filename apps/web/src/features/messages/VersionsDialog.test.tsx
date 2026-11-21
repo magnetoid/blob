@@ -13,7 +13,11 @@ import { MessageMenu } from './MessageMenu.tsx';
 import { MessageEditor } from './MessageEditor.tsx';
 import { VersionsDialog } from './VersionsDialog.tsx';
 import { DeleteConfirm } from './MessageRow.tsx';
+import { MessageMenuPopup } from './lazyPopups.ts';
 import '../../test/overlayChunk.ts';
+
+// The menu's module, here before the first test as it is in the app by the time one is pressed.
+await MessageMenuPopup.preload();
 
 afterEach(() => {
   cleanup();
@@ -35,7 +39,7 @@ const EDITED = {
   attachments: [],
 } as unknown as Message;
 
-function menu(role: 'owner' | 'admin' | 'member', message: Message = EDITED) {
+async function menu(role: 'owner' | 'admin' | 'member', message: Message = EDITED) {
   useStore.setState({
     currentUser: { id: 'u1', displayName: 'Olga', role, prefs: {} },
     savedMessageIds: new Set(),
@@ -52,17 +56,18 @@ function menu(role: 'owner' | 'admin' | 'member', message: Message = EDITED) {
     />,
   );
   fireEvent.click(screen.getByLabelText('More actions'));
+  await screen.findByRole('menu');
 }
 
 describe('earlier versions', () => {
-  it('are offered to an admin on an edited message, and to nobody else', () => {
-    menu('admin');
+  it('are offered to an admin on an edited message, and to nobody else', async () => {
+    await menu('admin');
     expect(screen.getByRole('menuitem', { name: 'Earlier versions' })).toBeTruthy();
     cleanup();
-    menu('member');
+    await menu('member');
     expect(screen.queryByRole('menuitem', { name: 'Earlier versions' })).toBeNull();
     cleanup();
-    menu('owner', { ...EDITED, editedAt: null } as Message);
+    await menu('owner', { ...EDITED, editedAt: null } as Message);
     expect(screen.queryByRole('menuitem', { name: 'Earlier versions' })).toBeNull();
   });
 

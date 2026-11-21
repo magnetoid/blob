@@ -816,19 +816,21 @@ export const MessageRow = memo(function MessageRow({
         </div>
       )}
 
-      {/* At the article level, not inside the menu: `.message-actions` is
-          display:none unless the row is hovered or has focus within, and a dialog
-          opened from the keyboard must not depend on where the pointer sits. */}
-      <DialogPresence when={startingWork}>
+      {/* At the article level, not inside the menu: `.message-actions` is hidden
+          unless the row is hovered or has focus within, and a dialog opened from the
+          keyboard must not depend on where the pointer sits. For the same reason each
+          gives focus back to the row, not to the menu's More actions, which is hidden
+          by the time the dialog ends. */}
+      <DialogPresence when={startingWork} returnFocus={() => rowRef.current}>
         {() => (
           <StartWorkDialog message={message} onClose={() => setStartingWork(false)} />
         )}
       </DialogPresence>
-      <DialogPresence when={forwarding}>
+      <DialogPresence when={forwarding} returnFocus={() => rowRef.current}>
         {() => <ForwardDialog message={message} onClose={() => setForwarding(false)} />}
       </DialogPresence>
 
-      <DialogPresence when={deleting}>
+      <DialogPresence when={deleting} returnFocus={() => rowRef.current}>
         {() => <DeleteConfirm message={message} onClose={() => setDeleting(false)} />}
       </DialogPresence>
 

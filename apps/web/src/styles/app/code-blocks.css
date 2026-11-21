@@ -182,8 +182,13 @@
     visibility var(--dur-fast);
 }
 
+/* Shown on hover, with focus inside, and while a popup that hangs from it is open. The
+   menu is portalled out of the row, so the pointer leaving the row for it, or focus going
+   into it, would otherwise take the toolbar — and the button the menu is anchored to —
+   away from under it. Base UI marks the trigger `data-popup-open` while its popup is open. */
 .message:hover .message-actions,
-.message:focus-within .message-actions {
+.message:focus-within .message-actions,
+.message-actions:has([data-popup-open]) {
   opacity: 1;
   visibility: visible;
   transform: none;

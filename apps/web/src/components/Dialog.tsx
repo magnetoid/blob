@@ -107,12 +107,21 @@ function Island({ host, label, className, onClose, children }: DialogProps & { h
  * Reopened while it is still leaving, it mounts a new dialog rather than reviving the
  * old one. A dialog that has been answered once will not close again, and the new one's
  * focus and on-mount work should run exactly as a first opening's would.
+ *
+ * Focus goes back, as the dialog leaves, to wherever it was as the dialog opened — unless
+ * `returnFocus` names somewhere else. That is for a dialog opened from an item in a menu
+ * that has gone: the item is unmounted, and the button the menu hung from may be one that
+ * cannot take focus by then, as a message's More actions cannot once its toolbar is hidden
+ * (`visibility: hidden`), so the message's row is named instead. Asked as the dialog
+ * leaves, not as it opens; a null answer falls back to where focus was.
  */
 export function DialogPresence<T>({
   when,
+  returnFocus,
   children,
 }: {
   when: T | null | undefined | false;
+  returnFocus?: () => HTMLElement | null;
   children: (value: T) => ReactNode;
 }) {
   const open = Boolean(when);
@@ -138,7 +147,7 @@ export function DialogPresence<T>({
 
   if (!(open || phase.leaving) || !held) return null;
   return (
-    <Opening key={phase.count} open={open} onExited={finish}>
+    <Opening key={phase.count} open={open} onExited={finish} returnFocus={returnFocus}>
       {children(held as T)}
     </Opening>
   );
@@ -162,7 +171,17 @@ export function DialogPresence<T>({
  * the dialog has been answered or starts to leave, so the next Escape reaches whatever is
  * underneath.
  */
-function Opening({ open, onExited, children }: { open: boolean; onExited: () => void; children: ReactNode }) {
+function Opening({
+  open,
+  onExited,
+  returnFocus,
+  children,
+}: {
+  open: boolean;
+  onExited: () => void;
+  returnFocus?: (() => HTMLElement | null) | undefined;
+  children: ReactNode;
+}) {
   const [escaped, setEscaped] = useState(false);
   // The popup, once the shell says it is drawn.
   const drawn = useRef<RefObject<HTMLElement | null> | null>(null);
@@ -178,7 +197,13 @@ function Opening({ open, onExited, children }: { open: boolean; onExited: () => 
   useEscapeLayer(open && !escaped, standIn);
 
   return (
-    <DialogShell open={open} escaped={escaped} onDrawn={onDrawn} onExited={onExited}>
+    <DialogShell
+      open={open}
+      escaped={escaped}
+      onDrawn={onDrawn}
+      onExited={onExited}
+      returnFocus={returnFocus}
+    >
       {children}
     </DialogShell>
   );
