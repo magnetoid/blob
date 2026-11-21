@@ -19,6 +19,15 @@
  * dialog one of its items opens takes a place of its own above (`components/Dialog.tsx`),
  * and the menu has closed by then, so the dialog's Escape stays the dialog's.
  *
+ * A submenu's popup is inside the menu too, though not in its DOM: Base UI portals it beside
+ * the menu's popup. Counted as outside, an Escape there was answered by closing the whole
+ * menu, and Base UI's own handler — which closes only the submenu and puts focus back on
+ * the item it opened from, as the menu pattern says — never heard it. So the layer also
+ * holds every popup an item of this menu opened, and theirs in turn, found by the relation
+ * assistive tech reads between a submenu's item and its popup (`aria-haspopup="menu"` and
+ * `aria-controls`) rather than by where the portal happens to be mounted. A popup no item of
+ * this menu opened, another menu's, stays outside.
+ *
  * `setOpen` is the menu's state setter, which is stable; the menu must be controlled by it.
  * Put `popupRef` on the `DropdownMenuContent` and `triggerRef` on the `DropdownMenuTrigger`,
  * destructured under those names: that is how the compiler's lint knows them for refs.
@@ -34,6 +43,27 @@ export interface MenuEscapeRefs {
   triggerRef: RefObject<HTMLButtonElement | null>;
 }
 
+/**
+ * Whether `target` is inside `popup`, or inside a submenu's popup an item in it opened, at
+ * any depth. The ids are looked up in the popup's own document, and each popup is walked
+ * once, so a relation that pointed back would not loop.
+ */
+function holdsWithSubmenus(popup: Element | null, target: Node): boolean {
+  const seen = new Set<Element>();
+  const walk = (node: Element | null): boolean => {
+    if (!node || seen.has(node)) return false;
+    seen.add(node);
+    if (node.contains(target)) return true;
+    for (const item of node.querySelectorAll('[aria-haspopup="menu"][aria-controls]')) {
+      for (const id of (item.getAttribute('aria-controls') ?? '').split(/\s+/)) {
+        if (id && walk(node.ownerDocument.getElementById(id))) return true;
+      }
+    }
+    return false;
+  };
+  return walk(popup);
+}
+
 export function useMenuEscapeLayer(
   open: boolean,
   setOpen: Dispatch<SetStateAction<boolean>>,
@@ -45,7 +75,7 @@ export function useMenuEscapeLayer(
     drawn: () => popupRef.current !== null,
     holds: (target) =>
       target instanceof Node &&
-      ((popupRef.current?.contains(target) ?? false) ||
+      (holdsWithSubmenus(popupRef.current, target) ||
         (triggerRef.current?.contains(target) ?? false)),
     close: () => setOpen(false),
   }));

@@ -149,6 +149,31 @@ describe('the message’s More actions', () => {
     expect(document.activeElement).toBe(moreActions());
   });
 
+  it('closes only the reminder submenu on Escape, and the next Escape closes the menu', async () => {
+    // As the menu pattern has it: Escape in a submenu closes that submenu and puts focus
+    // back on the item it opened from. The submenu is portalled beside the menu's popup,
+    // not inside it, so the menu's place on the Escape stack has to count it as its own.
+    await open();
+    const remind = screen.getByRole('menuitem', { name: 'Remind me…' });
+    remind.focus();
+    fireEvent.keyDown(remind, { key: 'ArrowRight' });
+    const preset = await screen.findByRole('menuitem', { name: 'In 1 hour' });
+    preset.focus();
+
+    fireEvent.keyDown(preset, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'In 1 hour' })).toBeNull());
+    expect(screen.getAllByRole('menu')).toHaveLength(1);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Remind me…' })),
+    );
+
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(document.activeElement).toBe(moreActions());
+  });
+
   it('offers the reminder presets as a submenu, and one saves a reminder', async () => {
     const update = vi.spyOn(api.later, 'update').mockResolvedValue({} as never);
     await open();
