@@ -7,7 +7,7 @@
  * and that what each choice sends is what it sent before.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { SchedulePicker } from './SchedulePicker.tsx';
 import { SchedulePopup } from './lazyPopups.ts';
 import { useEscape } from '../../lib/useEscape.ts';
@@ -47,12 +47,18 @@ describe('the send-later clock’s popover', () => {
   });
 
   it('leaves the arrow keys to the Repeat select', async () => {
+    // A select steps its option on ArrowDown, and a synthetic key moves nothing either way,
+    // so what is pinned is that nothing in the popover takes the key from it: not prevented,
+    // and focus still on the select once the key has gone all the way up. A menu would have
+    // taken both, as Blob's did until it learned to step aside for a form control.
     await open();
     const select = screen.getByRole('combobox', { name: 'Repeat' });
     select.focus();
 
-    fireEvent.keyDown(select, { key: 'ArrowDown' });
+    const unhandled = fireEvent.keyDown(select, { key: 'ArrowDown' });
 
+    expect(unhandled).toBe(true);
+    await act(() => new Promise<void>((done) => requestAnimationFrame(() => done())));
     expect(document.activeElement).toBe(select);
   });
 

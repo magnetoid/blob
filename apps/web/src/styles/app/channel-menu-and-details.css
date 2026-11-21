@@ -1,16 +1,9 @@
 /* ─── channel menu and details ────────────────────────────────────────────── */
-/* A generic dropdown's look. Every menu is shadcn's DropdownMenu now
-   (`components/ui/dropdown-menu.tsx`), and Base UI places it; these are for the lists in
-   Blob's own markup that still borrow a menu's rows — ArtifactsTab's and ForwardDialog's —
-   until phase 6 converts them. */
-
-.menu {
-  min-width: 232px;
-  padding: 5px;
-  border-radius: var(--blob-radius-md);
-  background: var(--surface-2);
-  box-shadow: var(--elev-2);
-}
+/* A menu's row, without the menu. Every menu is shadcn's DropdownMenu now
+   (`components/ui/dropdown-menu.tsx`), and Base UI places it; `.menu-item` is for the lists
+   in Blob's own markup that still borrow a menu's rows —
+   `features/work/ArtifactsTab.tsx`'s and `features/messages/ForwardDialog.tsx`'s — until
+   phase 6 converts them. */
 
 .menu-item {
   display: flex;
@@ -36,12 +29,6 @@
 .menu-item:disabled {
   color: var(--disabled-fg);
   cursor: default;
-}
-
-.menu-sep {
-  height: 1px;
-  margin: 5px 4px;
-  background: var(--hairline-soft);
 }
 
 /* The channel name is a button now. It has to keep looking like a heading. */

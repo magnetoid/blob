@@ -36,7 +36,11 @@ export function failureMessage(name: string, online: boolean = navigator.onLine 
 export interface LazyModule<T> {
   /** The module once it has arrived, and null until then; never unset once it has. */
   current(): T | null;
-  /** Hear once, as the module arrives; returns the way to stop listening. */
+  /**
+   * Hear once, as the module arrives; returns the way to stop listening. Only those
+   * waiting as it lands are told: one that subscribes after is never called, and reads
+   * `current()` instead.
+   */
   subscribe(onArrive: () => void): () => void;
   /** The module, fetched once and shared; a failure is forgotten, so the next load asks again. */
   load(): Promise<T>;

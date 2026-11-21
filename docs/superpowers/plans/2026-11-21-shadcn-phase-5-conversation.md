@@ -67,7 +67,7 @@ Every menu and popover in it owns its trigger, and phase 2's menu and popover sc
   - `e2e/contract.e2e.ts`, only if a locator must change.
 
   Activity, Saved/Later, Scheduled, Drafts, Files and Threads (the `*View.tsx` files in `features/messages/`) are phase 6's, unless they render a component this phase converts.
-- **Legacy CSS.** Delete a rule only when no file under `apps/web/src` still renders its class (grep it). The shared `.menu`, `.menu-item` and `.menu-sep` rules stay while `ArtifactsTab` and `ForwardDialog` draw them (phase 6).
+- **Legacy CSS.** Delete a rule only when no file under `apps/web/src` still renders its class (grep it). The shared `.menu-item` rule stays while `ArtifactsTab` and `ForwardDialog` draw it (phase 6). `.menu` and `.menu-sep` went in 5a's final fix wave, once nothing drew either.
 - **Tailwind sources.** Each converted file gets an `@source` line in `styles/index.css`, and the allow-list in `styles/tokenNames.test.ts` grows to match. Never add a directory that still holds unconverted markup.
 - **Behaviours that must survive** (the spec's anti-goals):
   - one Escape closes one layer;
@@ -325,7 +325,7 @@ Things the spec implies, ranked by how likely each is to bite a real person:
   - a module blocked from loading gives the reload toast;
   - the toolbar stays up with the pointer gone while a popup is open (Review Focus 1);
   - focus after a dialog from the menu (Review Focus 2);
-  - one Escape for a picker inside the thread panel and inside the phone Sheet.
+  - one Escape for a picker inside the thread panel, at 1440 and at 400px, where the panel is a fixed panel over the conversation. No 5a popup renders in the phone's sidebar Sheet, so the Sheet is left to phase 6.
 
 ---
 
@@ -359,3 +359,6 @@ Cut from 5a's tip. Its tasks are written into this plan, on its branch, before i
 - The thread root is set apart from the replies by an "N replies" divider under it ("1 reply", then "N replies").
 - Follow in the thread header is a real `Button` (outline when not following, secondary or ghost when following), with `aria-pressed` and the label saying which.
 - The panel's enter and exit through `ThreadPanelSlot` and `usePresence` are unchanged.
+
+**Left for phase 6** (no popover opens in the phone's sidebar Sheet in 5a or 5c):
+- `components/ui/sidebar.tsx`'s `openedFromSheet`, the net under the Sheet's place on the Escape stack, knows a `dropdown-menu-content` the Sheet opened but not a `popover-content`. Once a popover can open from inside the Sheet, teach it that one too, or a popover without a layer of its own has its Escape answered by closing the Sheet.

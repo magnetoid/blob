@@ -24,6 +24,7 @@ import {
 } from './ui/dropdown-menu.tsx';
 import { lazyDropdown, type DropdownModuleProps } from './lazyDropdown.tsx';
 import { preloadAlso } from '../lib/overlays.ts';
+import { useToasts } from '../lib/toasts.ts';
 import { useEscape } from '../lib/useEscape.ts';
 
 // The registration is the case's to look at; nothing here runs the app's preload.
@@ -273,6 +274,26 @@ describe('lazyDropdown', () => {
       consoleError.mock.calls.filter((call) => String(call[0]).includes('menu')),
     ).toHaveLength(1);
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('tells the person to reload when the menu will not load, calling it this menu', async () => {
+    // The shell's menus only logged a failed load before `lazyTrigger`; a person pressing one
+    // was left with nothing happening. WebKit keeps the failure until a reload, so that is
+    // what it asks for.
+    useToasts.setState({ toasts: [] });
+    const { load, fail } = heldImport();
+    const Menu = lazyDropdown(load);
+
+    render(<Menu trigger={<button type="button">Account</button>} />);
+    fireEvent.click(account());
+    await act(async () => fail(new Error('Failed to fetch dynamically imported module')));
+
+    expect(useToasts.getState().toasts).toEqual([
+      expect.objectContaining({
+        kind: 'error',
+        text: 'Couldn’t open this menu. Reload the page to try again.',
+      }),
+    ]);
   });
 });
 

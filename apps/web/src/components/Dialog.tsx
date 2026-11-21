@@ -180,7 +180,15 @@ function portalOf(popup: HTMLElement | null | undefined): Element | null {
  * "Inside" is the dialog's portal node, not only its popup. A menu or a popover opened from
  * the dialog is portalled by Base UI into that node, beside the popup rather than in it, and
  * a key from there is the menu's: counted as outside, the layer closed the dialog on the
- * Escape that should have closed the menu, and the menu never heard it.
+ * Escape that should have closed the menu, and the menu never heard it. The whole node is
+ * safe to let through: everything in it but the backdrop, which takes no keys, is a React
+ * descendant of the popup, so a key from there bubbles through the popup's own stop
+ * (`DialogImpl`) and never reaches the shell. A node not found — its `data-slot` renamed —
+ * falls back to the popup alone, the rule before this one, and not to nothing being inside.
+ * The sheet names what it opened instead (`openedFromSheet`, `components/ui/sidebar.tsx`)
+ * because every popup it opens brings a place of its own above it, so its check is only the
+ * net under them; here it is the rule, for a popup that brings none — a plain shadcn menu in
+ * a dialog's form.
  */
 function Opening({
   open,
@@ -202,7 +210,10 @@ function Opening({
   // One object for the opening's whole life: a new one would re-register the layer on top.
   const [standIn] = useState<StandIn>(() => ({
     drawn: () => drawn.current !== null,
-    holds: (target) => target instanceof Node && (portalOf(drawn.current?.current)?.contains(target) ?? false),
+    holds: (target) => {
+      const popup = drawn.current?.current;
+      return target instanceof Node && ((portalOf(popup) ?? popup)?.contains(target) ?? false);
+    },
     close: () => setEscaped(true),
   }));
   useEscapeLayer(open && !escaped, standIn);

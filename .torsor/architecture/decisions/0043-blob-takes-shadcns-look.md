@@ -680,12 +680,15 @@ out:
   `mount: 'arrival'`.
 - **Remind me… is a submenu** (`DropdownMenuSub`) of its presets, as Slack's is. Its presets
   used to unfold inline inside the menu.
-- **The toolbar is held up by `.message-actions:has([data-popup-open])`.** Base UI marks an
-  open trigger `data-popup-open`, and the panel is no longer drawn inside the row, so the
-  row's `:hover` and `:focus-within` stopped holding the toolbar up the moment the pointer
-  left for the popup. The rule asks the toolbar, so it holds for a popup opened from the
-  toolbar — More actions, Add reaction — and not for the person card, whose trigger is the
-  author's name outside it.
+- **The toolbar is held up by `.message-actions:has([data-popup-open], [data-popup-held])`.**
+  Base UI marks an open trigger `data-popup-open`, and the panel is no longer drawn inside
+  the row, so the row's `:hover` and `:focus-within` stopped holding the toolbar up the
+  moment the pointer left for the popup. The rule asks the toolbar, so it holds for a popup
+  opened from the toolbar — More actions, Add reaction — and not for the person card, whose
+  trigger is the author's name outside it. `data-popup-held` is the menu's and the picker's
+  own, from the open until `onOpenChangeComplete(false)`, because `data-popup-open` goes as
+  the close begins while focus comes back only after the 100 ms exit, and the toolbar's
+  120 ms hide left one dropped frame between a keyboard user's focus and `<body>`.
 - **A dialog opened from a message's menu gives focus back to the row.** By the time it
   closes the toolbar is hidden, and a `visibility: hidden` More actions cannot take focus,
   so focus fell to `<body>`. `DialogPresence` and `DialogImpl` take an opt-in `returnFocus`,
@@ -736,12 +739,14 @@ And what the phase settled on the way:
   row while a panel was open inside it (nothing in a row is a panel now), and
   `--focus-ring-offset`, a knob on the focus ring whose last setter was the emoji cell.
   `styles/legacyIsland.test.ts` lost the case that held the in-place panels to the legacy
-  `overlay-in` and `overlay-out`; shadcn's popups are held to reduced motion by the case
-  before it, which stills their transforms.
+  `overlay-in` and `overlay-out`; shadcn's popups are held to reduced motion by "zeroes the
+  transforms shadcn animates on an overlay’s first and last frames", the first case of
+  that file's reduced-motion block, which stills their transforms.
 - **The budget.** The JavaScript first load measures 235.4 KB, against 238.8 at the phase's
-  start (6916ce47): the person card, `Popover.tsx` and the emoji picker left it, for chunks
-  of their own. So `BUDGET_KB` comes down from 241 to 237 — the measure rounded up,
-  plus 1 KB — 23 KB under the ceiling. The stylesheet measures 44.2 KB, against 44.7, and
-  `CSS_BUDGET_KB` stays 46 by the same rule. No chunk `index.html` names carries the code of
-  `MessageMenuPanel`, `SchedulePanel`, `EmojiPopover` or `PersonCard`; their names are in
-  the entry chunk only as the paths of their dynamic imports.
+  start (6916ce47): the person card and the emoji picker left it for chunks of their own,
+  and `Popover.tsx` dropped out of its import graph and was deleted. So `BUDGET_KB` comes
+  down from 241 to 237 — the measure rounded up, plus 1 KB — 23 KB under the ceiling. The
+  stylesheet measures 44.2 KB, against 44.7, and `CSS_BUDGET_KB` stays 46 by the same rule.
+  No chunk `index.html` names carries the code of `MessageMenuPanel`, `SchedulePanel`,
+  `EmojiPopover` or `PersonCard`; their names are in the entry chunk only as the paths of
+  their dynamic imports.

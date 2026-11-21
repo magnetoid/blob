@@ -138,8 +138,8 @@ describe('two things open at once', () => {
 
 describe('an overlay that is mounted but closed', () => {
   it('does not claim the key', () => {
-    // `Menu` holds its panel through the exit animation; one on its way out must stop
-    // answering the moment it is asked to close.
+    // A press waiting on its popup's module, or the palette waiting on its own, stays mounted
+    // once the wait is over; it must stop answering the moment it is.
     const onClose = vi.fn();
     const shell = vi.fn();
     window.addEventListener('keydown', shell);

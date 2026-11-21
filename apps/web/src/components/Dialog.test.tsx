@@ -184,7 +184,9 @@ describe('Dialog', () => {
   it('lets a menu inside a dialog take the first Escape, and the dialog the second', async () => {
     // shadcn's menu as shadcn writes it, with nothing of Blob's round it. Its popup is
     // portalled out of the dialog's popup, so a key from inside it is not inside the
-    // dialog by DOM containment.
+    // dialog by DOM containment. And the shell does not hear that first Escape: the menu
+    // stops it, and a key it let go would still bubble, as the menu is a React descendant
+    // of the dialog's popup, through the popup's own stop.
     const onClose = vi.fn();
     render(
       <Dialog label="Forward message" onClose={onClose}>
@@ -206,14 +208,21 @@ describe('Dialog', () => {
     await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
     expect(dialog()?.contains(menu)).toBe(false);
 
-    pressEscape();
-    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    expect(onClose).not.toHaveBeenCalled();
-    expect(dialog()?.hasAttribute('data-open')).toBe(true);
-    expect(document.activeElement).toBe(trigger);
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+    try {
+      pressEscape();
+      expect(shell).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+      expect(onClose).not.toHaveBeenCalled();
+      expect(dialog()?.hasAttribute('data-open')).toBe(true);
+      expect(document.activeElement).toBe(trigger);
 
-    pressEscape();
-    expect(onClose).toHaveBeenCalledTimes(1);
+      pressEscape();
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('keydown', shell);
+    }
   });
 });
 

@@ -107,8 +107,10 @@ function useLayer(close: Handler | null, active: boolean, standIn: StandIn | nul
 /**
  * Close this while it is the innermost thing open.
  *
- * `active` is for overlays that stay mounted while closed — `Menu` holds its panel through
- * the exit animation, and a menu on its way out must not still be answering Escape.
+ * `active` is for something that holds a place only for part of its life: a press waiting
+ * on its popup's module (`components/lazyTrigger.tsx`), ⌘K's palette until its module is
+ * here (`features/palette/lazyPalette.ts`). Mounted all along, each must stop answering
+ * Escape the moment that part is over.
  */
 export function useEscape(onClose: () => void, active = true): void {
   useLayer(onClose, active);
