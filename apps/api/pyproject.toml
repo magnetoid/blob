@@ -37,7 +37,7 @@ dependencies = [
     # Passkeys (services/passkeys.py, ADR 0032). Held below 3.0 for one reason: 3.x needs
     # cbor2 6, a Rust build with no wheel for Intel macOS, and 3.0 adds only post-quantum
     # signature algorithms no authenticator ships yet. Lift it when cbor2 has the wheel.
-    "webauthn>=2.8,<3",
+    "webauthn>=2.8,<4",
 ]
 
 [dependency-groups]
