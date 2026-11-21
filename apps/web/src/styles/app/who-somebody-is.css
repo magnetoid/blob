@@ -26,8 +26,8 @@ button.person-trigger:hover {
   text-decoration: underline;
 }
 
-/* A panel inside the virtualised message list: the ••• menu, the person card, the emoji
- * picker.
+/* A panel inside the virtualised message list: the emoji picker and the Add reaction
+ * panels inside a row.
  *
  * Every row is absolutely positioned and carries a transform, which makes it a stacking
  * context — so a panel inside one is trapped there however high its own z-index, and the

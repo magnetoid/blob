@@ -21,3 +21,10 @@ export const SchedulePopup = lazyTrigger(() => import('./SchedulePanel.tsx'), {
   name: 'scheduling',
   popup: 'dialog',
 });
+
+/** The author's name, which opens who they are and a button to message them. */
+export const PersonCardPopup = lazyTrigger(() => import('../../components/PersonCard.tsx'), {
+  name: 'this profile',
+  popup: 'dialog',
+  mount: 'press',
+});

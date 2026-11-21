@@ -21,7 +21,7 @@ import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { permalinkFor } from "../../lib/navigation.ts";
 import { useMentionIndex } from "./mentionIndex.ts";
-import { PersonCard } from "../../components/PersonCard.tsx";
+import { PersonCardPopup } from "./lazyPopups.ts";
 import type { LocalMessageDeliveryStatus } from "../../lib/outbox.ts";
 import { renderMarkdown } from "../../lib/markdown.tsx";
 import { BlockRenderer } from "./BlockRenderer.tsx";
@@ -164,7 +164,6 @@ export const MessageRow = memo(function MessageRow({
   // No "start work" from inside a work channel: the work is already here.
   const inWorkChannel = useStore((s) => Boolean(s.channels[message.channelId]?.workId));
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [cardOpen, setCardOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   // Whether this row is a message arriving. The store decides, not the row: a row
@@ -364,15 +363,17 @@ export const MessageRow = memo(function MessageRow({
           <div className="message-head">
             {author ? (
               <span className="person-trigger-wrap">
-                <button
-                  type="button"
-                  className="message-author person-trigger"
-                  aria-haspopup="dialog"
-                  aria-expanded={cardOpen}
-                  onClick={() => setCardOpen((v) => !v)}
-                >
-                  {author.displayName}
-                </button>
+                <PersonCardPopup
+                  person={author}
+                  trigger={
+                    <button
+                      type="button"
+                      className="message-author person-trigger"
+                    >
+                      {author.displayName}
+                    </button>
+                  }
+                />
                 {author.kind === "bot" && (
                   /* A word, not an icon: it survives being small, being printed, and
                      being read by someone who cannot see the iris it sits in. */
@@ -386,11 +387,6 @@ export const MessageRow = memo(function MessageRow({
                     {author.statusEmoji ?? author.statusText}
                   </span>
                 )}
-                <PersonCard
-                  person={author}
-                  open={cardOpen}
-                  onClose={() => setCardOpen(false)}
-                />
               </span>
             ) : (
               <span className="message-author">Someone</span>

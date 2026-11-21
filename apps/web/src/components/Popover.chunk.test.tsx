@@ -2,13 +2,13 @@
 /**
  * A popover opened before the overlay chunk has arrived.
  *
- * In the first second after load somebody can click an author's name, or a message's
- * "Add reaction", before the preload has fetched Base UI. The click is not lost: the
- * caller has already said open, nothing is drawn — and once the chunk lands the card or
- * the picker is open, with focus inside it, as if it had been there all along. Unless the
- * person has moved on while it was on its way: then it opens where it is and leaves their
- * focus alone — the picker's search field included, which used to take focus as it mounted.
- * Its own file, because `lib/overlays.ts` is mocked to hold the chunk back.
+ * In the first second after load somebody can click a message's "Add reaction", before the
+ * preload has fetched Base UI. The click is not lost: the caller has already said open,
+ * nothing is drawn — and once the chunk lands the picker is open, with focus inside it, as if
+ * it had been there all along. Unless the person has moved on while it was on its way: then it
+ * opens where it is and leaves their focus alone — the picker's search field included, which
+ * used to take focus as it mounted. Its own file, because `lib/overlays.ts` is mocked to hold
+ * the chunk back. (A person card's equivalent is `lazyTrigger`'s, and the card's own test.)
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -75,64 +75,6 @@ async function withTheChunkOnItsWay() {
 
 /** Past the frame Base UI moves initial focus in. */
 const settle = () => act(() => new Promise((done) => setTimeout(done, 50)));
-
-describe('a person card opened before its chunk lands', () => {
-  async function authorName() {
-    const { PersonCard } = await import('./PersonCard.tsx');
-    return function AuthorName() {
-      const [open, setOpen] = useState(false);
-      return (
-        <>
-          <span className="person-trigger-wrap">
-            <button type="button" onClick={() => setOpen(true)}>
-              Ana
-            </button>
-            <PersonCard person={person} open={open} onClose={() => setOpen(false)} />
-          </span>
-          <button type="button">Reply</button>
-        </>
-      );
-    };
-  }
-
-  it('a person card opened before the chunk arrives is open once it lands', async () => {
-    const { loadOverlays, land } = await withTheChunkOnItsWay();
-    const AuthorName = await authorName();
-
-    render(<AuthorName />);
-    const trigger = screen.getByRole('button', { name: 'Ana' });
-    trigger.focus();
-    fireEvent.click(trigger);
-
-    expect(loadOverlays).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('dialog')).toBeNull();
-
-    await land();
-
-    expect(screen.getByRole('dialog', { name: 'Ana' })).toBeTruthy();
-    await waitFor(() =>
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Message Ana' })),
-    );
-  });
-
-  it('leaves focus where the person moved it while the chunk was on its way', async () => {
-    const { land } = await withTheChunkOnItsWay();
-    const AuthorName = await authorName();
-
-    render(<AuthorName />);
-    const trigger = screen.getByRole('button', { name: 'Ana' });
-    trigger.focus();
-    fireEvent.click(trigger);
-    const reply = screen.getByRole('button', { name: 'Reply' });
-    reply.focus();
-
-    await land();
-    await settle();
-
-    expect(screen.getByRole('dialog', { name: 'Ana' })).toBeTruthy();
-    expect(document.activeElement).toBe(reply);
-  });
-});
 
 describe('an emoji picker opened before its chunk lands', () => {
   async function addReaction() {

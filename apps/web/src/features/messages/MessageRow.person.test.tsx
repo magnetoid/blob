@@ -23,6 +23,10 @@ vi.mock('../../lib/api.ts', async (importOriginal) => {
 
 const { MessageRow } = await import('./MessageRow.tsx');
 const { useStore } = await import('../../lib/store.ts');
+const { PersonCardPopup } = await import('./lazyPopups.ts');
+
+// Here before the first test, as it is in the app by the time a name is pressed.
+await PersonCardPopup.preload();
 
 afterEach(cleanup);
 
@@ -69,15 +73,14 @@ describe('a person card in the conversation', () => {
     name.focus();
 
     fireEvent.click(name);
-    const card = screen.getByRole('dialog', { name: 'Them' });
+    const card = await screen.findByRole('dialog', { name: 'Them' });
     await waitFor(() => expect(card.contains(document.activeElement)).toBe(true));
 
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
 
-    expect(card).toHaveProperty('inert', true);
-    expect(shell).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(name);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(shell).not.toHaveBeenCalled();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Them' })));
 
     // And the next Escape, with nothing open, is the shell's again.
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
