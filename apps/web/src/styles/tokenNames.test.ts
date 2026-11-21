@@ -188,6 +188,7 @@ describe('styles/index.css', () => {
     'features/channels/ChannelMenu.tsx',
     'features/channels/SectionMenu.tsx',
     'features/messages/MessageMenuPanel.tsx',
+    'features/messages/SchedulePanel.tsx',
     'features/shell/TopBar.tsx',
     'features/shell/AccountMenu.tsx',
     'features/shell/WorkspaceMenu.tsx',

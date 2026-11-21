@@ -15,3 +15,9 @@ export const MessageMenuPopup = lazyTrigger(() => import('./MessageMenuPanel.tsx
   popup: 'menu',
   mount: 'press',
 });
+
+/** The clock beside Send. One per composer, so it mounts as soon as the module is here. */
+export const SchedulePopup = lazyTrigger(() => import('./SchedulePanel.tsx'), {
+  name: 'scheduling',
+  popup: 'dialog',
+});

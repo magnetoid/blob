@@ -34,6 +34,7 @@
 @source "../features/channels/ChannelMenu.tsx";
 @source "../features/channels/SectionMenu.tsx";
 @source "../features/messages/MessageMenuPanel.tsx";
+@source "../features/messages/SchedulePanel.tsx";
 @source "../features/shell/TopBar.tsx";
 @source "../features/shell/AccountMenu.tsx";
 @source "../features/shell/WorkspaceMenu.tsx";
