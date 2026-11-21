@@ -264,7 +264,8 @@ and tests apply.
    - The sidebar's icons are centred on their labels. Today they are 14 px and their
      centres sit about 1.7 px above the text's (Home, Mentions, Threads, Tasks and the
      rest).
-5. **The conversation.** Message list, composer, threads, reactions, attachments, the
+5. **The conversation.** *5a, the menus and popovers, done in #60; ADR 0043's phase 5a addendum records how. 5b and 5c follow.*
+   Message list, composer, threads, reactions, attachments, the
    right-hand panel, code blocks, agent run cards, unread and typing notices. Motion rules
    re-verified here. MessageMenu moves to `DropdownMenu`. SchedulePicker becomes a
    Popover, because a select and a date field are not a menu under ARIA. PersonCard and
