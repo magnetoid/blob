@@ -6,11 +6,11 @@
  * little over a kilobyte under `BUDGET_KB` and 28 KB under the 260 KB ceiling. So none of
  * them is imported statically. `components/overlays/index.ts` is the barrel that chunk is
  * built from; this module is the only place that imports it, `components/lazyOverlay.tsx`
- * is how a component waits for it, `components/lazyDropdown.tsx` is how a menu that owns
- * its trigger waits for a module of its own (fetched beside the chunk, `preloadAlso`), and
- * `scripts/bundle-budget.mjs` fails the build if Base UI's overlay code ever turns up in
- * the first load by another road. A chunk that will not load at all — a deploy replaced
- * it — is `lib/staleBuild.ts`'s to explain.
+ * is how a component waits for it, `components/lazyTrigger.tsx` is how a menu or popover
+ * that owns its trigger waits for a module of its own (`lib/lazyModule.ts`, fetched beside
+ * the chunk, `preloadAlso`), and `scripts/bundle-budget.mjs` fails the build if Base UI's
+ * overlay code ever turns up in the first load by another road. A chunk that will not load
+ * at all — a deploy replaced it — is `lib/staleBuild.ts`'s to explain.
  */
 
 /** What the barrel exports, which is what `lazyOverlay`'s `pick` chooses from. */
@@ -94,9 +94,9 @@ function startQuietly(load: () => Promise<unknown>): void {
  * Fetch something else in the same spare moment as the overlay chunk.
  *
  * For modules that are built on the chunk's code and want to be here as early as it is —
- * a menu that owns its trigger (`components/lazyDropdown.tsx`) is a module of its own,
- * and its trigger is on the page from first paint. A loader registered before the preload
- * has started waits for it and starts in the same idle callback; one registered after
+ * a menu or popover that owns its trigger (`components/lazyTrigger.tsx`) is a module of
+ * its own, and its trigger is on the page from first paint. A loader registered before the
+ * preload has started waits for it and starts in the same idle callback; one registered after
  * starts at once, though not inside whatever registered it — a module being evaluated, as
  * a rule — but in a task of its own. Failures are swallowed, as the overlay chunk's own
  * are. A page that never preloads (the two that open no overlay, `app/App.tsx`) never

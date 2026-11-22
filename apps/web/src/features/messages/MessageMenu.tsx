@@ -1,46 +1,27 @@
 /**
  * The ••• menu on a message row: copy link, mark unread, save for later, pin, edit,
- * delete. Owns the open state and the panel; edit, the delete confirmation and the
- * clipboard result render at the row level, so those go out as callbacks.
+ * delete. The menu itself is `MessageMenuPanel`, fetched on its own and drawn on the first
+ * press (`lazyPopups.ts`); what is here is its trigger, which the first paint needs, and the
+ * two dialogs its items open that are the menu's own — Record a decision and Earlier
+ * versions — since a dialog outlives the menu that opened it. Edit, the delete
+ * confirmation, Forward, Start work and the clipboard result render at the row level, so
+ * those go out as callbacks.
+ *
+ * When one of these dialogs ends, focus goes to the message's row. The item it was opened
+ * from is gone, and More actions sits in a toolbar that is `visibility: hidden` unless the
+ * row is hovered or holds focus — which, with focus in the dialog and the pointer over it,
+ * it does not — so focus sent back to the button would land on <body>.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
-import { showError } from "../../lib/toasts.ts";
-import { useStore } from "../../lib/store.ts";
 import { MoreIcon } from "../../components/Icon.tsx";
-import { Menu } from "../../components/Menu.tsx";
 import { DialogPresence } from "../../components/Dialog.tsx";
-import { navigate } from "../../lib/router.ts";
 import { DecisionDialog } from "../decisions/DecisionDialog.tsx";
 import { VersionsDialog } from "./VersionsDialog.tsx";
 import { firstDraft } from "../decisions/decisionText.ts";
-
-/** Slack's set, because those are the ones in people's fingers. */
-const REMIND_PRESETS: Array<{ label: string; at: () => Date }> = [
-  { label: "In 20 minutes", at: () => new Date(Date.now() + 20 * 60_000) },
-  { label: "In 1 hour", at: () => new Date(Date.now() + 60 * 60_000) },
-  { label: "In 3 hours", at: () => new Date(Date.now() + 3 * 60 * 60_000) },
-  {
-    label: "Tomorrow at 9:00",
-    at: () => {
-      const at = new Date();
-      at.setDate(at.getDate() + 1);
-      at.setHours(9, 0, 0, 0);
-      return at;
-    },
-  },
-  {
-    label: "Next week",
-    at: () => {
-      const at = new Date();
-      at.setDate(at.getDate() + 7);
-      at.setHours(9, 0, 0, 0);
-      return at;
-    },
-  },
-];
+import { MessageMenuPopup } from "./lazyPopups.ts";
 
 interface Props {
   message: Message;
@@ -66,217 +47,40 @@ export function MessageMenu({
   onDelete,
   tabIndex,
 }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [remindOpen, setRemindOpen] = useState(false);
   const [deciding, setDeciding] = useState(false);
   const [versions, setVersions] = useState(false);
-  // An admin may read what a legal hold kept of an edited message (ADR 0039 addendum).
-  const isAdmin = useStore(
-    (s) => s.currentUser?.role === "admin" || s.currentUser?.role === "owner",
-  );
-  const markUnread = useStore((s) => s.markUnread);
-  const toggleSaved = useStore((s) => s.toggleSaved);
-  // Subscribed to the boolean rather than the Set, so saving one message does not
-  // re-render every other row in a channel that is already virtualised for that reason.
-  const saved = useStore((s) => s.savedMessageIds.has(message.id));
+  const button = useRef<HTMLButtonElement>(null);
+
+  /** The message's row, which a dialog from the menu gives focus back to. */
+  const row = () => button.current?.closest<HTMLElement>("article[data-message-id]") ?? null;
 
   return (
-    <div className="relative">
-      <button
-        className="message-action"
-        type="button"
-        tabIndex={tabIndex}
-        onClick={() => setMenuOpen((open) => !open)}
-        aria-label="More actions"
-        data-tooltip="More"
-        data-tooltip-place="top"
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
-      >
-        <MoreIcon size="md" />
-      </button>
-      <Menu
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        className="menu message-menu"
-      >
-        {/* First, because it is the one people reach for most: a message is
-              quoted into another channel or a ticket far more often than it is
-              pinned or saved. */}
-        <button
-          className="menu-item"
-          role="menuitem"
-          type="button"
-          onClick={() => {
-            setMenuOpen(false);
-            onCopyLink();
-          }}
-        >
-          Copy link
-        </button>
-        {/* Beside Copy link because they answer the same question — "send this
-              somewhere else" — and differ only in who does the walking. */}
-        <button
-          className="menu-item"
-          role="menuitem"
-          type="button"
-          onClick={() => {
-            setMenuOpen(false);
-            onForward();
-          }}
-        >
-          Forward…
-        </button>
-        {/* Where a conversation becomes a place to build something: a private
-              channel spun from this message, with the agents you name. Not offered
-              inside a work channel — the work is already here. */}
-        {onStartWork && (
+    <>
+      <MessageMenuPopup
+        trigger={
           <button
-            className="menu-item"
-            role="menuitem"
+            ref={button}
+            className="message-action"
             type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              onStartWork();
-            }}
+            tabIndex={tabIndex}
+            aria-label="More actions"
+            data-tooltip="More"
+            data-tooltip-place="top"
           >
-            Start work from here…
+            <MoreIcon size="md" />
           </button>
-        )}
-        {/* Only in the channel, not in a thread: the read cursor is a channel
-              cursor, so marking a reply unread would move a marker pointing at
-              something the channel list does not show. */}
-        {!message.threadRootId && (
-          <button
-            className="menu-item"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              void markUnread(message.channelId, message.id).catch(showError);
-            }}
-          >
-            Mark unread
-          </button>
-        )}
-        {/* Above pinning, and worded to draw the line between them: this one
-              is yours and tells nobody, pinning is the channel's and tells
-              everybody. Slack orders them the same way. */}
-        <button
-          className="menu-item"
-          role="menuitem"
-          type="button"
-          onClick={() => {
-            setMenuOpen(false);
-            void toggleSaved(message.id).catch(showError);
-          }}
-        >
-          {saved ? "Remove from later" : "Save for later"}
-        </button>
-        <button
-          className="menu-item"
-          role="menuitem"
-          type="button"
-          aria-expanded={remindOpen}
-          onClick={() => setRemindOpen((v) => !v)}
-        >
-          Remind me…
-        </button>
-        {remindOpen &&
-          REMIND_PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              className="menu-item remind-preset"
-              role="menuitem"
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                setRemindOpen(false);
-                void api.later
-                  .update(message.id, { remindAt: preset.at().toISOString() })
-                  .then(() =>
-                    useStore.setState((s) => ({
-                      savedMessageIds: new Set(s.savedMessageIds).add(
-                        message.id,
-                      ),
-                    })),
-                  )
-                  .catch(showError);
-              }}
-            >
-              {preset.label}
-            </button>
-          ))}
-        <button
-          className="menu-item"
-          role="menuitem"
-          type="button"
-          onClick={() => {
-            setMenuOpen(false);
-            void api.messages
-              .pin(message.id, message.pinnedAt === null)
-              .catch(showError);
-          }}
-        >
-          {message.pinnedAt ? "Unpin" : "Pin to channel"}
-        </button>
-        {/* Beside Pin: both mark a message for the whole channel. A message is the
-              source of one standing decision at a time, so one that already is opens
-              the log instead. */}
-        <button
-          className="menu-item"
-          role="menuitem"
-          type="button"
-          onClick={() => {
-            setMenuOpen(false);
-            if (message.decisionId) navigate("/decisions");
-            else setDeciding(true);
-          }}
-        >
-          {message.decisionId ? "Open the decision" : "Record as a decision"}
-        </button>
-        {/* Not a poll's: its question cannot change under the answers (ADR 0041). */}
-        {mine && !message.poll && (
-          <button
-            className="menu-item"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              onEdit();
-            }}
-          >
-            Edit message
-          </button>
-        )}
-        {isAdmin && message.editedAt && (
-          <button
-            className="menu-item"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              setVersions(true);
-            }}
-          >
-            Earlier versions
-          </button>
-        )}
-        {mine && (
-          <button
-            className="menu-item"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              onDelete();
-            }}
-          >
-            Delete message
-          </button>
-        )}
-      </Menu>
-      <DialogPresence when={versions ? message : null}>
+        }
+        message={message}
+        mine={mine}
+        onCopyLink={onCopyLink}
+        onForward={onForward}
+        onStartWork={onStartWork}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onRecordDecision={() => setDeciding(true)}
+        onEarlierVersions={() => setVersions(true)}
+      />
+      <DialogPresence when={versions ? message : null} returnFocus={row}>
         {(source) => (
           <VersionsDialog
             messageId={source.id}
@@ -285,7 +89,7 @@ export function MessageMenu({
           />
         )}
       </DialogPresence>
-      <DialogPresence when={deciding ? message : null}>
+      <DialogPresence when={deciding ? message : null} returnFocus={row}>
         {(source) => (
           <DecisionDialog
             heading="Record a decision"
@@ -303,6 +107,6 @@ export function MessageMenu({
           />
         )}
       </DialogPresence>
-    </div>
+    </>
   );
 }

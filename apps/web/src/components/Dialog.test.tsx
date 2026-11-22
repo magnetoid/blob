@@ -11,6 +11,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogPresence } from './Dialog.tsx';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu.tsx';
 import { useEscape } from '../lib/useEscape.ts';
 import '../test/overlayChunk.ts';
 
@@ -170,6 +176,50 @@ describe('Dialog', () => {
       pressEscape();
       expect(onClose).toHaveBeenCalledTimes(1);
       expect(shell).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', shell);
+    }
+  });
+
+  it('lets a menu inside a dialog take the first Escape, and the dialog the second', async () => {
+    // shadcn's menu as shadcn writes it, with nothing of Blob's round it. Its popup is
+    // portalled out of the dialog's popup, so a key from inside it is not inside the
+    // dialog by DOM containment. And the shell does not hear that first Escape: the menu
+    // stops it, and a key it let go would still bubble, as the menu is a React descendant
+    // of the dialog's popup, through the popup's own stop.
+    const onClose = vi.fn();
+    render(
+      <Dialog label="Forward message" onClose={onClose}>
+        <div className="dialog">
+          <DropdownMenu>
+            <DropdownMenuTrigger>Send to</DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem>#general</DropdownMenuItem>
+              <DropdownMenuItem>#design</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </Dialog>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Send to' });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    const menu = await screen.findByRole('menu');
+    await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+    expect(dialog()?.contains(menu)).toBe(false);
+
+    const shell = vi.fn();
+    window.addEventListener('keydown', shell);
+    try {
+      pressEscape();
+      expect(shell).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+      expect(onClose).not.toHaveBeenCalled();
+      expect(dialog()?.hasAttribute('data-open')).toBe(true);
+      expect(document.activeElement).toBe(trigger);
+
+      pressEscape();
+      expect(onClose).toHaveBeenCalledTimes(1);
     } finally {
       window.removeEventListener('keydown', shell);
     }

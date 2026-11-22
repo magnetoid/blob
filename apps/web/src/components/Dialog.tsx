@@ -107,12 +107,21 @@ function Island({ host, label, className, onClose, children }: DialogProps & { h
  * Reopened while it is still leaving, it mounts a new dialog rather than reviving the
  * old one. A dialog that has been answered once will not close again, and the new one's
  * focus and on-mount work should run exactly as a first opening's would.
+ *
+ * Focus goes back, as the dialog leaves, to wherever it was as the dialog opened — unless
+ * `returnFocus` names somewhere else. That is for a dialog opened from an item in a menu
+ * that has gone: the item is unmounted, and the button the menu hung from may be one that
+ * cannot take focus by then, as a message's More actions cannot once its toolbar is hidden
+ * (`visibility: hidden`), so the message's row is named instead. Asked as the dialog
+ * leaves, not as it opens; a null answer falls back to where focus was.
  */
 export function DialogPresence<T>({
   when,
+  returnFocus,
   children,
 }: {
   when: T | null | undefined | false;
+  returnFocus?: () => HTMLElement | null;
   children: (value: T) => ReactNode;
 }) {
   const open = Boolean(when);
@@ -138,10 +147,16 @@ export function DialogPresence<T>({
 
   if (!(open || phase.leaving) || !held) return null;
   return (
-    <Opening key={phase.count} open={open} onExited={finish}>
+    <Opening key={phase.count} open={open} onExited={finish} returnFocus={returnFocus}>
       {children(held as T)}
     </Opening>
   );
+}
+
+/** The node Base UI portals a dialog into: its backdrop, its popup, and whatever was
+ *  portalled from inside the popup. */
+function portalOf(popup: HTMLElement | null | undefined): Element | null {
+  return popup?.closest('[data-slot="dialog-portal"]') ?? null;
 }
 
 /**
@@ -161,8 +176,31 @@ export function DialogPresence<T>({
  * listener in every dialog open would hear it. Either way it comes off the stack as soon as
  * the dialog has been answered or starts to leave, so the next Escape reaches whatever is
  * underneath.
+ *
+ * "Inside" is the dialog's portal node, not only its popup. A menu or a popover opened from
+ * the dialog is portalled by Base UI into that node, beside the popup rather than in it, and
+ * a key from there is the menu's: counted as outside, the layer closed the dialog on the
+ * Escape that should have closed the menu, and the menu never heard it. The whole node is
+ * safe to let through: everything in it but the backdrop, which takes no keys, is a React
+ * descendant of the popup, so a key from there bubbles through the popup's own stop
+ * (`DialogImpl`) and never reaches the shell. A node not found — its `data-slot` renamed —
+ * falls back to the popup alone, the rule before this one, and not to nothing being inside.
+ * The sheet names what it opened instead (`openedFromSheet`, `components/ui/sidebar.tsx`)
+ * because every popup it opens brings a place of its own above it, so its check is only the
+ * net under them; here it is the rule, for a popup that brings none — a plain shadcn menu in
+ * a dialog's form.
  */
-function Opening({ open, onExited, children }: { open: boolean; onExited: () => void; children: ReactNode }) {
+function Opening({
+  open,
+  onExited,
+  returnFocus,
+  children,
+}: {
+  open: boolean;
+  onExited: () => void;
+  returnFocus?: (() => HTMLElement | null) | undefined;
+  children: ReactNode;
+}) {
   const [escaped, setEscaped] = useState(false);
   // The popup, once the shell says it is drawn.
   const drawn = useRef<RefObject<HTMLElement | null> | null>(null);
@@ -172,13 +210,22 @@ function Opening({ open, onExited, children }: { open: boolean; onExited: () => 
   // One object for the opening's whole life: a new one would re-register the layer on top.
   const [standIn] = useState<StandIn>(() => ({
     drawn: () => drawn.current !== null,
-    holds: (target) => target instanceof Node && (drawn.current?.current?.contains(target) ?? false),
+    holds: (target) => {
+      const popup = drawn.current?.current;
+      return target instanceof Node && ((portalOf(popup) ?? popup)?.contains(target) ?? false);
+    },
     close: () => setEscaped(true),
   }));
   useEscapeLayer(open && !escaped, standIn);
 
   return (
-    <DialogShell open={open} escaped={escaped} onDrawn={onDrawn} onExited={onExited}>
+    <DialogShell
+      open={open}
+      escaped={escaped}
+      onDrawn={onDrawn}
+      onExited={onExited}
+      returnFocus={returnFocus}
+    >
       {children}
     </DialogShell>
   );

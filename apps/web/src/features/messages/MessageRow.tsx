@@ -6,7 +6,6 @@
  */
 
 import {
-  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -14,14 +13,13 @@ import {
   useState,
   memo,
 } from "react";
-import { useEscape } from "../../lib/useEscape.ts";
 import type { CustomEmoji, Message } from "@blob/shared";
 import { api } from "../../lib/api.ts";
 import { showError } from "../../lib/toasts.ts";
 import { useStore } from "../../lib/store.ts";
 import { permalinkFor } from "../../lib/navigation.ts";
 import { useMentionIndex } from "./mentionIndex.ts";
-import { PersonCard } from "../../components/PersonCard.tsx";
+import { EmojiPopup, PersonCardPopup } from "./lazyPopups.ts";
 import type { LocalMessageDeliveryStatus } from "../../lib/outbox.ts";
 import { renderMarkdown } from "../../lib/markdown.tsx";
 import { BlockRenderer } from "./BlockRenderer.tsx";
@@ -41,7 +39,6 @@ import { DialogPresence } from "../../components/Dialog.tsx";
 import { Count } from "../../components/Count.tsx";
 import { Confirmation } from "../../components/Confirmation.tsx";
 import { revealIfCached, revealOnError, revealOnLoad } from "../../lib/imageReveal.ts";
-import { EmojiPicker } from "../../components/EmojiPicker.tsx";
 import { DecisionIcon, DownloadIcon, FileIcon, PinIcon, ReplyIcon } from "../../components/Icon.tsx";
 import { navigate } from "../../lib/router.ts";
 import { resolveReaction } from "../../lib/emoji.ts";
@@ -163,9 +160,6 @@ export const MessageRow = memo(function MessageRow({
   const [startingWork, setStartingWork] = useState(false);
   // No "start work" from inside a work channel: the work is already here.
   const inWorkChannel = useStore((s) => Boolean(s.channels[message.channelId]?.workId));
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [cardOpen, setCardOpen] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
 
   // Whether this row is a message arriving. The store decides, not the row: a row
   // cannot tell a live arrival from a remount on scroll, and only one of the two should
@@ -239,23 +233,6 @@ export const MessageRow = memo(function MessageRow({
       }),
     [message.body, knownNames, currentUser, customEmoji, byAgent],
   );
-
-  // Same dismissal contract as the account menu: any click outside, or Escape. Capture
-  // phase, so opening another row's picker closes this one rather than leaving two open.
-  // Escape goes through the shared stack — a listener of its own would close the picker
-  // and let the shell act on the same key, marking the channel read behind it.
-  const closePicker = useCallback(() => setPickerOpen(false), []);
-  useEscape(closePicker, pickerOpen);
-
-  useEffect(() => {
-    if (!pickerOpen) return undefined;
-    const onClick = (event: MouseEvent) => {
-      if (pickerRef.current?.contains(event.target as Node)) return;
-      setPickerOpen(false);
-    };
-    window.addEventListener("click", onClick, true);
-    return () => window.removeEventListener("click", onClick, true);
-  }, [pickerOpen]);
 
   // `navigator.clipboard` needs a secure context, so on plain http over a LAN this
   // falls back to showing the URL for somebody to copy by hand rather than failing
@@ -364,15 +341,17 @@ export const MessageRow = memo(function MessageRow({
           <div className="message-head">
             {author ? (
               <span className="person-trigger-wrap">
-                <button
-                  type="button"
-                  className="message-author person-trigger"
-                  aria-haspopup="dialog"
-                  aria-expanded={cardOpen}
-                  onClick={() => setCardOpen((v) => !v)}
-                >
-                  {author.displayName}
-                </button>
+                <PersonCardPopup
+                  person={author}
+                  trigger={
+                    <button
+                      type="button"
+                      className="message-author person-trigger"
+                    >
+                      {author.displayName}
+                    </button>
+                  }
+                />
                 {author.kind === "bot" && (
                   /* A word, not an icon: it survives being small, being printed, and
                      being read by someone who cannot see the iris it sits in. */
@@ -386,11 +365,6 @@ export const MessageRow = memo(function MessageRow({
                     {author.statusEmoji ?? author.statusText}
                   </span>
                 )}
-                <PersonCard
-                  person={author}
-                  open={cardOpen}
-                  onClose={() => setCardOpen(false)}
-                />
               </span>
             ) : (
               <span className="message-author">Someone</span>
@@ -748,32 +722,27 @@ export const MessageRow = memo(function MessageRow({
               {emoji}
             </button>
           ))}
-          <div className="emoji-picker-anchor" ref={pickerRef}>
-            <button
-              className="message-action"
-              data-emoji="true"
-              type="button"
-              tabIndex={tab}
-              aria-expanded={pickerOpen}
-              aria-haspopup="dialog"
-              onClick={() => setPickerOpen((value) => !value)}
-              aria-label="Add reaction"
-              data-tooltip="Add reaction"
-              data-tooltip-place="top"
-            >
-              ＋
-            </button>
-            {pickerOpen && (
-              <EmojiPicker
-                label="React with an emoji"
-                onClose={() => setPickerOpen(false)}
-                onPick={(value) => {
-                  setPickerOpen(false);
-                  void toggleReaction(message, value).catch(showError);
-                }}
-              />
-            )}
-          </div>
+          {/* The picker hangs below the button, from its right edge: the toolbar sits at
+              the row's right, so the panel opens back across the message. */}
+          <EmojiPopup
+            label="React with an emoji"
+            side="bottom"
+            align="end"
+            onPick={(value) => void toggleReaction(message, value).catch(showError)}
+            trigger={
+              <button
+                className="message-action"
+                data-emoji="true"
+                type="button"
+                tabIndex={tab}
+                aria-label="Add reaction"
+                data-tooltip="Add reaction"
+                data-tooltip-place="top"
+              >
+                ＋
+              </button>
+            }
+          />
           <span className="action-divider" />
           {!inThread && (
             <button
@@ -816,19 +785,21 @@ export const MessageRow = memo(function MessageRow({
         </div>
       )}
 
-      {/* At the article level, not inside the menu: `.message-actions` is
-          display:none unless the row is hovered or has focus within, and a dialog
-          opened from the keyboard must not depend on where the pointer sits. */}
-      <DialogPresence when={startingWork}>
+      {/* At the article level, not inside the menu: `.message-actions` is hidden
+          unless the row is hovered or has focus within, and a dialog opened from the
+          keyboard must not depend on where the pointer sits. For the same reason each
+          gives focus back to the row, not to the menu's More actions, which is hidden
+          by the time the dialog ends. */}
+      <DialogPresence when={startingWork} returnFocus={() => rowRef.current}>
         {() => (
           <StartWorkDialog message={message} onClose={() => setStartingWork(false)} />
         )}
       </DialogPresence>
-      <DialogPresence when={forwarding}>
+      <DialogPresence when={forwarding} returnFocus={() => rowRef.current}>
         {() => <ForwardDialog message={message} onClose={() => setForwarding(false)} />}
       </DialogPresence>
 
-      <DialogPresence when={deleting}>
+      <DialogPresence when={deleting} returnFocus={() => rowRef.current}>
         {() => <DeleteConfirm message={message} onClose={() => setDeleting(false)} />}
       </DialogPresence>
 

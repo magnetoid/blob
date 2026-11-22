@@ -10,7 +10,7 @@
  */
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { FALLBACK_MS } from '../../lib/usePresence.ts';
 
 const getThreadSummary = vi.fn();
@@ -62,6 +62,11 @@ if (!('localStorage' in globalThis) || !globalThis.localStorage) {
 
 const { ThreadPanel, ThreadPanelSlot } = await import('./ThreadPanel.tsx');
 const { useStore } = await import('../../lib/store.ts');
+const { EmojiPopup } = await import('./lazyPopups.ts');
+
+// The picker's module, here before the first test as it normally is by the time a row's
+// Add reaction is pressed.
+await EmojiPopup.preload();
 
 function msg(id: string, body: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -548,5 +553,49 @@ describe('following', () => {
     expect(screen.getByRole('button', { name: 'Follow' }).getAttribute('aria-pressed')).toBe(
       'false',
     );
+  });
+});
+
+describe('a picker opened in the thread', () => {
+  it('takes one Escape in a thread: the picker closes and the thread stays', async () => {
+    // The thread's own Escape is the shell's: `app/Workspace.tsx` listens on `window` and
+    // closes the thread with any Escape nothing in front of it answered.
+    getThreadSummary.mockResolvedValue({ summary: null });
+    const closeThread = vi.fn();
+    const shell = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeThread();
+    };
+    window.addEventListener('keydown', shell);
+    try {
+      await renderPanel();
+      const addReaction = () => screen.getAllByRole('button', { name: 'Add reaction' })[0]!;
+      const openPicker = async () => {
+        addReaction().focus();
+        fireEvent.click(addReaction());
+        const field = await screen.findByLabelText('Search emoji');
+        await waitFor(() => expect(document.activeElement).toBe(field));
+        return field;
+      };
+      const closed = () =>
+        waitFor(() => expect(screen.queryByRole('dialog', { name: 'React with an emoji' })).toBeNull());
+
+      // From inside the picker, where the cursor is.
+      fireEvent.keyDown(await openPicker(), { key: 'Escape' });
+      await closed();
+      expect(closeThread).not.toHaveBeenCalled();
+
+      // And from the page's body, where WebKit leaves focus after a press on a skin tone.
+      (await openPicker()).blur();
+      expect(document.activeElement).toBe(document.body);
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      await closed();
+      expect(closeThread).not.toHaveBeenCalled();
+
+      // The next Escape, with nothing in front of the thread, is the thread's.
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      expect(closeThread).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('keydown', shell);
+    }
   });
 });

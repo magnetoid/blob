@@ -32,7 +32,8 @@
  * back as the exit begins, so a key pressed in those 150ms lands on the page rather than in
  * a dialog that is going. And only if it is still lost in the dialog: somebody who clicked
  * into the composer meanwhile keeps it there. Where it goes is wherever focus was when the
- * shell mounted — before the contents, which may well take focus as they mount.
+ * shell mounted — before the contents, which may well take focus as they mount — or where
+ * the caller's `returnFocus` says, when it names somewhere (`DialogPresence`).
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
@@ -70,13 +71,14 @@ const POPUP = [
   'data-ending-style:animate-[overlay-out_var(--dur-exit)_var(--blob-ease-in)_forwards]',
 ].join(' ');
 
-/** Hand focus back to what opened the dialog, if it is still lost in the dialog or nowhere. */
-function giveFocusBack(opener: HTMLElement | null, popup: RefObject<HTMLElement | null>): void {
-  if (!opener?.isConnected) return;
+/** Hand focus back home — to what opened the dialog, or where the caller named — if it is
+ *  still lost in the dialog or nowhere. */
+function giveFocusBack(home: HTMLElement | null, popup: RefObject<HTMLElement | null>): void {
+  if (!home?.isConnected) return;
   const active = document.activeElement;
   const lost =
     active === null || active === document.body || (popup.current?.contains(active) ?? false);
-  if (lost && active !== opener) opener.focus();
+  if (lost && active !== home) home.focus();
 }
 
 export interface DialogImplProps {
@@ -91,15 +93,26 @@ export interface DialogImplProps {
    *  after the portal. A key from inside it is Base UI's to answer; any other, the
    *  layer's. */
   onDrawn?: ((popup: RefObject<HTMLElement | null>) => void) | undefined;
+  /** Where focus goes as the dialog leaves, in place of where it was as it opened; a null
+   *  answer falls back to that. */
+  returnFocus?: (() => HTMLElement | null) | undefined;
   children: ReactNode;
 }
 
-export function DialogImpl({ open, onExited, escaped = false, onDrawn, children }: DialogImplProps) {
+export function DialogImpl({
+  open,
+  onExited,
+  escaped = false,
+  onDrawn,
+  returnFocus,
+  children,
+}: DialogImplProps) {
   const [config, setConfig] = useState<DialogConfig | null>(null);
   const onClose = useRef<(() => void) | null>(null);
   const answered = useRef(false);
   const popup = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
+  const returnTo = useRef(returnFocus);
 
   const [host] = useState<DialogHost>(() => ({
     register(next, close) {
@@ -121,18 +134,24 @@ export function DialogImpl({ open, onExited, escaped = false, onDrawn, children 
     onClose.current?.();
   }, []);
 
+  // The caller's latest answer to where home is, read as the dialog leaves.
+  useLayoutEffect(() => {
+    returnTo.current = returnFocus;
+  }, [returnFocus]);
+  const home = useCallback(() => returnTo.current?.() ?? opener.current, []);
+
   // Where focus was as the shell mounted, before the contents could take it; and on an
-  // unmount while open — `{open && <Dialog/>}` closing — straight back there.
+  // unmount while open — `{open && <Dialog/>}` closing — straight back home.
   useLayoutEffect(() => {
     const active = document.activeElement;
     opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
-    return () => giveFocusBack(opener.current, popup);
-  }, []);
+    return () => giveFocusBack(home(), popup);
+  }, [home]);
 
   // Leaving: home now, not in 150ms.
   useLayoutEffect(() => {
-    if (!open) giveFocusBack(opener.current, popup);
-  }, [open]);
+    if (!open) giveFocusBack(home(), popup);
+  }, [open, home]);
 
   // Drawn, and Base UI is listening: its root adds the listener in an effect of its own,
   // and a child's effects run before this one. From here an Escape from inside the popup

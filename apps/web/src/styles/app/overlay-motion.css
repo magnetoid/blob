@@ -2,13 +2,13 @@
    Menus, popovers, toasts, the thread panel, the two conversation notices, the typing line
    and the dialogs enter and leave. Each but the dialogs, the menus and the popovers is held
    in the document through its exit by usePresence. Those three are shadcn's now, and Base
-   UI holds them: the dialog shell in `components/overlays/DialogImpl.tsx`, and the menu
-   panel and the popover — the person card, the emoji picker — drawn in place by
-   `MenuImpl.tsx` and `PopoverImpl.tsx` (`components/overlays/inPlace.ts`). They play
-   `overlay-in` (and the backdrop `fade-in`) below as they arrive and `overlay-out`
-   (`fade-out`) while Base UI marks them `data-ending-style`, and Base UI unmounts them when
-   those have finished. They are the same keyframes on the same tokens as before, so all of
-   them move as they did. The emoji picker still has no exit: its callers unmount it.
+   UI holds them. The dialog shell (`components/overlays/DialogImpl.tsx`) plays
+   `overlay-in` (and the backdrop `fade-in`) below as it arrives and `overlay-out`
+   (`fade-out`) while Base UI marks it `data-ending-style`, and Base UI unmounts it when
+   those have finished: the same keyframes on the same tokens as before, so a dialog moves
+   as it did. Every menu and popover — the shell's, More actions, the clock, the person card
+   and both emoji pickers — is shadcn's as it ships them, portalled, with its entrance and
+   exit (`components/ui/`).
 
    The toasts and the "Link copied" note take theirs from their own utilities too
    (`components/Toasts.tsx`, `Confirmation.tsx`), on the keyframes below.
@@ -130,8 +130,9 @@
   }
 }
 
-/* The autocomplete and the pinned list are not the shared Menu, so they take their entrance
-   here; the shell's menus are shadcn's and grow from wherever Base UI hangs them. */
+/* The autocomplete and the pinned list are drawn by Blob, not by Base UI, so they take their
+   entrance here; the menus and popovers are shadcn's and grow from wherever Base UI hangs
+   them. */
 .autocomplete,
 .pinned-panel {
   transform-origin: top center;

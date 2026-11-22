@@ -22,9 +22,9 @@
 @import "@fontsource-variable/inter";
 @source "../components/ui";
 @source "../components/overlays";
-@source "../components/PanelAnchor.tsx";
 @source "../components/PersonCard.tsx";
 @source "../components/EmojiPicker.tsx";
+@source "../components/EmojiPopover.tsx";
 @source "../components/Toasts.tsx";
 @source "../components/Confirmation.tsx";
 @source "../components/Avatar.tsx";
@@ -33,6 +33,8 @@
 @source "../features/channels/Sidebar.tsx";
 @source "../features/channels/ChannelMenu.tsx";
 @source "../features/channels/SectionMenu.tsx";
+@source "../features/messages/MessageMenuPanel.tsx";
+@source "../features/messages/SchedulePanel.tsx";
 @source "../features/shell/TopBar.tsx";
 @source "../features/shell/AccountMenu.tsx";
 @source "../features/shell/WorkspaceMenu.tsx";

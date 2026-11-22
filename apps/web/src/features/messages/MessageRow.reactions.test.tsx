@@ -8,12 +8,20 @@
  * highlight had no way to know which of the two things the button was about to do.
  * Lighthouse scores this page 100 and always would have — the button has a perfectly good
  * accessible name. Its *state* was the part that was missing.
+ *
+ * And "Add reaction", which opens the emoji picker: shadcn's Popover, from a module of its
+ * own (`lazyPopups.ts`), drawn only once the button is pressed.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { Message } from '@blob/shared';
 import { MessageRow } from './MessageRow.tsx';
+import { EmojiPopup } from './lazyPopups.ts';
 import { useStore } from '../../lib/store.ts';
+
+// Here before the first test, as it normally is in the app by the time a row is pressed:
+// what a press draws is then the press's alone, which is what `mount: 'press'` is about.
+await EmojiPopup.preload();
 
 afterEach(cleanup);
 
@@ -119,5 +127,46 @@ describe('the count on a reaction chip', () => {
 
     expect(count().textContent).toBe('1');
     expect(count()).toBe(before);
+  });
+});
+
+describe('Add reaction', () => {
+  const addReaction = () => screen.getByRole('button', { name: 'Add reaction' });
+
+  it('draws no picker root until Add reaction is pressed', async () => {
+    // The module is here, and still a row costs no Base UI root until somebody presses the
+    // button: a virtualised list mounts rows on every scroll, and most are never pressed.
+    const { container } = show([]);
+    expect(container.querySelector('[data-slot="popover-trigger"]')).toBeNull();
+    expect(addReaction().getAttribute('aria-haspopup')).toBe('dialog');
+
+    fireEvent.click(addReaction());
+
+    expect(await screen.findByRole('dialog', { name: 'React with an emoji' })).toBeTruthy();
+    expect(container.querySelector('[data-slot="popover-trigger"]')).toBe(addReaction());
+  });
+
+  it('opens with the cursor in its search', async () => {
+    show([]);
+    addReaction().focus();
+    fireEvent.click(addReaction());
+
+    await screen.findByRole('dialog', { name: 'React with an emoji' });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Search emoji')));
+  });
+
+  it('reacts with the first result on Enter, and closes', async () => {
+    show([]);
+    const toggleReaction = vi.fn().mockResolvedValue(undefined);
+    useStore.setState({ toggleReaction } as never);
+    fireEvent.click(addReaction());
+    const field = await screen.findByLabelText('Search emoji');
+
+    fireEvent.change(field, { target: { value: 'tada' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    expect(toggleReaction).toHaveBeenCalledTimes(1);
+    expect(toggleReaction).toHaveBeenCalledWith(expect.objectContaining({ id: message([]).id }), '🎉');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 });

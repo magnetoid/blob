@@ -290,11 +290,7 @@ button {
 
 :focus-visible {
   outline: 2px solid var(--blob-accent);
-  /* Where the ring rests. A control whose ring sits elsewhere — inside its own edge, like
-     an emoji cell — sets `--focus-ring-offset` rather than `outline-offset`, so the
-     entrance below starts from *its* resting place and not from this one. It is a knob
-     on this rule, not a token, and so has no home in tokens.css. */
-  outline-offset: var(--focus-ring-offset, 2px);
+  outline-offset: 2px;
   /* Follow the element rather than impose a corner on it: this rule reaches buttons,
      pills and cards whose own radii span 4px to 12px, and a fixed value drew a
      differently-cornered ring around each of them. */
@@ -314,7 +310,7 @@ button {
 @keyframes focus-ring-in {
   from {
     outline-color: transparent;
-    outline-offset: calc(var(--focus-ring-offset, 2px) + var(--motion-slide));
+    outline-offset: calc(2px + var(--motion-slide));
   }
 }
 
